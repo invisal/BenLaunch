@@ -1,0 +1,53 @@
+import { BrowserWindow, screen } from 'electron'
+import { join } from 'node:path'
+
+const WINDOW_WIDTH = 640
+const WINDOW_HEIGHT = 420
+
+export function createLauncherWindow(isPinned: () => boolean): BrowserWindow {
+  const win = new BrowserWindow({
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
+    frame: false,
+    show: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    backgroundColor: '#00000000',
+    ...(process.platform === 'win32' ? { backgroundMaterial: 'acrylic' as const } : {}),
+    ...(process.platform === 'darwin'
+      ? { vibrancy: 'hud' as const, visualEffectState: 'active' as const }
+      : {}),
+    ...(process.platform === 'linux' ? { transparent: true } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.mjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  })
+
+  win.on('blur', () => {
+    if (!isPinned()) {
+      win.hide()
+    }
+  })
+
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  } else {
+    win.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+
+  return win
+}
+
+export function centerOnActiveDisplay(win: BrowserWindow): void {
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  const { x, y, width, height } = display.workArea
+  const bounds = win.getBounds()
+  win.setPosition(
+    Math.round(x + (width - bounds.width) / 2),
+    Math.round(y + (height - bounds.height) / 3)
+  )
+}
