@@ -1,0 +1,25 @@
+{
+  "name": "@benpocket/win",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native Windows integrations for benpocket-launcher (icon extraction, and future native Win32 needs)",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "os": ["win32"],
+  "napi": {
+    "binaryName": "win",
+    "targets": ["x86_64-pc-windows-msvc"]
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node"
+  ],
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.8.6"
+  }
+}

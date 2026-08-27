@@ -27,7 +27,7 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string) => {
-    executeAction(id)
+    return executeAction(id)
   })
 
   ipcMain.on(IPC_CHANNELS.hide, () => {

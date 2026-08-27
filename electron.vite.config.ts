@@ -4,7 +4,18 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          // Runs out-of-process (via ELECTRON_RUN_AS_NODE) so that resolving installed
+          // apps and their icons — synchronous native calls — never blocks Electron's
+          // main/browser process. See src/main/apps.ts.
+          'apps-worker': resolve(__dirname, 'src/main/apps-worker.ts')
+        }
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
