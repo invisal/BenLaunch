@@ -27,6 +27,9 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string) => {
+    // Hide synchronously before launching so the launcher disappears instantly,
+    // instead of lingering until the launched app grabs focus and triggers `blur`.
+    if (!pinned) launcherWindow?.hide()
     return executeAction(id)
   })
 
