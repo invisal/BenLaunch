@@ -1,4 +1,4 @@
-import { shell } from 'electron'
+import { app, shell } from 'electron'
 import { execFile } from 'node:child_process'
 import { join } from 'node:path'
 import type { AppsWorkerResult } from './apps-worker'
@@ -12,12 +12,21 @@ import type { ActionDefinition } from './types'
  */
 async function runAppsWorker(): Promise<AppsWorkerResult> {
   const workerPath = join(__dirname, 'apps-worker.js')
+  const iconCacheDir = join(app.getPath('userData'), 'icon-cache')
 
   return new Promise((resolve, reject) => {
     execFile(
       process.execPath,
       [workerPath],
-      { windowsHide: true, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } },
+      {
+        windowsHide: true,
+        maxBuffer: 64 * 1024 * 1024,
+        env: {
+          ...process.env,
+          ELECTRON_RUN_AS_NODE: '1',
+          BENPOCKET_ICON_CACHE_DIR: iconCacheDir
+        }
+      },
       (error, stdout, stderr) => {
         if (error) {
           reject(new Error(stderr || error.message))

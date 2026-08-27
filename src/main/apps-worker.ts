@@ -13,6 +13,7 @@
 import { readdir } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { extractIconPng, extractPackagedIconPng, listStartApps, resolveShortcut } from '@benpocket/win'
+import * as iconCache from './icon-cache'
 
 const START_MENU_DIRS = [
   process.env.ProgramData
@@ -91,9 +92,23 @@ function resolveShortcutIcon(shortcutPath: string): string | undefined {
     const iconPath = declaredIcon || target || shortcutPath
     const iconIndex = info?.iconIndex ?? 0
 
+    // Key the cache on whichever candidate the fallback chain below tries first and
+    // can actually stat. The extracted PNG is stored under that key regardless of
+    // which candidate produced it — the declared icon file changing is a good enough
+    // proxy for "this app was updated", and a stat failure disables caching here.
+    const key =
+      iconCache.fileKey(iconPath, iconIndex) ??
+      (target ? iconCache.fileKey(target, 0) : null) ??
+      iconCache.fileKey(shortcutPath, 0)
+
+    const cached = iconCache.read(key)
+    if (cached) return toDataUrl(cached)
+
     let png = extractIconPng(iconPath, iconIndex)
     if (!png && target && target !== iconPath) png = extractIconPng(target, 0)
     if (!png) png = extractIconPng(shortcutPath, 0)
+
+    if (png) iconCache.write(key, png)
     return toDataUrl(png)
   } catch (error) {
     console.error(`[apps-worker] Failed to resolve icon for ${shortcutPath}:`, error)
@@ -103,7 +118,13 @@ function resolveShortcutIcon(shortcutPath: string): string | undefined {
 
 function resolvePackagedIcon(appId: string): string | undefined {
   try {
-    return toDataUrl(extractPackagedIconPng(appId, PACKAGED_ICON_SIZE))
+    const key = iconCache.packagedKey(appId)
+    const cached = iconCache.read(key, iconCache.PACKAGED_TTL_MS)
+    if (cached) return toDataUrl(cached)
+
+    const png = extractPackagedIconPng(appId, PACKAGED_ICON_SIZE)
+    if (png) iconCache.write(key, png)
+    return toDataUrl(png)
   } catch (error) {
     console.error(`[apps-worker] Failed to resolve icon for ${appId}:`, error)
     return undefined
@@ -147,6 +168,10 @@ async function main(): Promise<void> {
 
     packaged.push({ kind: 'packaged', appId: app.appId, title, icon: resolvePackagedIcon(app.appId) })
   }
+
+  // Drop cache entries for apps that are no longer installed. Guarded on a non-empty
+  // run so a transient failure to enumerate either source doesn't wipe the cache.
+  if (shortcuts.length > 0 || packaged.length > 0) iconCache.prune()
 
   const result: AppsWorkerResult = { shortcuts, packaged }
   process.stdout.write(JSON.stringify(result))
