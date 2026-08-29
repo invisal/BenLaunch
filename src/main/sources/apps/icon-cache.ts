@@ -1,6 +1,6 @@
 /**
  * On-disk cache for the PNG bytes produced by the native icon extractors in
- * apps-worker.ts. Icon extraction (PE resource parse + GDI draw + PNG encode, once
+ * worker.ts. Icon extraction (PE resource parse + GDI draw + PNG encode, once
  * per installed app) dominates the cost of an app-list refresh, while the icons
  * themselves only change when the underlying executable is updated. File-backed
  * entries are keyed on their source file's mtime + size so such an update misses the
@@ -8,7 +8,7 @@
  * entry not touched during a run is pruned, keeping the directory bounded to the
  * current set of installed apps.
  *
- * This runs inside apps-worker.ts — plain Node under ELECTRON_RUN_AS_NODE, with no
+ * This runs inside worker.ts — plain Node under ELECTRON_RUN_AS_NODE, with no
  * access to Electron's `app` — so the cache directory is handed in by apps.ts via
  * the BENPOCKET_ICON_CACHE_DIR env var. When it is unset every operation no-ops.
  */

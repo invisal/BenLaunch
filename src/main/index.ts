@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
-import { executeAction, searchActions } from './actions'
+import { executeAction, initActionSources, refreshActionSources, searchActions } from './actions'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
 const TOGGLE_SHORTCUT = 'CommandOrControl+Space'
@@ -17,10 +17,16 @@ function toggleLauncher(): void {
   centerOnActiveDisplay(launcherWindow)
   launcherWindow.show()
   launcherWindow.focus()
+  // Pick up changes since the last run (e.g. apps installed/removed); sources throttle.
+  refreshActionSources()
 }
 
 app.whenReady().then(() => {
   launcherWindow = createLauncherWindow(() => pinned)
+
+  // Warm every action source now (apps: disk cache, then a background worker run)
+  // instead of waiting for the renderer's first search.
+  initActionSources()
 
   ipcMain.handle(IPC_CHANNELS.search, (_event, query: string) => {
     return searchActions(query)

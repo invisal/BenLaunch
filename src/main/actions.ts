@@ -1,102 +1,29 @@
-import { app, shell } from 'electron'
-import { exec } from 'node:child_process'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import type { LauncherAction } from '../shared/types'
-import { getInstalledApplications } from './apps'
 import { fuzzyMatch } from './search'
-import type { ActionDefinition } from './types'
+import type { ActionSource } from './sources/base'
+import { InstalledAppSource } from './sources/apps/source'
+import { BuiltinCommandSource } from './sources/builtin/source'
 
-const commandDefinitions: ActionDefinition[] = [
-  {
-    action: {
-      id: 'cmd:lock',
-      title: 'Lock Computer',
-      subtitle: 'Lock this PC',
-      icon: '🔒',
-      type: 'command'
-    },
-    run: () => {
-      exec('rundll32.exe user32.dll,LockWorkStation', (error) => {
-        if (error) console.error('[main] Failed to lock computer:', error)
-      })
-    }
-  },
-  {
-    action: {
-      id: 'cmd:open-downloads',
-      title: 'Open Downloads Folder',
-      subtitle: 'Reveal your Downloads folder',
-      icon: '📁',
-      type: 'command'
-    },
-    run: () => {
-      void shell.openPath(join(homedir(), 'Downloads'))
-    }
-  },
-  {
-    action: {
-      id: 'cmd:open-documents',
-      title: 'Open Documents Folder',
-      subtitle: 'Reveal your Documents folder',
-      icon: '📁',
-      type: 'command'
-    },
-    run: () => {
-      void shell.openPath(join(homedir(), 'Documents'))
-    }
-  },
-  {
-    action: {
-      id: 'cmd:empty-recycle-bin',
-      title: 'Empty Recycle Bin',
-      subtitle: 'Permanently delete items in the Recycle Bin',
-      icon: '🗑️',
-      type: 'command'
-    },
-    run: () => {
-      exec(
-        'powershell.exe -NoProfile -Command "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"',
-        (error) => {
-          if (error) console.error('[main] Failed to empty recycle bin:', error)
-        }
-      )
-    }
-  },
-  {
-    action: {
-      id: 'cmd:quit',
-      title: 'Quit Launcher',
-      subtitle: 'Exit BenPocket Launcher',
-      icon: '⏻',
-      type: 'command',
-      shortcut: 'CommandOrControl+Q'
-    },
-    run: () => {
-      app.quit()
-    }
-  }
-]
+/**
+ * Registry of action sources. Order matters: `searchActions` keeps it, and the
+ * stable sort below preserves it among equally-scored results (so built-in
+ * commands rank ahead of applications on a tie).
+ */
+const sources: ActionSource[] = [new BuiltinCommandSource(), new InstalledAppSource()]
 
-let appsPromise: Promise<ActionDefinition[]> | null = null
-
-function loadInstalledApplications(): Promise<ActionDefinition[]> {
-  if (!appsPromise) {
-    appsPromise = getInstalledApplications().catch((error) => {
-      console.error('[main] Failed to load installed applications:', error)
-      return []
-    })
-  }
-  return appsPromise
+/** Warm every source at startup (called from app `whenReady`). */
+export function initActionSources(): void {
+  for (const source of sources) source.init?.()
 }
 
-async function getAllDefinitions(): Promise<ActionDefinition[]> {
-  const installedApps = await loadInstalledApplications()
-  return [...commandDefinitions, ...installedApps]
+/** Refresh every source (called when the launcher window is shown; sources throttle). */
+export function refreshActionSources(): void {
+  for (const source of sources) source.refresh?.()
 }
 
 export async function searchActions(query: string): Promise<LauncherAction[]> {
-  const definitions = await getAllDefinitions()
+  const lists = await Promise.all(sources.map((source) => source.provide(query)))
+  const definitions = lists.flat()
 
   const trimmed = query.trim()
   if (!trimmed) {
@@ -109,14 +36,11 @@ export async function searchActions(query: string): Promise<LauncherAction[]> {
       return { action: definition.action, matched: result.match, score: result.score }
     })
     .filter((entry) => entry.matched)
-    // Best score first; `sort` is stable, so equal scores keep definition order
-    // (commands before applications).
+    // Best score first; `sort` is stable, so equal scores keep registry order.
     .sort((a, b) => b.score - a.score)
     .map((entry) => entry.action)
 }
 
 export async function executeAction(id: string): Promise<void> {
-  const definitions = await getAllDefinitions()
-  const definition = definitions.find((d) => d.action.id === id)
-  await definition?.run()
+  await sources.find((source) => source.owns(id))?.execute(id)
 }

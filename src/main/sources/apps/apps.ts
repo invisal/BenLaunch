@@ -1,11 +1,12 @@
 import { app, shell } from 'electron'
 import { execFile } from 'node:child_process'
 import { join } from 'node:path'
-import type { AppsWorkerResult } from './apps-worker'
-import type { ActionDefinition } from './types'
+import type { ActionDefinition } from '../../types'
+import { writeAppsCache } from './cache'
+import type { AppsWorkerResult } from './worker'
 
 /**
- * Resolving installed apps and their icons happens in apps-worker.ts, spawned as a
+ * Resolving installed apps and their icons happens in worker.ts, spawned as a
  * separate `ELECTRON_RUN_AS_NODE` process — see that file for why. This module just
  * spawns it, parses its output, and attaches the (necessarily main-process) `run`
  * handlers Electron's `shell`/`execFile` APIs require.
@@ -53,6 +54,19 @@ export async function getInstalledApplications(): Promise<ActionDefinition[]> {
     return []
   }
 
+  // Persist the raw worker result so the next launch can serve it instantly while
+  // a fresh run happens in the background (see actions.ts).
+  writeAppsCache(result)
+
+  return mapWorkerResult(result)
+}
+
+/**
+ * Turns a serializable `AppsWorkerResult` into `ActionDefinition`s, rebuilding the
+ * main-process `run` handlers that can't be persisted. Shared by the live worker
+ * path and the on-disk cache path.
+ */
+export function mapWorkerResult(result: AppsWorkerResult): ActionDefinition[] {
   const classicDefinitions: ActionDefinition[] = result.shortcuts.map((entry) => ({
     action: {
       id: `app:${entry.path.toLowerCase()}`,
