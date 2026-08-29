@@ -43,6 +43,8 @@ function App() {
     const action = results[index];
     if (!action) return;
     void window.api.execute(action.id);
+    setQuery("");
+    setMenuOpen(false);
   }
 
   const currentAction = results[selectedIndex];
@@ -118,7 +120,7 @@ function App() {
           className="w-full bg-transparent px-2 py-2 text-lg outline-none placeholder:text-foreground-subtle [-webkit-app-region:no-drag]"
         />
       </div>
-      <ul className="flex-1 overflow-y-auto p-2 gap-[1px] flex flex-col">
+      <ul className="result-scroll flex-1 overflow-y-auto p-2 gap-[1px] flex flex-col">
         {results.length === 0 && (
           <li className="px-3 py-2 text-sm text-foreground-subtle">
             No results
