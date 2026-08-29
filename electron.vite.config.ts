@@ -11,10 +11,10 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts'),
           // Runs out-of-process (via ELECTRON_RUN_AS_NODE) so that resolving installed
           // apps and their icons — synchronous native calls — never blocks Electron's
-          // main/browser process. See src/main/sources/apps/apps.ts.
+          // main/browser process. See src/main/native/apps.ts.
           // Output name stays `apps-worker.js` (the input key); apps.ts resolves it
           // as `join(__dirname, 'apps-worker.js')` at runtime.
-          'apps-worker': resolve(__dirname, 'src/main/sources/apps/worker.ts')
+          'apps-worker': resolve(__dirname, 'src/main/native/apps-worker.ts')
         }
       }
     }
