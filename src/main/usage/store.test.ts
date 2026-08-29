@@ -6,8 +6,6 @@ import { afterEach, beforeEach, test } from "node:test"
 
 import { Usage } from "./store.ts"
 
-const DAY = 24 * 60 * 60 * 1000
-
 let dir: string
 
 beforeEach(() => {
@@ -18,47 +16,54 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-/** A clock that starts at `t0` and can be advanced between assertions. */
-function clock(t0: number): { now: () => number; advance: (ms: number) => void } {
-  let current = t0
-  return { now: () => current, advance: (ms) => (current += ms) }
-}
-
-test("record then boost is positive; unseen id or query scores 0", () => {
+test("first pick scores 0.20; unseen id or query scores 0", () => {
   const usage = new Usage({ dir, now: () => 1000 })
   usage.record("app:code", "vs")
 
-  assert.ok(usage.boost("app:code", "vs") > 0)
+  assert.equal(usage.boost("app:code", "vs"), 0.2)
   assert.equal(usage.boost("app:other", "vs"), 0)
-  // Unseen query still gets the global component, so it is non-zero but smaller.
-  assert.ok(usage.boost("app:code", "zzz") > 0)
-  assert.ok(usage.boost("app:code", "zzz") < usage.boost("app:code", "vs"))
+  // A typed query rides on fuzzy relevance only — no global spillover.
+  assert.equal(usage.boost("app:code", "zzz"), 0)
 })
 
-test("the per-query signal outweighs a global-only match for the same id", () => {
+test("repeat picks for the same query add up, capped at 1.0", () => {
   const usage = new Usage({ dir, now: () => 1000 })
-  // "code" picked once for query "x", many times globally via other queries.
+  for (let i = 0; i < 3; i++) usage.record("app:code", "vs")
+  assert.ok(Math.abs(usage.boost("app:code", "vs") - 0.6) < 1e-9)
+
+  for (let i = 0; i < 10; i++) usage.record("app:code", "vs")
+  assert.equal(usage.boost("app:code", "vs"), 1)
+})
+
+test("an action picked for a query outranks one never picked for it", () => {
+  const usage = new Usage({ dir, now: () => 1000 })
   usage.record("app:code", "x")
   for (let i = 0; i < 5; i++) usage.record("app:editor", "y")
 
-  const codeForX = usage.boost("app:code", "x")
-  const editorForX = usage.boost("app:editor", "x")
-  assert.ok(codeForX > editorForX, `${codeForX} > ${editorForX}`)
+  assert.ok(usage.boost("app:code", "x") > usage.boost("app:editor", "x"))
+  assert.equal(usage.boost("app:editor", "x"), 0)
 })
 
-test("an older use scores below a fresh one with the same count", () => {
-  const c = clock(100 * DAY)
-  const usage = new Usage({ dir, now: c.now })
+test("a rival decays by 0.9 per pick and is pruned once it falls below 0.1", () => {
+  const usage = new Usage({ dir, now: () => 1000 })
+  usage.record("app:a", "q") // a -> 0.2
 
-  usage.record("app:old", "q")
-  c.advance(20 * DAY) // two half-lives pass for "app:old"
-  usage.record("app:new", "q") // same count (1), but just now
+  usage.record("app:b", "q") // a *= 0.9 -> 0.18
+  assert.ok(Math.abs(usage.boost("app:a", "q") - 0.18) < 1e-9)
 
-  const old = usage.boost("app:old", "q")
-  const fresh = usage.boost("app:new", "q")
-  assert.ok(fresh > old, `${fresh} > ${old}`)
-  // ~2 half-lives => roughly a quarter of the fresh score.
-  assert.ok(old < fresh / 2)
+  // 0.2 * 0.9^6 ≈ 0.106 (kept); 0.2 * 0.9^7 ≈ 0.096 (pruned).
+  for (let i = 0; i < 5; i++) usage.record("app:b", "q")
+  assert.ok(usage.boost("app:a", "q") > 0)
+  usage.record("app:b", "q")
+  assert.equal(usage.boost("app:a", "q"), 0)
+})
+
+test("picking an action does not decay its own score", () => {
+  const usage = new Usage({ dir, now: () => 1000 })
+  usage.record("app:a", "q")
+  usage.record("app:a", "q")
+  // Two clean +0.2 additions, no self-decay in between.
+  assert.ok(Math.abs(usage.boost("app:a", "q") - 0.4) < 1e-9)
 })
 
 test("scores() reflects relative global counts", () => {
@@ -77,7 +82,7 @@ test("a second instance on the same dir sees the first's writes", () => {
   first.record("app:code", "vs")
 
   const second = new Usage({ dir, now: () => 1234 })
-  assert.ok(second.boost("app:code", "vs") > 0)
+  assert.equal(second.boost("app:code", "vs"), 0.2)
 })
 
 test("missing, corrupt, and wrong-version files all yield empty state without throwing", () => {

@@ -65,6 +65,8 @@ const rankingCases: ReadonlyArray<{ query: string; titles: string[] }> = [
   // Among equally-good prefixes, the shorter title wins (length tiebreak).
   { query: "vi", titles: ["Visual Studio", "Visual Studio Code"] },
   { query: "chr", titles: ["Chrome", "Chromium", "Google Chrome"] },
+  // A single letter at the start of the string beats the same letter mid-word.
+  { query: "o", titles: ["Outlook", "Google Chrome"] },
   { query: "note", titles: ["Notepad", "Notepad++", "Keep Notes"] },
   // All match "Code" as a whole word; rank by how much unmatched tail follows.
   { query: "code", titles: ["VS Code", "QR Code Generator", "Visual Studio Code"] },
