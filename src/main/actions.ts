@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { LauncherAction } from '../shared/types'
 import { getInstalledApplications } from './apps'
+import { fuzzyMatch } from './search'
 import type { ActionDefinition } from './types'
 
 const commandDefinitions: ActionDefinition[] = [
@@ -97,12 +98,21 @@ async function getAllDefinitions(): Promise<ActionDefinition[]> {
 export async function searchActions(query: string): Promise<LauncherAction[]> {
   const definitions = await getAllDefinitions()
 
-  const trimmed = query.trim().toLowerCase()
-  const matches = trimmed
-    ? definitions.filter((definition) => definition.action.title.toLowerCase().includes(trimmed))
-    : definitions
+  const trimmed = query.trim()
+  if (!trimmed) {
+    return definitions.map((definition) => definition.action)
+  }
 
-  return matches.map((definition) => definition.action)
+  return definitions
+    .map((definition) => {
+      const result = fuzzyMatch(trimmed, definition.action.title)
+      return { action: definition.action, matched: result.match, score: result.score }
+    })
+    .filter((entry) => entry.matched)
+    // Best score first; `sort` is stable, so equal scores keep definition order
+    // (commands before applications).
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.action)
 }
 
 export async function executeAction(id: string): Promise<void> {
