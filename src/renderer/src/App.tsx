@@ -42,7 +42,7 @@ function App() {
   function runSelected(index: number): void {
     const action = results[index];
     if (!action) return;
-    void window.api.execute(action.id);
+    void window.api.execute(action.id, query);
     setQuery("");
     setMenuOpen(false);
   }

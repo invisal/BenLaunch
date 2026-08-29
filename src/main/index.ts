@@ -32,11 +32,12 @@ app.whenReady().then(() => {
     return searchActions(query)
   })
 
-  ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string) => {
+  ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string, query: string) => {
     // Hide synchronously before launching so the launcher disappears instantly,
     // instead of lingering until the launched app grabs focus and triggers `blur`.
     if (!pinned) launcherWindow?.hide()
-    return executeAction(id)
+    // `query` is threaded through so usage tracking can learn "typed X, picked Y".
+    return executeAction(id, query)
   })
 
   ipcMain.on(IPC_CHANNELS.hide, () => {
