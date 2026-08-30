@@ -6,9 +6,10 @@ import { CachedActionSource } from '../base'
 import { readAppsCache, writeAppsCache } from './cache'
 
 /**
- * Installed Windows applications — Start Menu shortcuts (`app:` ids) and packaged
- * apps (`pkg:` ids). The list comes from the native `listApplications()`
- * capability, which is slow to run cold, so this source persists each result (see
+ * Installed applications. On Windows: Start Menu shortcuts (`app:` ids) and
+ * packaged apps (`pkg:` ids); on macOS: `.app` bundles (`app:` ids). The list
+ * comes from the native `listApplications()` capability, which is slow to run
+ * cold, so this source persists each result (see
  * cache.ts), seeds from that on-disk copy, and refreshes in the background at
  * startup and whenever the launcher is shown.
  */
