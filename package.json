@@ -1,7 +1,7 @@
 {
-  "name": "benpocket-launcher",
+  "name": "BenLaunch",
   "version": "0.0.1",
-  "description": "A Raycast-style launcher",
+  "description": "Simple launcher",
   "main": "./out/main/index.js",
   "private": true,
   "type": "module",
