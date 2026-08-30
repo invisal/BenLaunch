@@ -27,6 +27,12 @@ export function createLauncherWindow(isPinned: () => boolean): BrowserWindow {
     }
   })
 
+  if (process.platform === 'darwin') {
+    // Without this, showing the window switches macOS to whatever Space/full-screen
+    // app it "belongs to" instead of overlaying the one the user is currently on.
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
+
   win.on('blur', () => {
     if (!isPinned()) {
       win.hide()

@@ -4,7 +4,10 @@ import { executeAction, initActionSources, query, refreshActionSources } from '.
 import { captureForegroundWindow } from './native'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
-const TOGGLE_SHORTCUT = 'Alt+Space'
+// Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
+// (e.g. to Mission Control/Spotlight variants) and Cmd+Space/Cmd+Option+Space/
+// Cmd+Ctrl+Space are all reserved by the OS, so macOS gets its own default.
+const TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Command+Shift+Space' : 'Alt+Space'
 
 let launcherWindow: BrowserWindow | null = null
 let pinned = false

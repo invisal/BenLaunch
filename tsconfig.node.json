@@ -6,6 +6,9 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2022"],
     "strict": true,
+    "paths": {
+      "@benpocket/win": ["./native/win/index.d.ts"]
+    },
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
