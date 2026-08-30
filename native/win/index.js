@@ -702,5 +702,7 @@ if (!nativeBinding) {
 module.exports = nativeBinding
 module.exports.extractIconPng = nativeBinding.extractIconPng
 module.exports.extractPackagedIconPng = nativeBinding.extractPackagedIconPng
+module.exports.foregroundWindow = nativeBinding.foregroundWindow
 module.exports.listStartApps = nativeBinding.listStartApps
 module.exports.resolveShortcut = nativeBinding.resolveShortcut
+module.exports.snapWindow = nativeBinding.snapWindow

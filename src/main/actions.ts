@@ -4,6 +4,7 @@ import { fuzzyMatch } from "./search";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
+import { WindowManagementSource } from "./sources/window/source";
 import { Usage } from "./usage/store";
 
 /**
@@ -13,6 +14,7 @@ import { Usage } from "./usage/store";
  */
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
+  new WindowManagementSource(),
   new InstalledAppSource(),
 ];
 

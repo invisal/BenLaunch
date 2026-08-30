@@ -1,6 +1,7 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
 import { executeAction, initActionSources, refreshActionSources, searchActions } from './actions'
+import { captureForegroundWindow } from './native'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
 const TOGGLE_SHORTCUT = 'CommandOrControl+Space'
@@ -8,12 +9,21 @@ const TOGGLE_SHORTCUT = 'CommandOrControl+Space'
 let launcherWindow: BrowserWindow | null = null
 let pinned = false
 
+/** The launcher's own HWND, so window-snap commands never target the launcher itself. */
+function launcherHandle(win: BrowserWindow): number {
+  if (process.platform !== 'win32') return 0
+  // Win64 HWNDs are 32-bit values, so the low 32 bits of the pointer are the handle.
+  return win.getNativeWindowHandle().readUInt32LE(0)
+}
+
 function toggleLauncher(): void {
   if (!launcherWindow) return
   if (launcherWindow.isVisible()) {
     launcherWindow.hide()
     return
   }
+  // Grab the window the user is in now, before show()/focus() makes it the launcher.
+  captureForegroundWindow(launcherHandle(launcherWindow))
   centerOnActiveDisplay(launcherWindow)
   launcherWindow.show()
   launcherWindow.focus()

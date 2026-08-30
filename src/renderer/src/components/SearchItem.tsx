@@ -53,7 +53,7 @@ function SearchItem({ action, selected, onClick }: SearchItemProps) {
               {formatShortcut(shortcut)}
             </kbd>
           ) : (
-            <span className="min-w-0 truncate text-foreground-subtle">
+            <span className="min-w-0 truncate text-foreground-subtle font-medium">
               {subtitle}
             </span>
           )}

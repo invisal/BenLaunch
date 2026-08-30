@@ -14,6 +14,13 @@ export declare function extractIconPng(path: string, index: number): Buffer | nu
 export declare function extractPackagedIconPng(appId: string, size: number): Buffer | null
 
 /**
+ * The current foreground window handle, as an i64 (USER handles fit in 32 bits even
+ * on 64-bit Windows). The launcher captures this just before it shows itself, so the
+ * window-snap commands act on whatever the user was working in, not on the launcher.
+ */
+export declare function foregroundWindow(): number
+
+/**
  * Enumerates packaged (MSIX/UWP) Start Menu apps by walking the virtual
  * `shell:AppsFolder`, replacing the `Get-StartApps` PowerShell cmdlet. Only items
  * whose AppUserModelID contains `!` (PackageFamilyName!AppId) are packaged apps;
@@ -33,6 +40,15 @@ export interface ShortcutInfo {
   iconPath: string
   iconIndex: number
 }
+
+/**
+ * Move/resize `hwnd` to a fraction of the work area (monitor minus taskbar) of the
+ * display it currently sits on. `region` is one of `"left-half"`, `"right-half"`,
+ * `"top-half"`, `"bottom-half"`, `"top-left"`, `"top-right"`, `"bottom-left"`,
+ * `"bottom-right"` or `"maximize"`; any other value is a no-op. Returns whether the
+ * window was repositioned.
+ */
+export declare function snapWindow(hwnd: number, region: string): boolean
 
 export interface StartApp {
   name: string

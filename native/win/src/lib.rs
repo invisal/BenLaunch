@@ -13,9 +13,12 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 use windows::core::{Interface, HSTRING};
+use windows::Win32::Foundation::{HWND, RECT};
+use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{
-  CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDIBits, SelectObject,
-  BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HGDIOBJ
+  CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDIBits, GetMonitorInfoW,
+  MonitorFromWindow, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP,
+  HGDIOBJ, MONITORINFO, MONITOR_DEFAULTTONEAREST
 };
 use windows::Win32::Storage::EnhancedStorage::{PKEY_AppUserModel_ID, PKEY_ItemNameDisplay};
 use windows::Win32::System::Com::{
@@ -27,7 +30,11 @@ use windows::Win32::UI::Shell::{
   IShellLinkW, SHCreateItemFromParsingName, ShellLink, SIGDN_NORMALDISPLAY, SIIGBF_RESIZETOFIT,
   SLGP_RAWPATH
 };
-use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, DrawIconEx, DI_NORMAL, HICON};
+use windows::Win32::UI::WindowsAndMessaging::{
+  DestroyIcon, DrawIconEx, GetForegroundWindow, GetWindowRect, IsIconic, IsZoomed,
+  SetForegroundWindow, SetWindowPos, ShowWindow, DI_NORMAL, HICON, SWP_FRAMECHANGED,
+  SWP_NOACTIVATE, SWP_NOZORDER, SW_RESTORE
+};
 
 /// COM must be initialized on whatever thread calls into these APIs. napi-rs runs
 /// `#[napi]` functions on the JS thread by default, which is a single, stable OS
@@ -325,6 +332,111 @@ fn hbitmap_to_png(hbitmap: HBITMAP, width: i32, height: i32) -> Option<Vec<u8>> 
       .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
       .ok()?;
     Some(out)
+  }
+}
+
+/// The current foreground window handle, as an i64 (USER handles fit in 32 bits even
+/// on 64-bit Windows). The launcher captures this just before it shows itself, so the
+/// window-snap commands act on whatever the user was working in, not on the launcher.
+#[napi]
+pub fn foreground_window() -> i64 {
+  unsafe { GetForegroundWindow().0 as i64 }
+}
+
+/// The invisible resize border around a window — the gap between its window rect
+/// (what `SetWindowPos` controls) and the pixels DWM actually paints. On a standard
+/// window this is ~7px on the left/right/bottom and 0 on top. Returns `(left, top,
+/// right, bottom)` padding to add so the *visible* window lands where we want and
+/// adjacent tiled windows sit flush (their invisible borders overlapping), the way
+/// Windows' own Snap does it. All zero when DWM can't report it (custom-framed apps).
+unsafe fn invisible_border(hwnd: HWND) -> (i32, i32, i32, i32) {
+  let mut window = RECT::default();
+  let mut frame = RECT::default();
+  let ok = unsafe {
+    GetWindowRect(hwnd, &mut window).is_ok()
+      && DwmGetWindowAttribute(
+        hwnd,
+        DWMWA_EXTENDED_FRAME_BOUNDS,
+        &mut frame as *mut RECT as *mut core::ffi::c_void,
+        std::mem::size_of::<RECT>() as u32
+      )
+      .is_ok()
+  };
+  if !ok {
+    return (0, 0, 0, 0);
+  }
+  (
+    (frame.left - window.left).max(0),
+    (frame.top - window.top).max(0),
+    (window.right - frame.right).max(0),
+    (window.bottom - frame.bottom).max(0)
+  )
+}
+
+/// Move/resize `hwnd` to a fraction of the work area (monitor minus taskbar) of the
+/// display it currently sits on. `region` is one of `"left-half"`, `"right-half"`,
+/// `"top-half"`, `"bottom-half"`, `"top-left"`, `"top-right"`, `"bottom-left"`,
+/// `"bottom-right"` or `"maximize"`; any other value is a no-op. Returns whether the
+/// window was repositioned.
+#[napi]
+pub fn snap_window(hwnd: i64, region: String) -> bool {
+  if hwnd == 0 {
+    return false;
+  }
+  let hwnd = HWND(hwnd as *mut core::ffi::c_void);
+
+  unsafe {
+    // A maximized or minimized window has to be restored first, or SetWindowPos
+    // fights the placement state and the window snaps back.
+    if IsZoomed(hwnd).as_bool() || IsIconic(hwnd).as_bool() {
+      let _ = ShowWindow(hwnd, SW_RESTORE);
+    }
+
+    let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    let mut info = MONITORINFO {
+      cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+      ..Default::default()
+    };
+    if !GetMonitorInfoW(monitor, &mut info).as_bool() {
+      return false;
+    }
+
+    let RECT { left, top, right, bottom } = info.rcWork;
+    let (width, height) = (right - left, bottom - top);
+    let (half_w, half_h) = (width / 2, height / 2);
+    let (x, y, cx, cy) = match region.as_str() {
+      "left-half" => (left, top, half_w, height),
+      "right-half" => (left + half_w, top, width - half_w, height),
+      "top-half" => (left, top, width, half_h),
+      "bottom-half" => (left, top + half_h, width, height - half_h),
+      "top-left" => (left, top, half_w, half_h),
+      "top-right" => (left + half_w, top, width - half_w, half_h),
+      "bottom-left" => (left, top + half_h, half_w, height - half_h),
+      "bottom-right" => (left + half_w, top + half_h, width - half_w, height - half_h),
+      "maximize" => (left, top, width, height),
+      _ => return false,
+    };
+
+    // Expand the window rect by the invisible border so the painted window fills the
+    // target region exactly, instead of sitting inset by a few pixels on each side.
+    let (bl, bt, br, bb) = invisible_border(hwnd);
+    let placed = SetWindowPos(
+      hwnd,
+      None,
+      x - bl,
+      y - bt,
+      cx + bl + br,
+      cy + bt + bb,
+      SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+    )
+    .is_ok();
+
+    // The launcher hid itself before running this, so focus is already drifting
+    // back toward this window; make that deterministic.
+    if placed {
+      let _ = SetForegroundWindow(hwnd);
+    }
+    placed
   }
 }
 
