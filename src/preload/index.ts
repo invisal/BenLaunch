@@ -1,10 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC_CHANNELS, type LauncherAction } from '../shared/types'
+import { IPC_CHANNELS, type QueryResult } from '../shared/types'
 
 const api = {
-  search: (query: string): Promise<LauncherAction[]> => ipcRenderer.invoke(IPC_CHANNELS.search, query),
-  execute: (id: string, query: string): Promise<void> =>
-    ipcRenderer.invoke(IPC_CHANNELS.execute, id, query),
+  query: (text: string): Promise<QueryResult> => ipcRenderer.invoke(IPC_CHANNELS.query, text),
+  execute: (id: string, text: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.execute, id, text),
   hide: (): void => ipcRenderer.send(IPC_CHANNELS.hide),
   togglePin: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.togglePin)
 }

@@ -18,6 +18,7 @@
     "@base-ui/react": "^1.7.0",
     "@benpocket/win": "file:native/win",
     "cnfast": "^0.1.0",
+    "mathjs": "^15.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "cnfast";
-import type { LauncherAction } from "../../shared/types";
+import type { Calculation, LauncherAction } from "../../shared/types";
 import SearchItem from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
 
 function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<LauncherAction[]>([]);
+  const [calculation, setCalculation] = useState<Calculation | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [pinned, setPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -28,9 +29,10 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-    window.api.search(query).then((items) => {
+    window.api.query(query).then((res) => {
       if (!cancelled) {
-        setResults(items);
+        setResults(res.result);
+        setCalculation(res.calculation ?? null);
         setSelectedIndex(0);
       }
     });
@@ -39,18 +41,50 @@ function App() {
     };
   }, [query]);
 
-  function runSelected(index: number): void {
-    const action = results[index];
-    if (!action) return;
-    void window.api.execute(action.id, query);
+  // The calculation, when present, sits at index 0 above the actions.
+  const calcOffset = calculation ? 1 : 0;
+  const itemCount = results.length + calcOffset;
+
+  function dismiss(): void {
     setQuery("");
     setMenuOpen(false);
+    if (!pinned) window.api.hide();
   }
 
-  const currentAction = results[selectedIndex];
+  function copyCalculation(): void {
+    if (!calculation) return;
+    void navigator.clipboard.writeText(calculation.value);
+    dismiss();
+  }
+
+  function runSelected(index: number): void {
+    if (calculation && index === 0) {
+      copyCalculation();
+      return;
+    }
+    const action = results[index - calcOffset];
+    if (!action) return;
+    void window.api.execute(action.id, query);
+    dismiss();
+  }
+
+  const selectedAction =
+    calculation && selectedIndex === 0
+      ? null
+      : (results[selectedIndex - calcOffset] ?? null);
 
   const menuActions = useMemo<MenuActionItem[]>(() => {
-    if (!currentAction) return [];
+    if (calculation && selectedIndex === 0) {
+      return [
+        {
+          id: "copy-result",
+          label: "Copy Result",
+          shortcut: "Enter",
+          onSelect: copyCalculation,
+        },
+      ];
+    }
+    if (!selectedAction) return [];
     return [
       {
         id: "run",
@@ -62,7 +96,7 @@ function App() {
         id: "copy-name",
         label: "Copy Name",
         shortcut: "CommandOrControl+C",
-        onSelect: () => void navigator.clipboard.writeText(currentAction.title),
+        onSelect: () => void navigator.clipboard.writeText(selectedAction.title),
       },
       {
         id: "pin",
@@ -71,7 +105,7 @@ function App() {
         onSelect: () => void togglePin(),
       },
     ];
-  }, [currentAction, pinned, selectedIndex]);
+  }, [selectedAction, calculation, pinned, selectedIndex]);
 
   useEffect(() => {
     function onGlobalKeyDown(e: globalThis.KeyboardEvent): void {
@@ -87,7 +121,7 @@ function App() {
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
+      setSelectedIndex((i) => Math.min(i + 1, itemCount - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((i) => Math.max(i - 1, 0));
@@ -121,17 +155,45 @@ function App() {
         />
       </div>
       <ul className="result-scroll flex-1 overflow-y-auto p-2 gap-[1px] flex flex-col">
-        {results.length === 0 && (
+        {itemCount === 0 && (
           <li className="px-3 py-2 text-sm text-foreground-subtle">
             No results
+          </li>
+        )}
+        {calculation && (
+          <li
+            onClick={() => runSelected(0)}
+            className={cn(
+              "flex items-center gap-2 rounded px-1 py-1",
+              selectedIndex === 0
+                ? "bg-item-selected text-foreground"
+                : "hover:bg-item-hover",
+            )}
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg">
+              🟰
+            </span>
+            <div className="flex min-w-0 flex-1 items-baseline gap-2">
+              <span className="shrink-0 truncate text-lg font-medium tabular-nums">
+                {calculation.value}
+              </span>
+              <span className="min-w-0 truncate text-foreground-subtle">
+                {calculation.expression}
+              </span>
+            </div>
+            {selectedIndex === 0 && (
+              <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
+                ⏎ Copy
+              </kbd>
+            )}
           </li>
         )}
         {results.map((action, index) => (
           <SearchItem
             key={action.id}
             action={action}
-            selected={index === selectedIndex}
-            onClick={() => runSelected(index)}
+            selected={index + calcOffset === selectedIndex}
+            onClick={() => runSelected(index + calcOffset)}
           />
         ))}
       </ul>

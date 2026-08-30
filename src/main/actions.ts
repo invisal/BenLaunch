@@ -1,5 +1,6 @@
 import { app } from "electron";
-import type { LauncherAction } from "../shared/types";
+import type { QueryResult } from "../shared/types";
+import { evaluate } from "./calculator";
 import { fuzzyMatch } from "./search";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
@@ -8,7 +9,7 @@ import { WindowManagementSource } from "./sources/window/source";
 import { Usage } from "./usage/store";
 
 /**
- * Registry of action sources. Order matters: `searchActions` keeps it, and the
+ * Registry of action sources. Order matters: `query` keeps it, and the
  * stable sort below preserves it among equally-scored results (so built-in
  * commands rank ahead of applications on a tie).
  */
@@ -32,37 +33,37 @@ export function refreshActionSources(): void {
   for (const source of sources) source.refresh?.();
 }
 
-export async function searchActions(query: string): Promise<LauncherAction[]> {
-  const lists = await Promise.all(
-    sources.map((source) => source.provide(query)),
-  );
+export async function query(text: string): Promise<QueryResult> {
+  const lists = await Promise.all(sources.map((source) => source.provide(text)));
   const definitions = lists.flat();
 
-  const trimmed = query.trim();
+  const trimmed = text.trim();
   if (!trimmed) {
     // Order the suggestion list by how recently/often each action has been used;
     // the stable sort keeps registry order among the (many) unused ones.
     const scores = usage.scores();
-    return definitions
+    const result = definitions
       .map((definition) => definition.action)
       .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0));
+    return { result };
   }
 
-  return (
-    definitions
-      .map((definition) => {
-        const result = fuzzyMatch(trimmed, definition.action.title);
-        const score = result.score + usage.boost(definition.action.id, trimmed);
-        return { action: definition.action, matched: result.match, score };
-      })
-      .filter((entry) => entry.matched)
-      // Best score first; `sort` is stable, so equal scores keep registry order.
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.action)
-  );
+  const result = definitions
+    .map((definition) => {
+      const match = fuzzyMatch(trimmed, definition.action.title);
+      const score = match.score + usage.boost(definition.action.id, trimmed);
+      return { action: definition.action, matched: match.match, score };
+    })
+    .filter((entry) => entry.matched)
+    // Best score first; `sort` is stable, so equal scores keep registry order.
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.action);
+
+  const calculation = evaluate(trimmed);
+  return calculation ? { result, calculation } : { result };
 }
 
-export async function executeAction(id: string, query: string): Promise<void> {
+export async function executeAction(id: string, text: string): Promise<void> {
   await sources.find((source) => source.owns(id))?.execute(id);
-  usage.record(id, query);
+  usage.record(id, text);
 }

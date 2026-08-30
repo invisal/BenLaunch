@@ -1,6 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
-import { executeAction, initActionSources, refreshActionSources, searchActions } from './actions'
+import { executeAction, initActionSources, query, refreshActionSources } from './actions'
 import { captureForegroundWindow } from './native'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
@@ -38,16 +38,16 @@ app.whenReady().then(() => {
   // instead of waiting for the renderer's first search.
   initActionSources()
 
-  ipcMain.handle(IPC_CHANNELS.search, (_event, query: string) => {
-    return searchActions(query)
+  ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
+    return query(text)
   })
 
-  ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string, query: string) => {
+  ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string, text: string) => {
     // Hide synchronously before launching so the launcher disappears instantly,
     // instead of lingering until the launched app grabs focus and triggers `blur`.
     if (!pinned) launcherWindow?.hide()
-    // `query` is threaded through so usage tracking can learn "typed X, picked Y".
-    return executeAction(id, query)
+    // `text` is threaded through so usage tracking can learn "typed X, picked Y".
+    return executeAction(id, text)
   })
 
   ipcMain.on(IPC_CHANNELS.hide, () => {
