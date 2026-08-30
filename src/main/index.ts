@@ -4,7 +4,7 @@ import { executeAction, initActionSources, query, refreshActionSources } from '.
 import { captureForegroundWindow } from './native'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
-const TOGGLE_SHORTCUT = 'CommandOrControl+Space'
+const TOGGLE_SHORTCUT = 'Alt+Space'
 
 let launcherWindow: BrowserWindow | null = null
 let pinned = false
@@ -59,7 +59,9 @@ app.whenReady().then(() => {
     return pinned
   })
 
-  globalShortcut.register(TOGGLE_SHORTCUT, toggleLauncher)
+  if (!globalShortcut.register(TOGGLE_SHORTCUT, toggleLauncher)) {
+    console.error(`Failed to register global shortcut: ${TOGGLE_SHORTCUT}`)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

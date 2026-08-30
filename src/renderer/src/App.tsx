@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { cn } from "cnfast";
 import type { Calculation, LauncherAction } from "../../shared/types";
 import SearchItem from "./components/SearchItem";
@@ -96,7 +102,8 @@ function App() {
         id: "copy-name",
         label: "Copy Name",
         shortcut: "CommandOrControl+C",
-        onSelect: () => void navigator.clipboard.writeText(selectedAction.title),
+        onSelect: () =>
+          void navigator.clipboard.writeText(selectedAction.title),
       },
       {
         id: "pin",
@@ -154,40 +161,23 @@ function App() {
           className="w-full bg-transparent px-2 py-2 text-lg outline-none placeholder:text-foreground-subtle [-webkit-app-region:no-drag]"
         />
       </div>
+
+      {calculation && (
+        <div className="p-2 px-4">
+          <div className="text-foreground-subtle font-medium text-xs">
+            Calculator
+          </div>
+          <div className="text-2xl flex font-medium">{calculation.value}</div>
+        </div>
+      )}
+
       <ul className="result-scroll flex-1 overflow-y-auto p-2 gap-[1px] flex flex-col">
         {itemCount === 0 && (
           <li className="px-3 py-2 text-sm text-foreground-subtle">
             No results
           </li>
         )}
-        {calculation && (
-          <li
-            onClick={() => runSelected(0)}
-            className={cn(
-              "flex items-center gap-2 rounded px-1 py-1",
-              selectedIndex === 0
-                ? "bg-item-selected text-foreground"
-                : "hover:bg-item-hover",
-            )}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg">
-              🟰
-            </span>
-            <div className="flex min-w-0 flex-1 items-baseline gap-2">
-              <span className="shrink-0 truncate text-lg font-medium tabular-nums">
-                {calculation.value}
-              </span>
-              <span className="min-w-0 truncate text-foreground-subtle">
-                {calculation.expression}
-              </span>
-            </div>
-            {selectedIndex === 0 && (
-              <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
-                ⏎ Copy
-              </kbd>
-            )}
-          </li>
-        )}
+
         {results.map((action, index) => (
           <SearchItem
             key={action.id}
