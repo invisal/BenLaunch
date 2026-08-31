@@ -22,7 +22,8 @@
     "react-dom": "^19.2.8"
   },
   "optionalDependencies": {
-    "@benpocket/win": "file:native/win"
+    "@benpocket/win": "file:native/win",
+    "electron-liquid-glass": "^1.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

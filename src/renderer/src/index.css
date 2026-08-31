@@ -9,6 +9,12 @@
   --color-border: rgb(255 255 255 / 8%);
 }
 
+/* On macOS the window is backed by an electron-liquid-glass surface, so let the
+   glass show through instead of painting a near-opaque panel over it. */
+:root[data-platform='darwin'] {
+  --color-background: rgb(10 9 8 / 45%);
+}
+
 html,
 body,
 #root {

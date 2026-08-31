@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS, type QueryResult } from '../shared/types'
 
 const api = {
+  platform: process.platform,
   query: (text: string): Promise<QueryResult> => ipcRenderer.invoke(IPC_CHANNELS.query, text),
   execute: (id: string, text: string): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.execute, id, text),

@@ -7,4 +7,5 @@
 export { listApplications } from './apps'
 export type { AppsWorkerResult, ShortcutAppResult, PackagedAppResult } from './apps-worker'
 export { captureForegroundWindow, snapCapturedWindow } from './foreground'
+export { applyLiquidGlass } from './glass'
 export type { SnapRegion } from './foreground'

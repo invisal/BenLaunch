@@ -8,7 +8,13 @@ export default defineConfig({
     // externalizeDepsPlugin's default `pkg.dependencies` scan misses it — list it
     // explicitly so it stays a runtime `import`/`require` instead of something
     // Rollup tries (and fails) to resolve into the bundle on other platforms.
-    plugins: [externalizeDepsPlugin({ include: ['@benpocket/win'] })],
+    // `@benpocket/win` and `electron-liquid-glass` are optionalDependencies with a
+    // native addon, so externalizeDepsPlugin's default `pkg.dependencies` scan
+    // misses them — list them explicitly so they stay a runtime `import` instead
+    // of something Rollup tries (and fails) to bundle.
+    plugins: [
+      externalizeDepsPlugin({ include: ['@benpocket/win', 'electron-liquid-glass'] })
+    ],
     build: {
       rollupOptions: {
         input: {
