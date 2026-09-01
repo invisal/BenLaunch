@@ -1,0 +1,39 @@
+appId: com.benpocket.benlaunch
+productName: BenLaunch
+
+directories:
+  output: dist
+  buildResources: build
+
+# electron-vite emits the app into out/; node_modules (prod + optional deps) is
+# added automatically by electron-builder.
+files:
+  - out/**
+  - package.json
+  # @benpocket/win ships a prebuilt napi .node but also carries its Rust source
+  # and build tree (~700 MB) — keep only what the addon needs at runtime.
+  - "!node_modules/@benpocket/win/target/**"
+  - "!node_modules/@benpocket/win/src/**"
+  - "!node_modules/@benpocket/win/node_modules/**"
+  - "!node_modules/@benpocket/win/Cargo.*"
+  - "!node_modules/@benpocket/win/build.rs"
+  - "!node_modules/@benpocket/win/package-lock.json"
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "node_modules/@benpocket/**"
+
+# @benpocket/win is a Node-API (ABI-stable) prebuilt; nothing here needs a
+# native rebuild against Electron headers.
+npmRebuild: false
+
+win:
+  target:
+    - nsis
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
