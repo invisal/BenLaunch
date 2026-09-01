@@ -1,6 +1,6 @@
 import { cn } from "cnfast";
-import type { LauncherAction } from "../../../shared/types";
-import { formatShortcut } from "../lib/shortcut";
+import type { LauncherAction } from "../../../../../shared/types";
+import { formatShortcut } from "../../../lib/shortcut";
 
 const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   application: "Application",

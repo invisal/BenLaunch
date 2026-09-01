@@ -3,6 +3,7 @@ import { exec } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ActionDefinition } from '../../types'
+import { openSettingsWindow } from '../../settings-window'
 import type { ActionSource } from '../base'
 
 /** Static launcher-level commands (lock, open folders, quit, …). */
@@ -22,6 +23,18 @@ export class BuiltinCommandSource implements ActionSource {
         exec('rundll32.exe user32.dll,LockWorkStation', (error) => {
           if (error) console.error('[main] Failed to lock computer:', error)
         })
+      }
+    },
+    {
+      action: {
+        id: 'cmd:settings',
+        title: 'Settings',
+        subtitle: 'Open BenLaunch settings',
+        icon: '⚙️',
+        type: 'command'
+      },
+      run: () => {
+        openSettingsWindow()
       }
     },
     {

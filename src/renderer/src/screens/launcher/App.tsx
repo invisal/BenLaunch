@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { cn } from "cnfast";
-import type { Calculation, LauncherAction } from "../../shared/types";
+import type { Calculation, LauncherAction } from "../../../../shared/types";
 import SearchItem from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
 

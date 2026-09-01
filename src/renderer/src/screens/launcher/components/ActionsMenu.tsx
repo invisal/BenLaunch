@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { formatShortcut } from "../lib/shortcut";
+import { formatShortcut } from "../../../lib/shortcut";
 
 export interface MenuActionItem {
   id: string;
