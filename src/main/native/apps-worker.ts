@@ -33,6 +33,8 @@ export interface ShortcutAppResult {
   path: string
   title: string
   icon?: string
+  /** Resolved target executable, when the `.lnk` points at an `.exe` — used for "Open With". */
+  target?: string
 }
 
 export interface PackagedAppResult {
@@ -79,12 +81,13 @@ function toDataUrl(png: Buffer | null): string | undefined {
 }
 
 /**
- * Resolves a `.lnk` shortcut's icon by walking the same fallback chain the old
- * PowerShell script used: the shortcut's declared icon location first, then its
- * target executable, then the `.lnk` file itself (some shortcuts embed their own
- * icon resource instead of pointing at one).
+ * Resolves a `.lnk` shortcut's target executable and icon in one pass (the icon
+ * walks the same fallback chain the old PowerShell script used: the shortcut's
+ * declared icon location first, then its target executable, then the `.lnk` file
+ * itself). `target` is returned only when the shortcut points at an `.exe`, so
+ * the launcher can hand it a path/URL argument for "Open With".
  */
-function resolveShortcutIcon(shortcutPath: string): string | undefined {
+function resolveShortcutAssets(shortcutPath: string): { icon?: string; target?: string } {
   try {
     const info = resolveShortcut(shortcutPath)
     const target = info?.targetPath ? expandEnvironmentVariables(info.targetPath) : ''
@@ -101,18 +104,20 @@ function resolveShortcutIcon(shortcutPath: string): string | undefined {
       (target ? iconCache.fileKey(target, 0) : null) ??
       iconCache.fileKey(shortcutPath, 0)
 
+    const exeTarget = /\.exe$/i.test(target) ? target : undefined
+
     const cached = iconCache.read(key)
-    if (cached) return toDataUrl(cached)
+    if (cached) return { icon: toDataUrl(cached), target: exeTarget }
 
     let png = extractIconPng(iconPath, iconIndex)
     if (!png && target && target !== iconPath) png = extractIconPng(target, 0)
     if (!png) png = extractIconPng(shortcutPath, 0)
 
     if (png) iconCache.write(key, png)
-    return toDataUrl(png)
+    return { icon: toDataUrl(png), target: exeTarget }
   } catch (error) {
-    console.error(`[apps-worker] Failed to resolve icon for ${shortcutPath}:`, error)
-    return undefined
+    console.error(`[apps-worker] Failed to resolve shortcut ${shortcutPath}:`, error)
+    return {}
   }
 }
 
@@ -143,12 +148,16 @@ async function main(): Promise<void> {
     return true
   })
 
-  const shortcuts: ShortcutAppResult[] = uniqueShortcutPaths.map((shortcutPath) => ({
-    kind: 'shortcut',
-    path: shortcutPath,
-    title: basename(shortcutPath, extname(shortcutPath)),
-    icon: resolveShortcutIcon(shortcutPath)
-  }))
+  const shortcuts: ShortcutAppResult[] = uniqueShortcutPaths.map((shortcutPath) => {
+    const { icon, target } = resolveShortcutAssets(shortcutPath)
+    return {
+      kind: 'shortcut',
+      path: shortcutPath,
+      title: basename(shortcutPath, extname(shortcutPath)),
+      ...(icon ? { icon } : {}),
+      ...(target ? { target } : {})
+    }
+  })
 
   let startApps: { name: string; appId: string }[] = []
   try {

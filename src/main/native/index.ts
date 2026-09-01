@@ -5,6 +5,7 @@
  * global hotkeys and the like belong here too as they land.
  */
 export { listApplications } from './apps'
+export { listBrowsers } from './browsers'
 export type { AppsWorkerResult, ShortcutAppResult, PackagedAppResult } from './apps-worker'
 export { captureForegroundWindow, snapCapturedWindow } from './foreground'
 export { applyLiquidGlass } from './glass'

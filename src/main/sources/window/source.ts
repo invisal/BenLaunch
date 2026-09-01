@@ -35,7 +35,7 @@ export class WindowManagementSource implements ActionSource {
     return actionId.startsWith(`${this.id}:`);
   }
 
-  async execute(actionId: string): Promise<void> {
+  async execute(actionId: string, _query: string): Promise<void> {
     await this.definitions
       .find((definition) => definition.action.id === actionId)
       ?.run();

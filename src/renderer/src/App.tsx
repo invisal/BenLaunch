@@ -6,9 +6,11 @@ import {
   type KeyboardEvent,
 } from "react";
 import { cn } from "cnfast";
+import type { LauncherView } from "../../shared/quicklink";
 import type { Calculation, LauncherAction } from "../../shared/types";
 import SearchItem from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
+import CreateQuicklink from "./components/CreateQuicklink";
 
 function App() {
   const [query, setQuery] = useState("");
@@ -17,6 +19,7 @@ function App() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [pinned, setPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [view, setView] = useState<LauncherView | "search">("search");
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function togglePin(): Promise<void> {
@@ -25,13 +28,14 @@ function App() {
 
   useEffect(() => {
     function focusAndSelect(): void {
+      if (view !== "search") return;
       inputRef.current?.focus();
       inputRef.current?.select();
     }
     focusAndSelect();
     window.addEventListener("focus", focusAndSelect);
     return () => window.removeEventListener("focus", focusAndSelect);
-  }, []);
+  }, [view]);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +58,7 @@ function App() {
   function dismiss(): void {
     setQuery("");
     setMenuOpen(false);
+    setView("search");
     if (!pinned) window.api.hide();
   }
 
@@ -70,6 +75,13 @@ function App() {
     }
     const action = results[index - calcOffset];
     if (!action) return;
+    // Some actions open a renderer view (e.g. the Create Quicklink form) instead
+    // of executing in the main process — switch to it and keep the launcher open.
+    if (action.view) {
+      setMenuOpen(false);
+      setView(action.view);
+      return;
+    }
     void window.api.execute(action.id, query);
     dismiss();
   }
@@ -116,6 +128,7 @@ function App() {
 
   useEffect(() => {
     function onGlobalKeyDown(e: globalThis.KeyboardEvent): void {
+      if (view !== "search") return;
       if (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setMenuOpen((open) => !open);
@@ -123,7 +136,7 @@ function App() {
     }
     window.addEventListener("keydown", onGlobalKeyDown);
     return () => window.removeEventListener("keydown", onGlobalKeyDown);
-  }, []);
+  }, [view]);
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
     if (e.key === "ArrowDown") {
@@ -146,6 +159,20 @@ function App() {
       e.preventDefault();
       void togglePin();
     }
+  }
+
+  if (view === "create-quicklink") {
+    return (
+      <CreateQuicklink
+        seed={query}
+        onCancel={() => setView("search")}
+        onCreated={(name) => {
+          setView("search");
+          setQuery(name);
+          setSelectedIndex(0);
+        }}
+      />
+    );
   }
 
   return (

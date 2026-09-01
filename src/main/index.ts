@@ -1,7 +1,15 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain } from 'electron'
+import type { QuicklinkDraft } from '../shared/quicklink'
 import { IPC_CHANNELS } from '../shared/types'
-import { executeAction, initActionSources, query, refreshActionSources } from './actions'
+import {
+  createQuicklink,
+  executeAction,
+  initActionSources,
+  query,
+  refreshActionSources
+} from './actions'
 import { captureForegroundWindow } from './native'
+import { listOpenWithApps } from './sources/apps/open-with'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
 // Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
@@ -11,6 +19,17 @@ const TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Command+Shift+Space' : 
 
 let launcherWindow: BrowserWindow | null = null
 let pinned = false
+/**
+ * Set while a modal picker (the file/folder dialog) is open, so the launcher's
+ * blur-to-hide doesn't fire when the dialog steals focus — otherwise the window
+ * vanishes and the user has to re-open it after choosing a path.
+ */
+let suppressAutoHide = false
+
+/** Whether the launcher should stay visible on focus loss right now. */
+function keepLauncherOpen(): boolean {
+  return pinned || suppressAutoHide
+}
 
 /** The launcher's own HWND, so window-snap commands never target the launcher itself. */
 function launcherHandle(win: BrowserWindow): number {
@@ -35,7 +54,7 @@ function toggleLauncher(): void {
 }
 
 app.whenReady().then(() => {
-  launcherWindow = createLauncherWindow(() => pinned)
+  launcherWindow = createLauncherWindow(keepLauncherOpen)
 
   // Warm every action source now (apps: disk cache, then a background worker run)
   // instead of waiting for the renderer's first search.
@@ -57,6 +76,35 @@ app.whenReady().then(() => {
     launcherWindow?.hide()
   })
 
+  ipcMain.handle(IPC_CHANNELS.quicklinkCreate, (_event, draft: QuicklinkDraft) => {
+    return createQuicklink(draft)
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkPickPath,
+    async (_event, type: 'file' | 'directory'): Promise<string | null> => {
+      const options = {
+        properties: [type === 'directory' ? 'openDirectory' : 'openFile'] as Array<
+          'openDirectory' | 'openFile'
+        >
+      }
+      suppressAutoHide = true
+      try {
+        const result = launcherWindow
+          ? await dialog.showOpenDialog(launcherWindow, options)
+          : await dialog.showOpenDialog(options)
+        return result.canceled ? null : (result.filePaths[0] ?? null)
+      } finally {
+        suppressAutoHide = false
+        // The dialog took focus; hand it back so the form stays interactive and
+        // a later real focus loss hides the launcher as usual.
+        launcherWindow?.focus()
+      }
+    }
+  )
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkOpenWithApps, () => listOpenWithApps())
+
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
     pinned = !pinned
     return pinned
@@ -68,7 +116,7 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      launcherWindow = createLauncherWindow(() => pinned)
+      launcherWindow = createLauncherWindow(keepLauncherOpen)
     }
   })
 })

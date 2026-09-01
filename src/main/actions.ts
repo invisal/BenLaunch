@@ -1,10 +1,12 @@
 import { app } from "electron";
+import type { QuicklinkCreateResult, QuicklinkDraft } from "../shared/quicklink";
 import type { QueryResult } from "../shared/types";
 import { evaluate } from "./calculator";
-import { fuzzyMatch } from "./search";
+import { matchAction } from "./search";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
+import { QuicklinkSource } from "./sources/quicklinks/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { Usage } from "./usage/store";
 
@@ -13,11 +15,19 @@ import { Usage } from "./usage/store";
  * stable sort below preserves it among equally-scored results (so built-in
  * commands rank ahead of applications on a tie).
  */
+const quicklinkSource = new QuicklinkSource();
+
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   new WindowManagementSource(),
+  quicklinkSource,
   new InstalledAppSource(),
 ];
+
+/** Persist a quicklink from the renderer's Create form. */
+export function createQuicklink(draft: QuicklinkDraft): QuicklinkCreateResult {
+  return quicklinkSource.create(draft);
+}
 
 /** Personalized ranking signal — records what the user picks, boosts it next time. */
 const usage = new Usage({ dir: app.getPath("userData") });
@@ -50,9 +60,10 @@ export async function query(text: string): Promise<QueryResult> {
 
   const result = definitions
     .map((definition) => {
-      const match = fuzzyMatch(trimmed, definition.action.title);
-      const score = match.score + usage.boost(definition.action.id, trimmed);
-      return { action: definition.action, matched: match.match, score };
+      const { action } = definition;
+      const match = matchAction(trimmed, action);
+      const score = match.score + usage.boost(action.id, trimmed);
+      return { action, matched: match.match, score };
     })
     .filter((entry) => entry.matched)
     // Best score first; `sort` is stable, so equal scores keep registry order.
@@ -64,6 +75,6 @@ export async function query(text: string): Promise<QueryResult> {
 }
 
 export async function executeAction(id: string, text: string): Promise<void> {
-  await sources.find((source) => source.owns(id))?.execute(id);
+  await sources.find((source) => source.owns(id))?.execute(id, text);
   usage.record(id, text);
 }

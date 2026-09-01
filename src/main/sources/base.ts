@@ -23,8 +23,13 @@ export interface ActionSource {
   /** Whether `actionId` belongs to this source. Usually an id-prefix check. */
   owns(actionId: string): boolean
 
-  /** Run the action identified by `actionId` (which this source `owns`). */
-  execute(actionId: string): void | Promise<void>
+  /**
+   * Run the action identified by `actionId` (which this source `owns`). `query`
+   * is the text in the search box at the moment of execution — query-driven
+   * sources (e.g. quicklinks) parse their argument out of it; most sources
+   * ignore it.
+   */
+  execute(actionId: string, query: string): void | Promise<void>
 
   /** Warm-up hook, called once at startup. */
   init?(): void
@@ -85,7 +90,7 @@ export abstract class CachedActionSource implements ActionSource {
     return actionId.startsWith(`${this.id}:`)
   }
 
-  async execute(actionId: string): Promise<void> {
+  async execute(actionId: string, _query: string): Promise<void> {
     await this.cached.find((definition) => definition.action.id === actionId)?.run()
   }
 
