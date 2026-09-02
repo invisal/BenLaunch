@@ -18,28 +18,16 @@ import {
   normalizeTags,
   slugify,
   validateDraft,
+  type Quicklink,
   type QuicklinkDraft
 } from '../../../shared/quicklink.ts'
 
 export { monogramIcon }
-export type { QuicklinkDraft, QuicklinkCreateResult } from '../../../shared/quicklink.ts'
-
-export interface Quicklink {
-  /** Stable slug; the action id is `ql:<id>`. */
-  id: string
-  /** Display name, shown in the result list and fuzzy-matched. */
-  name: string
-  /** Target URL or path. May contain one `{query}` / `{argument}` / `{}` placeholder. */
-  link: string
-  /** Optional short alias: typing it as the query's first word invokes this link. */
-  keyword?: string
-  /** Emoji or image URL; defaults to a generated monogram. */
-  icon?: string
-  /** Executable to open the link with (a specific browser/app); default handler otherwise. */
-  openWith?: string
-  /** Lower-cased labels for grouping; also fuzzy-matched in search. */
-  tags?: string[]
-}
+export type {
+  Quicklink,
+  QuicklinkDraft,
+  QuicklinkCreateResult
+} from '../../../shared/quicklink.ts'
 
 /** Seeded into `quicklinks.json` on first run so the feature is discoverable. */
 export const DEFAULT_QUICKLINKS: Quicklink[] = [
@@ -195,9 +183,32 @@ function isQuicklink(value: unknown): value is Quicklink {
     (c.keyword === undefined || typeof c.keyword === 'string') &&
     (c.icon === undefined || typeof c.icon === 'string') &&
     (c.openWith === undefined || typeof c.openWith === 'string') &&
+    (c.pinned === undefined || typeof c.pinned === 'boolean') &&
+    (c.hidden === undefined || typeof c.hidden === 'boolean') &&
     (c.tags === undefined ||
       (Array.isArray(c.tags) && c.tags.every((tag) => typeof tag === 'string')))
   )
+}
+
+/** `"my-link"` → the first free id in `my-link`, `my-link-2`, `my-link-3`, … */
+function uniqueId(base: string, taken: ReadonlySet<string>): string {
+  let id = base
+  for (let n = 2; taken.has(id); n += 1) id = `${base}-${n}`
+  return id
+}
+
+/** Build a stored entry from a validated draft — shared by `add` and `update`. */
+function draftToEntry(id: string, draft: QuicklinkDraft): Quicklink {
+  const tags = normalizeTags(draft.tags)
+  return {
+    id,
+    name: draft.name.trim(),
+    link: normalizeLink(draft.link),
+    ...(draft.keyword?.trim() ? { keyword: draft.keyword.trim() } : {}),
+    ...(draft.icon?.trim() ? { icon: draft.icon.trim() } : {}),
+    ...(draft.openWith?.trim() ? { openWith: draft.openWith.trim() } : {}),
+    ...(tags.length ? { tags } : {})
+  }
 }
 
 /** Keeps only well-formed entries and drops duplicate ids (first one wins). */
@@ -216,6 +227,8 @@ export function sanitize(value: unknown): Quicklink[] {
       ...(entry.keyword?.trim() ? { keyword: entry.keyword.trim() } : {}),
       ...(entry.icon?.trim() ? { icon: entry.icon.trim() } : {}),
       ...(entry.openWith?.trim() ? { openWith: entry.openWith.trim() } : {}),
+      ...(entry.pinned ? { pinned: true } : {}),
+      ...(entry.hidden ? { hidden: true } : {}),
       ...(tags.length ? { tags } : {})
     })
   }
@@ -246,6 +259,11 @@ export class QuicklinkStore {
     this.cache = null
   }
 
+  /** The quicklink with this id, or `undefined`. */
+  get(id: string): Quicklink | undefined {
+    return this.list().find((entry) => entry.id === id)
+  }
+
   /**
    * Append a quicklink from a Create-form draft and persist it. Throws with a
    * user-facing message if the draft is unusable. Returns the stored entry (with
@@ -260,24 +278,75 @@ export class QuicklinkStore {
 
     const existing = this.list()
     const taken = new Set(existing.map((entry) => entry.id))
-    const base = slugify(draft.name)
-    let id = base
-    for (let n = 2; taken.has(id); n += 1) id = `${base}-${n}`
+    const id = uniqueId(slugify(draft.name), taken)
 
-    const tags = normalizeTags(draft.tags)
-    const entry: Quicklink = {
-      id,
-      name: draft.name.trim(),
-      link,
-      ...(draft.keyword?.trim() ? { keyword: draft.keyword.trim() } : {}),
-      ...(draft.icon?.trim() ? { icon: draft.icon.trim() } : {}),
-      ...(draft.openWith?.trim() ? { openWith: draft.openWith.trim() } : {}),
-      ...(tags.length ? { tags } : {})
-    }
-
+    const entry = draftToEntry(id, draft)
     this.cache = [...existing, entry]
     this.write(this.cache)
     return entry
+  }
+
+  /**
+   * Replace the fields of the quicklink `id` from an Edit-form draft, keeping its
+   * id and its `pinned` / `hidden` flags. Throws a user-facing message if the
+   * draft is unusable or the quicklink is gone.
+   */
+  update(id: string, draft: QuicklinkDraft): Quicklink {
+    const problem = validateDraft(draft)
+    if (problem) throw new Error(problem)
+    if (!normalizeLink(draft.link)) throw new Error('That link could not be understood.')
+
+    const existing = this.list()
+    const index = existing.findIndex((entry) => entry.id === id)
+    if (index === -1) throw new Error('That quicklink no longer exists.')
+
+    const prev = existing[index]
+    const entry: Quicklink = {
+      ...draftToEntry(id, draft),
+      ...(prev.pinned ? { pinned: true } : {}),
+      ...(prev.hidden ? { hidden: true } : {})
+    }
+    const next = [...existing]
+    next[index] = entry
+    this.cache = next
+    this.write(next)
+    return entry
+  }
+
+  /** Delete the quicklink `id`. A no-op if it isn't there. */
+  remove(id: string): void {
+    const existing = this.list()
+    const next = existing.filter((entry) => entry.id !== id)
+    if (next.length === existing.length) return
+    this.cache = next
+    this.write(next)
+  }
+
+  /** Pin or unpin the quicklink `id` (pinned links sort to the top of the root list). */
+  setPinned(id: string, pinned: boolean): void {
+    this.patch(id, (entry) => {
+      if (pinned) entry.pinned = true
+      else delete entry.pinned
+    })
+  }
+
+  /** Hide the quicklink `id` from the root list, or reveal it again. */
+  setHidden(id: string, hidden: boolean): void {
+    this.patch(id, (entry) => {
+      if (hidden) entry.hidden = true
+      else delete entry.hidden
+    })
+  }
+
+  /** Apply `mutate` to a copy of the quicklink `id` and persist. No-op if it's gone. */
+  private patch(id: string, mutate: (entry: Quicklink) => void): void {
+    const existing = this.list()
+    const index = existing.findIndex((entry) => entry.id === id)
+    if (index === -1) return
+    const next = existing.map((entry) => ({ ...entry }))
+    mutate(next[index])
+    this.cache = next
+    this.write(next)
   }
 
   private read(): Quicklink[] {

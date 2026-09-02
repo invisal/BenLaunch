@@ -1,5 +1,9 @@
 import { app } from "electron";
-import type { QuicklinkCreateResult, QuicklinkDraft } from "../shared/quicklink";
+import type {
+  Quicklink,
+  QuicklinkCreateResult,
+  QuicklinkDraft,
+} from "../shared/quicklink";
 import type { QueryResult } from "../shared/types";
 import { evaluate } from "./calculator";
 import { matchAction } from "./search";
@@ -29,6 +33,44 @@ export function createQuicklink(draft: QuicklinkDraft): QuicklinkCreateResult {
   return quicklinkSource.create(draft);
 }
 
+/** Apply the renderer's Edit form to an existing quicklink. */
+export function updateQuicklink(
+  id: string,
+  draft: QuicklinkDraft,
+): QuicklinkCreateResult {
+  return quicklinkSource.update(id, draft);
+}
+
+/** The quicklink `id`, for the renderer's Edit / Duplicate form. */
+export function getQuicklink(id: string): Quicklink | undefined {
+  return quicklinkSource.get(id);
+}
+
+/** Delete the quicklink `id`. */
+export function deleteQuicklink(id: string): void {
+  quicklinkSource.remove(id);
+}
+
+/** Pin or unpin the quicklink `id`. */
+export function setQuicklinkPinned(id: string, pinned: boolean): void {
+  quicklinkSource.setPinned(id, pinned);
+}
+
+/** Hide the quicklink `id` from the root list, or reveal it. */
+export function setQuicklinkHidden(id: string, hidden: boolean): void {
+  quicklinkSource.setHidden(id, hidden);
+}
+
+/** Open the quicklink `id` now with a specific app ("" = the system default). */
+export async function openQuicklinkWith(
+  id: string,
+  text: string,
+  appPath: string,
+): Promise<void> {
+  await quicklinkSource.execute(id, text, appPath);
+  usage.record(id, text);
+}
+
 /** Personalized ranking signal — records what the user picks, boosts it next time. */
 const usage = new Usage({ dir: app.getPath("userData") });
 
@@ -49,12 +91,19 @@ export async function query(text: string): Promise<QueryResult> {
 
   const trimmed = text.trim();
   if (!trimmed) {
-    // Order the suggestion list by how recently/often each action has been used;
-    // the stable sort keeps registry order among the (many) unused ones.
+    // The root list: pinned actions first, then by how recently/often each has
+    // been used; the stable sort keeps registry order among the (many) ties.
+    // Actions flagged "Hide in Root Search" are dropped here but still returned
+    // for an explicit query below.
     const scores = usage.scores();
     const result = definitions
       .map((definition) => definition.action)
-      .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0));
+      .filter((action) => !action.hidden)
+      .sort((a, b) => {
+        const pinDelta = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+        if (pinDelta) return pinDelta;
+        return (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0);
+      });
     return { result };
   }
 

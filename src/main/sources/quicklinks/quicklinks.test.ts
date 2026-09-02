@@ -233,6 +233,108 @@ test('add() persists openWith and tags', () => {
   assert.deepEqual(reread.tags, ['work', 'reference'])
 })
 
+test('update() replaces fields but keeps the id and the pinned/hidden flags', () => {
+  const store = new QuicklinkStore({ dir })
+  writeFileSync(
+    join(dir, 'quicklinks.json'),
+    JSON.stringify([
+      { id: 'docs', name: 'Docs', link: 'https://docs.example.com', pinned: true, hidden: true }
+    ])
+  )
+  store.reload()
+
+  const updated = store.update('docs', {
+    name: 'Docs v2',
+    link: 'docs.example.org',
+    keyword: 'd'
+  })
+  assert.deepEqual(updated, {
+    id: 'docs',
+    name: 'Docs v2',
+    link: 'https://docs.example.org',
+    keyword: 'd',
+    pinned: true,
+    hidden: true
+  })
+
+  const reread = new QuicklinkStore({ dir }).get('docs')
+  assert.equal(reread?.name, 'Docs v2')
+  assert.equal(reread?.pinned, true)
+})
+
+test('update() rejects an unknown id and an invalid draft', () => {
+  const store = new QuicklinkStore({ dir })
+  writeFileSync(join(dir, 'quicklinks.json'), JSON.stringify([]))
+  store.reload()
+  assert.throws(() => store.update('nope', { name: 'X', link: 'https://x.com' }), /no longer exists/i)
+
+  store.add({ name: 'X', link: 'https://x.com' })
+  assert.throws(() => store.update('x', { name: '', link: 'https://x.com' }), /name/i)
+})
+
+test('remove() drops the entry and persists', () => {
+  const store = new QuicklinkStore({ dir })
+  writeFileSync(
+    join(dir, 'quicklinks.json'),
+    JSON.stringify([
+      { id: 'a', name: 'A', link: 'https://a.com' },
+      { id: 'b', name: 'B', link: 'https://b.com' }
+    ])
+  )
+  store.reload()
+
+  store.remove('a')
+  assert.deepEqual(
+    store.list().map((q) => q.id),
+    ['b']
+  )
+  assert.deepEqual(
+    new QuicklinkStore({ dir }).list().map((q) => q.id),
+    ['b']
+  )
+  store.remove('missing') // no-op, no throw
+})
+
+test('setPinned() / setHidden() toggle the flag and drop it when false', () => {
+  const store = new QuicklinkStore({ dir })
+  writeFileSync(
+    join(dir, 'quicklinks.json'),
+    JSON.stringify([{ id: 'a', name: 'A', link: 'https://a.com' }])
+  )
+  store.reload()
+
+  store.setPinned('a', true)
+  store.setHidden('a', true)
+  assert.deepEqual(new QuicklinkStore({ dir }).get('a'), {
+    id: 'a',
+    name: 'A',
+    link: 'https://a.com',
+    pinned: true,
+    hidden: true
+  })
+
+  store.setPinned('a', false)
+  store.setHidden('a', false)
+  assert.deepEqual(new QuicklinkStore({ dir }).get('a'), {
+    id: 'a',
+    name: 'A',
+    link: 'https://a.com'
+  })
+})
+
+test('sanitize keeps pinned/hidden booleans and ignores non-booleans', () => {
+  const [good] = sanitize([
+    { id: 'a', name: 'A', link: 'https://a.com', pinned: true, hidden: false }
+  ])
+  assert.deepEqual(good, { id: 'a', name: 'A', link: 'https://a.com', pinned: true })
+
+  assert.deepEqual(
+    sanitize([{ id: 'b', name: 'B', link: 'https://b.com', pinned: 'yes' }]),
+    [],
+    'a non-boolean pinned rejects the whole entry'
+  )
+})
+
 test('sanitize keeps well-formed openWith/tags and rejects malformed ones', () => {
   const [good] = sanitize([
     { id: 'a', name: 'A', link: 'https://a.com', openWith: 'x.exe', tags: ['One', 'one'] }

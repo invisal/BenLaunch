@@ -1,11 +1,6 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { cn } from "cnfast";
+import { useImmer } from "use-immer";
 import { Menu } from "@base-ui/react/menu";
 import { Popover } from "@base-ui/react/popover";
 import AppPicker from "./AppPicker";
@@ -22,11 +17,39 @@ import { formatShortcut } from "../lib/shortcut";
 interface CreateQuicklinkProps {
   /**
    * Text from the search box when the form was opened. Pre-fills the Link field
-   * only when it already looks like a URL or path.
+   * only when it already looks like a URL or path. Ignored when `editId` /
+   * `duplicateId` is set.
    */
   seed?: string;
+  /** Edit this existing quicklink in place — Save writes back to it. */
+  editId?: string;
+  /** Seed every field from this quicklink, but Save creates a new one. */
+  duplicateId?: string;
   onCancel: () => void;
   onCreated: (name: string) => void;
+}
+
+/**
+ * The whole form as one Immer-managed object — the fields the user edits plus the
+ * transient UI flags — so handlers mutate `state.x` through a single `setState`
+ * recipe instead of juggling a dozen `useState` pairs.
+ */
+interface FormState {
+  link: string;
+  name: string;
+  /** The name field has been typed in — stop deriving it from the link. */
+  nameEdited: boolean;
+  keyword: string;
+  icon: string;
+  openWith: string;
+  tags: string[];
+  tagDraft: string;
+  /** "Open With" candidates, loaded once. */
+  apps: OpenWithApp[];
+  /** Fetching an existing quicklink for Edit / Duplicate. */
+  loading: boolean;
+  saving: boolean;
+  error: string | null;
 }
 
 const isImageIcon = (icon: string): boolean => /^(https?:|data:|file:)/.test(icon);
@@ -75,47 +98,97 @@ function Row({
   );
 }
 
-function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
-  const seededLink = seed && looksLikeLink(seed.trim()) ? seed.trim() : "";
+function CreateQuicklink({
+  seed,
+  editId,
+  duplicateId,
+  onCancel,
+  onCreated,
+}: CreateQuicklinkProps) {
+  const sourceId = editId ?? duplicateId;
+  const isEdit = !!editId;
+  const heading = isEdit
+    ? "Edit Quicklink"
+    : duplicateId
+      ? "Duplicate Quicklink"
+      : "Create Quicklink";
 
-  const [link, setLink] = useState(seededLink);
-  const [name, setName] = useState("");
-  const [nameEdited, setNameEdited] = useState(false);
-  const [keyword, setKeyword] = useState("");
-  const [icon, setIcon] = useState("");
-  const [openWith, setOpenWith] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagDraft, setTagDraft] = useState("");
-  const [apps, setApps] = useState<OpenWithApp[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [state, setState] = useImmer<FormState>({
+    link: seed && looksLikeLink(seed.trim()) ? seed.trim() : "",
+    name: "",
+    nameEdited: false,
+    keyword: "",
+    icon: "",
+    openWith: "",
+    tags: [],
+    tagDraft: "",
+    apps: [],
+    loading: !!sourceId,
+    saving: false,
+    error: null,
+  });
   const linkRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     let live = true;
     void window.api.openWithApps().then((list) => {
-      if (live) setApps(list);
+      if (live)
+        setState((d) => {
+          d.apps = list;
+        });
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [setState]);
 
-  const effectiveName = nameEdited ? name : name || nameFromLink(link);
-  const host = hostOf(link);
+  useEffect(() => {
+    if (!sourceId) return;
+    let live = true;
+    void window.api.getQuicklink(sourceId).then((ql) => {
+      if (!live) return;
+      setState((d) => {
+        if (ql) {
+          d.link = ql.link;
+          d.name = duplicateId ? `${ql.name} Copy` : ql.name;
+          d.nameEdited = true;
+          d.keyword = ql.keyword ?? "";
+          d.icon = ql.icon ?? "";
+          d.openWith = ql.openWith ?? "";
+          d.tags = ql.tags ?? [];
+        }
+        d.loading = false;
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [sourceId, duplicateId, setState]);
+
+  // `autoFocus` only fires on mount; Edit / Duplicate mount behind a loading
+  // screen, so move focus to the Link field once the form is shown.
+  useEffect(() => {
+    if (!state.loading) linkRef.current?.focus();
+  }, [state.loading]);
+
+  const effectiveName = state.nameEdited
+    ? state.name
+    : state.name || nameFromLink(state.link);
+  const host = hostOf(state.link);
 
   const previewIcon = useMemo(() => {
-    const trimmed = icon.trim();
+    const trimmed = state.icon.trim();
     if (trimmed) return trimmed;
-    return monogramIcon(effectiveName || link || "Quicklink");
-  }, [icon, effectiveName, link]);
+    return monogramIcon(effectiveName || state.link || "Quicklink");
+  }, [state.icon, effectiveName, state.link]);
 
   function insertIntoLink(token: string): void {
     const el = linkRef.current;
-    const start = el?.selectionStart ?? link.length;
-    const end = el?.selectionEnd ?? link.length;
-    const next = link.slice(0, start) + token + link.slice(end);
-    setLink(next);
+    const start = el?.selectionStart ?? state.link.length;
+    const end = el?.selectionEnd ?? state.link.length;
+    setState((d) => {
+      d.link = d.link.slice(0, start) + token + d.link.slice(end);
+    });
     requestAnimationFrame(() => {
       el?.focus();
       const caret = start + token.length;
@@ -125,41 +198,57 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
 
   async function pickPath(type: "file" | "directory"): Promise<void> {
     const path = await window.api.pickQuicklinkPath(type);
-    if (path) setLink(path);
+    if (path)
+      setState((d) => {
+        d.link = path;
+      });
   }
 
   function commitTag(): void {
-    const [tag] = normalizeTags([tagDraft]);
-    if (tag && !tags.includes(tag)) setTags([...tags, tag]);
-    setTagDraft("");
+    const [tag] = normalizeTags([state.tagDraft]);
+    setState((d) => {
+      if (tag && !d.tags.includes(tag)) d.tags.push(tag);
+      d.tagDraft = "";
+    });
   }
 
-  function draft(): QuicklinkDraft {
-    const allTags = normalizeTags([...tags, tagDraft]);
+  function draftFromState(): QuicklinkDraft {
+    const allTags = normalizeTags([...state.tags, state.tagDraft]);
     return {
-      link: link.trim(),
+      link: state.link.trim(),
       name: (effectiveName || "").trim(),
-      keyword: keyword.trim() || undefined,
-      icon: icon.trim() || undefined,
-      openWith: openWith || undefined,
+      keyword: state.keyword.trim() || undefined,
+      icon: state.icon.trim() || undefined,
+      openWith: state.openWith || undefined,
       tags: allTags.length ? allTags : undefined,
     };
   }
 
   async function save(): Promise<void> {
-    if (saving) return;
-    const d = draft();
+    if (state.saving) return;
+    const d = draftFromState();
     const problem = validateDraft(d);
     if (problem) {
-      setError(problem);
+      setState((s) => {
+        s.error = problem;
+      });
       return;
     }
-    setSaving(true);
-    setError(null);
-    const result = await window.api.createQuicklink(d);
-    setSaving(false);
-    if (result.ok) onCreated(result.name);
-    else setError(result.error);
+    setState((s) => {
+      s.saving = true;
+      s.error = null;
+    });
+    const result = editId
+      ? await window.api.updateQuicklink(editId, d)
+      : await window.api.createQuicklink(d);
+    if (result.ok) {
+      onCreated(result.name);
+      return;
+    }
+    setState((s) => {
+      s.saving = false;
+      s.error = result.error;
+    });
   }
 
   function onKeyDown(e: KeyboardEvent): void {
@@ -170,6 +259,14 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
       e.preventDefault();
       void save();
     }
+  }
+
+  if (state.loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-sm text-foreground-subtle">
+        Loading…
+      </div>
+    );
   }
 
   return (
@@ -186,7 +283,7 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
         >
           ←
         </button>
-        <span className="text-sm font-medium">Create Quicklink</span>
+        <span className="text-sm font-medium">{heading}</span>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
@@ -196,8 +293,12 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
               ref={linkRef}
               autoFocus
               rows={3}
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
+              value={state.link}
+              onChange={(e) =>
+                setState((d) => {
+                  d.link = e.target.value;
+                })
+              }
               placeholder="https://example.com/search?q={query}"
               spellCheck={false}
               className={cn(inputClass, "resize-none pr-2 font-mono text-[13px] leading-relaxed")}
@@ -262,10 +363,12 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
           <div className="flex gap-2">
             <input
               value={effectiveName}
-              onChange={(e) => {
-                setNameEdited(true);
-                setName(e.target.value);
-              }}
+              onChange={(e) =>
+                setState((d) => {
+                  d.nameEdited = true;
+                  d.name = e.target.value;
+                })
+              }
               placeholder="Quicklink name"
               className={inputClass}
             />
@@ -285,8 +388,12 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
                   <Popover.Popup className="w-64 rounded-md border border-border bg-background p-2 text-sm text-foreground shadow-lg outline-none">
                     <div className="flex flex-col gap-2">
                       <input
-                        value={icon}
-                        onChange={(e) => setIcon(e.target.value)}
+                        value={state.icon}
+                        onChange={(e) =>
+                          setState((d) => {
+                            d.icon = e.target.value;
+                          })
+                        }
                         placeholder="Emoji or image URL"
                         spellCheck={false}
                         className={inputClass}
@@ -295,7 +402,12 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
                         <button
                           type="button"
                           disabled={!host}
-                          onClick={() => host && setIcon(`https://${host}/favicon.ico`)}
+                          onClick={() =>
+                            host &&
+                            setState((d) => {
+                              d.icon = `https://${host}/favicon.ico`;
+                            })
+                          }
                           className={cn(
                             "flex-1 rounded border border-border px-2 py-1 text-xs",
                             host
@@ -307,7 +419,11 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setIcon("")}
+                          onClick={() =>
+                            setState((d) => {
+                              d.icon = "";
+                            })
+                          }
                           className="flex-1 rounded border border-border px-2 py-1 text-xs hover:bg-item-hover"
                         >
                           Automatic
@@ -323,8 +439,12 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
 
         <Row label="Alias">
           <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
+            value={state.keyword}
+            onChange={(e) =>
+              setState((d) => {
+                d.keyword = e.target.value;
+              })
+            }
             placeholder="Optional — e.g. g"
             spellCheck={false}
             className={inputClass}
@@ -333,9 +453,13 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
 
         <Row label="Open With">
           <AppPicker
-            apps={apps}
-            value={openWith}
-            onChange={setOpenWith}
+            apps={state.apps}
+            value={state.openWith}
+            onChange={(path) =>
+              setState((d) => {
+                d.openWith = path;
+              })
+            }
             defaultLabel="Default browser"
           />
         </Row>
@@ -347,7 +471,7 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
               "flex flex-wrap items-center gap-1.5 py-1",
             )}
           >
-            {tags.map((tag) => (
+            {state.tags.map((tag) => (
               <span
                 key={tag}
                 className="flex items-center gap-1 rounded bg-item-selected px-1.5 py-0.5 text-xs"
@@ -355,7 +479,11 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
                 {tag}
                 <button
                   type="button"
-                  onClick={() => setTags(tags.filter((t) => t !== tag))}
+                  onClick={() =>
+                    setState((d) => {
+                      d.tags = d.tags.filter((t) => t !== tag);
+                    })
+                  }
                   className="text-foreground-subtle hover:text-foreground"
                 >
                   ×
@@ -363,24 +491,32 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
               </span>
             ))}
             <input
-              value={tagDraft}
-              onChange={(e) => setTagDraft(e.target.value)}
+              value={state.tagDraft}
+              onChange={(e) =>
+                setState((d) => {
+                  d.tagDraft = e.target.value;
+                })
+              }
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === ",") {
                   e.preventDefault();
                   commitTag();
-                } else if (e.key === "Backspace" && !tagDraft && tags.length) {
-                  setTags(tags.slice(0, -1));
+                } else if (e.key === "Backspace" && !state.tagDraft && state.tags.length) {
+                  setState((d) => {
+                    d.tags.pop();
+                  });
                 }
               }}
               onBlur={commitTag}
-              placeholder={tags.length ? "" : "Optional — press Enter to add"}
+              placeholder={state.tags.length ? "" : "Optional — press Enter to add"}
               className="min-w-[8ch] flex-1 bg-transparent text-sm outline-none placeholder:text-foreground-subtle"
             />
           </div>
         </Row>
 
-        {error && <p className="pl-[104px] text-xs text-red-400">{error}</p>}
+        {state.error && (
+          <p className="pl-[104px] text-xs text-red-400">{state.error}</p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2 text-xs text-foreground-subtle [-webkit-app-region:drag]">
@@ -388,15 +524,15 @@ function CreateQuicklink({ seed, onCancel, onCreated }: CreateQuicklinkProps) {
         <button
           type="button"
           onClick={() => void save()}
-          disabled={saving}
+          disabled={state.saving}
           className={cn(
             "flex items-center gap-2 rounded px-2 py-1 [-webkit-app-region:no-drag]",
-            saving
+            state.saving
               ? "text-foreground-subtle"
               : "bg-item-selected text-foreground hover:bg-item-hover",
           )}
         >
-          {saving ? "Saving…" : "Save Quicklink"}
+          {state.saving ? "Saving…" : isEdit ? "Save Changes" : "Save Quicklink"}
           <kbd className="rounded border border-border px-1.5 py-0.5 font-sans">
             {formatShortcut("CommandOrControl+Enter")}
           </kbd>

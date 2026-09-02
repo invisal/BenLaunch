@@ -17,9 +17,11 @@
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "cnfast": "^0.1.0",
+    "immer": "^11.1.18",
     "mathjs": "^15.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "use-immer": "^0.11.0"
   },
   "optionalDependencies": {
     "@benpocket/win": "file:native/win",

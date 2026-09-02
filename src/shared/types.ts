@@ -23,6 +23,10 @@ export interface LauncherAction {
   view?: LauncherView
   /** Extra terms this action should also match on (e.g. a quicklink's tags). */
   tags?: string[]
+  /** Quicklink is pinned — sorts above unpinned actions in the root list. */
+  pinned?: boolean
+  /** Quicklink is hidden from the root list (still returned for an explicit search). */
+  hidden?: boolean
 }
 
 /** An evaluated expression the query itself resolved to (e.g. `"1 + 2"` → `"3"`). */
@@ -45,6 +49,12 @@ export const IPC_CHANNELS = {
   hide: 'launcher:hide',
   togglePin: 'launcher:toggle-pin',
   quicklinkCreate: 'quicklink:create',
+  quicklinkUpdate: 'quicklink:update',
+  quicklinkDelete: 'quicklink:delete',
+  quicklinkGet: 'quicklink:get',
+  quicklinkSetPinned: 'quicklink:set-pinned',
+  quicklinkSetHidden: 'quicklink:set-hidden',
+  quicklinkOpenWith: 'quicklink:open-with',
   quicklinkPickPath: 'quicklink:pick-path',
   quicklinkOpenWithApps: 'quicklink:open-with-apps'
 } as const

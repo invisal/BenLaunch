@@ -81,11 +81,47 @@ export class QuicklinkSource implements ActionSource {
     }
   }
 
+  /** Apply an Edit-form draft to an existing quicklink; surfaces validation errors. */
+  update(id: string, draft: QuicklinkDraft): QuicklinkCreateResult {
+    try {
+      const entry = this.store.update(id, draft)
+      return { ok: true, name: entry.name }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : 'Could not save.' }
+    }
+  }
+
+  /** The quicklink `id`, for the renderer's Edit / Duplicate form. */
+  get(id: string): Quicklink | undefined {
+    return this.store.get(id)
+  }
+
+  /** Delete the quicklink `id`. */
+  remove(id: string): void {
+    this.store.remove(id)
+  }
+
+  /** Pin or unpin the quicklink `id`. */
+  setPinned(id: string, pinned: boolean): void {
+    this.store.setPinned(id, pinned)
+  }
+
+  /** Hide the quicklink `id` from the root list, or reveal it. */
+  setHidden(id: string, hidden: boolean): void {
+    this.store.setHidden(id, hidden)
+  }
+
   owns(actionId: string): boolean {
     return actionId.startsWith(`${this.id}:`)
   }
 
-  async execute(actionId: string, query: string): Promise<void> {
+  /**
+   * Run a quicklink or the built-in "Edit Quicklinks" action. `openWithOverride`
+   * comes from the action panel's "Open With" submenu: a path forces that app,
+   * an empty string forces the system default (ignoring the link's saved
+   * `openWith`), and `undefined` uses whatever the link was saved with.
+   */
+  async execute(actionId: string, query: string, openWithOverride?: string): Promise<void> {
     if (actionId === EDIT_ACTION_ID) {
       await shell.openPath(this.store.filePath())
       return
@@ -101,9 +137,10 @@ export class QuicklinkSource implements ActionSource {
     })
 
     // "Open With" a specific app: hand it the target as an argument.
-    if (link.openWith && existsSync(link.openWith)) {
-      execFile(link.openWith, [target.replace(/^file:\/\//i, '')], (error) => {
-        if (error) console.error(`[quicklinks] Failed to open ${target} with ${link.openWith}:`, error)
+    const openWith = openWithOverride === undefined ? link.openWith : openWithOverride
+    if (openWith && existsSync(openWith)) {
+      execFile(openWith, [target.replace(/^file:\/\//i, '')], (error) => {
+        if (error) console.error(`[quicklinks] Failed to open ${target} with ${openWith}:`, error)
       })
       return
     }
@@ -141,7 +178,9 @@ export class QuicklinkSource implements ActionSource {
         icon: link.icon ?? monogramIcon(link.name),
         type: 'quicklink',
         ...(link.keyword ? { keyword: link.keyword } : {}),
-        ...(link.tags?.length ? { tags: link.tags } : {})
+        ...(link.tags?.length ? { tags: link.tags } : {}),
+        ...(link.pinned ? { pinned: true } : {}),
+        ...(link.hidden ? { hidden: true } : {})
       },
       run: () => {
         void this.execute(`ql:${link.id}`, query)

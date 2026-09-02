@@ -4,6 +4,32 @@
  * may import `node:*` — the renderer bundles this file too.
  */
 
+/**
+ * A stored quicklink. Persisted in `quicklinks.json` by the main-process store;
+ * the shape is shared so the renderer (the Create/Edit form, the action panel)
+ * can read one back without importing the Electron-bound store.
+ */
+export interface Quicklink {
+  /** Stable slug; the action id is `ql:<id>`. */
+  id: string
+  /** Display name, shown in the result list and fuzzy-matched. */
+  name: string
+  /** Target URL or path. May contain one `{query}` / `{argument}` / `{}` placeholder. */
+  link: string
+  /** Optional short alias: typing it as the query's first word invokes this link. */
+  keyword?: string
+  /** Emoji or image URL; defaults to a generated monogram. */
+  icon?: string
+  /** Executable to open the link with (a specific browser/app); default handler otherwise. */
+  openWith?: string
+  /** Lower-cased labels for grouping; also fuzzy-matched in search. */
+  tags?: string[]
+  /** Pinned quicklinks sort to the top of the root (empty-query) list. */
+  pinned?: boolean
+  /** Hidden from the root list, but still returned for an explicit search. */
+  hidden?: boolean
+}
+
 /** A new quicklink as entered in the Create form, before it is assigned an id. */
 export interface QuicklinkDraft {
   name: string

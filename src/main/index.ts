@@ -3,10 +3,16 @@ import type { QuicklinkDraft } from '../shared/quicklink'
 import { IPC_CHANNELS } from '../shared/types'
 import {
   createQuicklink,
+  deleteQuicklink,
   executeAction,
+  getQuicklink,
   initActionSources,
+  openQuicklinkWith,
   query,
-  refreshActionSources
+  refreshActionSources,
+  setQuicklinkHidden,
+  setQuicklinkPinned,
+  updateQuicklink
 } from './actions'
 import { captureForegroundWindow } from './native'
 import { listOpenWithApps } from './sources/apps/open-with'
@@ -79,6 +85,33 @@ app.whenReady().then(() => {
   ipcMain.handle(IPC_CHANNELS.quicklinkCreate, (_event, draft: QuicklinkDraft) => {
     return createQuicklink(draft)
   })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkUpdate, (_event, id: string, draft: QuicklinkDraft) => {
+    return updateQuicklink(id, draft)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkGet, (_event, id: string) => getQuicklink(id) ?? null)
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkDelete, (_event, id: string) => {
+    deleteQuicklink(id)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkSetPinned, (_event, id: string, pinned: boolean) => {
+    setQuicklinkPinned(id, pinned)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkSetHidden, (_event, id: string, hidden: boolean) => {
+    setQuicklinkHidden(id, hidden)
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkOpenWith,
+    (_event, id: string, text: string, appPath: string) => {
+      // Mirror the main execute handler: hide first so the launcher vanishes at once.
+      if (!pinned) launcherWindow?.hide()
+      return openQuicklinkWith(id, text, appPath)
+    }
+  )
 
   ipcMain.handle(
     IPC_CHANNELS.quicklinkPickPath,
