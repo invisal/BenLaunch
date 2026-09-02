@@ -1,4 +1,5 @@
 import { cn } from "cnfast";
+import type { ComponentPropsWithRef } from "react";
 import type { LauncherAction } from "../../../../../shared/types";
 import { formatShortcut } from "../../../lib/shortcut";
 
@@ -27,43 +28,41 @@ function ItemIcon({ icon }: { icon?: string }) {
   );
 }
 
-interface SearchItemProps {
+interface SearchItemProps extends ComponentPropsWithRef<"div"> {
   action: LauncherAction;
-  selected: boolean;
-  onClick: () => void;
+  highlighted: boolean;
 }
 
-function SearchItem({ action, selected, onClick }: SearchItemProps) {
+function SearchItem({ action, highlighted, className, ...rest }: SearchItemProps) {
   const { icon, title, subtitle, type, shortcut } = action;
 
   return (
-    <li
-      onClick={onClick}
+    <div
+      {...rest}
       className={cn(
-        "flex items-center gap-2 rounded px-1 py-1",
-        selected ? "bg-item-selected text-foreground" : "hover:bg-item-hover",
+        "flex cursor-default items-center gap-2 rounded px-1 py-1",
+        highlighted ? "bg-item-selected text-foreground" : "hover:bg-item-hover",
+        className,
       )}
     >
       <ItemIcon icon={icon} />
-      {
-        <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <span className="shrink-0 truncate">{title}</span>
-          {shortcut && selected ? (
-            <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
-              {formatShortcut(shortcut)}
-            </kbd>
-          ) : (
-            <span className="min-w-0 truncate text-foreground-subtle font-medium">
-              {subtitle}
-            </span>
-          )}
-        </div>
-      }
+      <div className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="shrink-0 truncate">{title}</span>
+        {shortcut && highlighted ? (
+          <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
+            {formatShortcut(shortcut)}
+          </kbd>
+        ) : (
+          <span className="min-w-0 truncate text-foreground-subtle font-medium">
+            {subtitle}
+          </span>
+        )}
+      </div>
 
       <span className="shrink-0 rounded px-1.5 py-0.5 text-foreground-subtle">
         {TYPE_LABEL[type]}
       </span>
-    </li>
+    </div>
   );
 }
 
