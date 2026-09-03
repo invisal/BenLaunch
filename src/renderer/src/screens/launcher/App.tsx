@@ -9,6 +9,7 @@ import { cn } from "cnfast";
 import type { Calculation, LauncherAction } from "../../../../shared/types";
 import SearchItem from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
+import CalculatorPanel from "./components/CalculatorPanel";
 
 function App() {
   const [query, setQuery] = useState("");
@@ -88,6 +89,12 @@ function App() {
           shortcut: "Enter",
           onSelect: copyCalculation,
         },
+        {
+          id: "use-as-input",
+          label: "Use as Input",
+          shortcut: "CommandOrControl+Enter",
+          onSelect: () => setQuery(calculation.rawValue),
+        },
       ];
     }
     if (!selectedAction) return [];
@@ -134,7 +141,13 @@ function App() {
       setSelectedIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      runSelected(selectedIndex);
+      if ((e.metaKey || e.ctrlKey) && calculation && selectedIndex === 0) {
+        // ⌘↵ on a calculation feeds the answer back into the search box to
+        // keep calculating, instead of copying + dismissing.
+        setQuery(calculation.rawValue);
+      } else {
+        runSelected(selectedIndex);
+      }
     } else if (e.key === "Escape") {
       e.preventDefault();
       if (query) {
@@ -162,16 +175,9 @@ function App() {
         />
       </div>
 
-      {calculation && (
-        <div className="p-2 px-4">
-          <div className="text-foreground-subtle font-medium text-xs">
-            Calculator
-          </div>
-          <div className="text-2xl flex font-medium">{calculation.value}</div>
-        </div>
-      )}
+      {calculation && <CalculatorPanel calculation={calculation} />}
 
-      <ul className="result-scroll flex-1 overflow-y-auto p-2 gap-[1px] flex flex-col">
+      <ul className="result-scroll flex-1 overflow-y-auto p-2 gap-px flex flex-col">
         {itemCount === 0 && (
           <li className="px-3 py-2 text-sm text-foreground-subtle">
             No results

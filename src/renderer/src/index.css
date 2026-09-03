@@ -7,6 +7,12 @@
   --color-foreground: #f5f5f4;
   --color-foreground-subtle: #8a8582;
   --color-border: rgb(255 255 255 / 8%);
+
+  /* Calculator expression syntax highlighting — a faint accent on units,
+     functions and constants; numbers and operators use the base tokens. */
+  --color-syntax-function: #e3c088;
+  --color-syntax-unit: #8fbf9f;
+  --color-syntax-constant: #c9a0dc;
 }
 
 /* On macOS the window is backed by an electron-liquid-glass surface, so let the
@@ -34,7 +40,7 @@ input {
   user-select: text;
 }
 
-input::selection {
+::selection {
   background: var(--color-item-selected);
   color: var(--color-foreground);
 }
