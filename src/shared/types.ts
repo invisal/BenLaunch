@@ -29,5 +29,15 @@ export const IPC_CHANNELS = {
   query: 'launcher:query',
   execute: 'launcher:execute',
   hide: 'launcher:hide',
-  togglePin: 'launcher:toggle-pin'
+  togglePin: 'launcher:toggle-pin',
+  windowShortcuts: 'window:shortcuts',
+  accessibilityStatus: 'window:accessibility-status',
+  requestAccessibility: 'window:request-accessibility'
 } as const
+
+/** A single Window Management command's display metadata, for the Settings screen. */
+export interface WindowShortcutInfo {
+  id: string
+  title: string
+  shortcut?: string
+}

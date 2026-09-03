@@ -1,12 +1,19 @@
 import { app } from "electron";
-import type { QueryResult } from "../shared/types";
+import type { QueryResult, WindowShortcutInfo } from "../shared/types";
 import { evaluate } from "./calculator";
 import { fuzzyMatch } from "./search";
+import { SettingsStore } from "./settings/store";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { Usage } from "./usage/store";
+
+/** Persisted user settings (today: Window Management shortcut overrides). Also read directly by `index.ts` to register global shortcuts. */
+export const settings = new SettingsStore({ dir: app.getPath("userData") });
+
+/** Held separately (not just in `sources`) so `getWindowShortcuts` can read its action list for the Settings screen. */
+const windowSource = new WindowManagementSource(settings);
 
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
@@ -15,7 +22,7 @@ import { Usage } from "./usage/store";
  */
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
-  new WindowManagementSource(),
+  windowSource,
   new InstalledAppSource(),
 ];
 
@@ -25,6 +32,7 @@ const usage = new Usage({ dir: app.getPath("userData") });
 /** Warm every source at startup (called from app `whenReady`). */
 export function initActionSources(): void {
   usage.init();
+  settings.init();
   for (const source of sources) source.init?.();
 }
 
@@ -66,4 +74,13 @@ export async function query(text: string): Promise<QueryResult> {
 export async function executeAction(id: string, text: string): Promise<void> {
   await sources.find((source) => source.owns(id))?.execute(id);
   usage.record(id, text);
+}
+
+/** Window Management commands' id/title/shortcut, for the Settings screen. */
+export function getWindowShortcuts(): WindowShortcutInfo[] {
+  return windowSource.provide().map((definition) => ({
+    id: definition.action.id,
+    title: definition.action.title,
+    shortcut: definition.action.shortcut,
+  }));
 }

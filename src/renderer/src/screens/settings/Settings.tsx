@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import type { WindowShortcutInfo } from '../../../../shared/types'
 import { formatShortcut } from '../../lib/shortcut'
 
 const TOGGLE_SHORTCUT =
@@ -23,7 +25,46 @@ function Row({
   )
 }
 
+function AccessibilityRow() {
+  const [trusted, setTrusted] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    window.api.getAccessibilityStatus().then(setTrusted)
+  }, [])
+
+  async function grant(): Promise<void> {
+    const result = await window.api.requestAccessibility()
+    setTrusted(result)
+  }
+
+  return (
+    <Row
+      title="Accessibility access"
+      description="Required so Window Management can move and resize other apps' windows."
+    >
+      {trusted === null ? (
+        <span className="text-xs text-foreground-subtle">Checking…</span>
+      ) : trusted ? (
+        <span className="text-xs text-foreground-subtle">Granted</span>
+      ) : (
+        <button
+          onClick={() => void grant()}
+          className="rounded border border-border px-2 py-1 text-xs text-foreground hover:bg-item-hover"
+        >
+          Grant Access
+        </button>
+      )}
+    </Row>
+  )
+}
+
 function Settings() {
+  const [windowShortcuts, setWindowShortcuts] = useState<WindowShortcutInfo[]>([])
+
+  useEffect(() => {
+    window.api.getWindowShortcuts().then(setWindowShortcuts)
+  }, [])
+
   return (
     <div className="h-screen w-screen overflow-y-auto bg-background text-foreground">
       <div className="mx-auto max-w-2xl px-6 py-8">
@@ -50,6 +91,24 @@ function Settings() {
           >
             <input type="checkbox" disabled />
           </Row>
+        </section>
+
+        <section className="mt-6">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-foreground-subtle">
+            Window Management
+          </h2>
+          {window.api.platform === 'darwin' && <AccessibilityRow />}
+          {windowShortcuts.map((command) => (
+            <Row key={command.id} title={command.title} description="Window Management">
+              {command.shortcut ? (
+                <kbd className="rounded border border-border px-2 py-1 font-sans text-xs text-foreground-subtle">
+                  {formatShortcut(command.shortcut)}
+                </kbd>
+              ) : (
+                <span className="text-xs text-foreground-subtle">Disabled</span>
+              )}
+            </Row>
+          ))}
         </section>
 
         <p className="mt-8 text-xs text-foreground-subtle">
