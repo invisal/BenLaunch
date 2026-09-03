@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { cn } from "cnfast";
-import type { Calculation, LauncherAction } from "../../../../shared/types";
+import type {
+  Calculation,
+  LauncherAction,
+  QuickValueUpdate,
+} from "../../../../shared/types";
 import SearchItem from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
 import CalculatorPanel from "./components/CalculatorPanel";
@@ -14,6 +18,11 @@ function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<LauncherAction[]>([]);
   const [calculation, setCalculation] = useState<Calculation | null>(null);
+  // Live overrides for exposed QuickValue rows, pushed from the main process as
+  // their async functions resolve. Keyed by the full action id (`qv:<slug>`).
+  const [qvLive, setQvLive] = useState<
+    Map<string, { subtitle: string; isLoading: boolean }>
+  >(new Map());
   const [highlightedRow, setHighlightedRow] = useState<Row | null>(null);
   const [pinned, setPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -31,6 +40,19 @@ function App() {
     focusAndSelect();
     window.addEventListener("focus", focusAndSelect);
     return () => window.removeEventListener("focus", focusAndSelect);
+  }, []);
+
+  useEffect(() => {
+    return window.api.onQuickValueUpdate((update: QuickValueUpdate) => {
+      setQvLive((prev) => {
+        const next = new Map(prev);
+        next.set(`qv:${update.id}`, {
+          subtitle: update.subtitle,
+          isLoading: update.isLoading,
+        });
+        return next;
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -53,10 +75,16 @@ function App() {
     const list: Row[] = [];
     if (calculation) list.push({ key: "__calc__", kind: "calc", calculation });
     for (const action of results) {
-      list.push({ key: action.id, kind: "action", action });
+      const override =
+        action.type === "quickvalue" ? qvLive.get(action.id) : undefined;
+      list.push({
+        key: action.id,
+        kind: "action",
+        action: override ? { ...action, ...override } : action,
+      });
     }
     return list;
-  }, [calculation, results]);
+  }, [calculation, results, qvLive]);
 
   function dismiss(): void {
     setQuery("");
@@ -73,6 +101,14 @@ function App() {
   function runRow(row: Row): void {
     if (row.kind === "calc") {
       copyCalculation();
+      return;
+    }
+    if (row.action.type === "quickvalue") {
+      // The row is a value, not an action — Enter copies it, like the calc row.
+      if (row.action.subtitle) {
+        void navigator.clipboard.writeText(row.action.subtitle);
+      }
+      dismiss();
       return;
     }
     void window.api.execute(row.action.id, query);
@@ -100,6 +136,32 @@ function App() {
       ];
     }
     const { action } = active;
+    if (action.type === "quickvalue") {
+      const slug = action.id.slice("qv:".length);
+      return [
+        {
+          id: "copy-value",
+          label: "Copy Value",
+          shortcut: "Enter",
+          onSelect: () => runRow(active),
+        },
+        {
+          id: "refresh",
+          label: "Refresh",
+          onSelect: () => void window.api.execute(action.id, query),
+        },
+        {
+          id: "edit",
+          label: "Edit QuickValue",
+          onSelect: () => void window.api.execute(`qv:edit:${slug}`, query),
+        },
+        {
+          id: "manage",
+          label: "Manage QuickValues",
+          onSelect: () => void window.api.execute("cmd:quickvalue-manage", query),
+        },
+      ];
+    }
     return [
       {
         id: "run",
@@ -121,7 +183,7 @@ function App() {
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightedRow, rows, pinned]);
+  }, [highlightedRow, rows, pinned, query]);
 
   useEffect(() => {
     function onGlobalKeyDown(e: globalThis.KeyboardEvent): void {

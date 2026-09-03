@@ -6,6 +6,7 @@ import { formatShortcut } from "../../../lib/shortcut";
 const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   application: "Application",
   command: "Command",
+  quickvalue: "QuickValue",
 };
 
 function isImageIcon(icon: string): boolean {
@@ -33,8 +34,17 @@ interface SearchItemProps extends ComponentPropsWithRef<"div"> {
   highlighted: boolean;
 }
 
+function Spinner() {
+  return (
+    <span
+      className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border border-foreground-subtle border-t-transparent"
+      aria-label="Loading"
+    />
+  );
+}
+
 function SearchItem({ action, highlighted, className, ...rest }: SearchItemProps) {
-  const { icon, title, subtitle, type, shortcut } = action;
+  const { icon, title, subtitle, type, shortcut, isLoading } = action;
 
   return (
     <div
@@ -52,6 +62,8 @@ function SearchItem({ action, highlighted, className, ...rest }: SearchItemProps
           <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
             {formatShortcut(shortcut)}
           </kbd>
+        ) : isLoading ? (
+          <Spinner />
         ) : (
           <span className="min-w-0 truncate text-foreground-subtle font-medium">
             {subtitle}

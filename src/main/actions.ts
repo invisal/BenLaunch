@@ -1,13 +1,36 @@
 import { app } from "electron";
-import type { QueryResult } from "../shared/types";
-import { evaluate } from "./calculator/index.ts";
+import type { QueryResult, QuickValueUpdate } from "../shared/types";
+import { evaluate } from "./calculator";
 import { fuzzyMatch } from "./search";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
+import { QuickValueRunner } from "./sources/quickvalue/runner";
+import { QuickValueSource } from "./sources/quickvalue/source";
+import { QuickValueStore } from "./sources/quickvalue/store";
 import { Usage } from "./usage/store";
+
+/** Set by `subscribeQuickValueUpdates` once the launcher window exists. */
+let quickValueUpdateListener: ((update: QuickValueUpdate) => void) | null =
+  null;
+
+/** Persisted QuickValue definitions + the cache of their last computed values. */
+export const quickValueStore = new QuickValueStore({
+  dir: app.getPath("userData"),
+});
+export const quickValueRunner = new QuickValueRunner({
+  dir: app.getPath("userData"),
+  onUpdate: (update) => quickValueUpdateListener?.(update),
+});
+
+/** Forward exposed-QuickValue value changes to the launcher window. */
+export function subscribeQuickValueUpdates(
+  listener: (update: QuickValueUpdate) => void,
+): void {
+  quickValueUpdateListener = listener;
+}
 
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
@@ -17,6 +40,7 @@ import { Usage } from "./usage/store";
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   new WindowManagementSource(),
+  new QuickValueSource(quickValueStore, quickValueRunner),
   new InstalledAppSource(),
   new ExchangeRateSource(),
 ];
@@ -69,5 +93,6 @@ export async function query(text: string): Promise<QueryResult> {
 
 export async function executeAction(id: string, text: string): Promise<void> {
   await sources.find((source) => source.owns(id))?.execute(id);
-  usage.record(id, text);
+  // `qv:edit:*` is a UI shortcut (open the editor), not a real action to rank.
+  if (!id.startsWith("qv:edit:")) usage.record(id, text);
 }
