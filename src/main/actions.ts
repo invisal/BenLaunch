@@ -1,6 +1,6 @@
 import { app } from "electron";
 import type { QueryResult } from "../shared/types";
-import { evaluate } from "./calculator";
+import { evaluate } from "./calculator/index.ts";
 import { fuzzyMatch } from "./search";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";

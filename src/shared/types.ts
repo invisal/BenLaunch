@@ -11,12 +11,32 @@ export interface LauncherAction {
   shortcut?: string
 }
 
+/** One run of an expression, classified for syntax highlighting. */
+export type CalcTokenKind =
+  | 'number'
+  | 'operator'
+  | 'paren'
+  | 'function'
+  | 'constant'
+  | 'unit'
+  | 'punct'
+  | 'whitespace'
+
+export interface CalcToken {
+  text: string
+  kind: CalcTokenKind
+}
+
 /** An evaluated expression the query itself resolved to (e.g. `"1 + 2"` → `"3"`). */
 export interface Calculation {
-  /** The expression as the user typed it (trimmed). */
+  /** The normalized expression — spoken forms rewritten to symbols, trimmed. */
   expression: string
   /** The formatted result, ready to display or copy. */
   value: string
+  /** The result without grouping separators, for pasting into code / feeding back in. */
+  rawValue: string
+  /** `expression` split for syntax highlighting; absent when it could not be tokenized. */
+  tokens?: CalcToken[]
 }
 
 /** What a query resolves to: the ranked actions, plus an optional inline answer. */
