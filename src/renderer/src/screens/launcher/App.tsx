@@ -1,15 +1,10 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { cn } from "cnfast";
 import type { Calculation, LauncherAction } from "../../../../shared/types";
 import SearchItem from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
+import CalculatorPanel from "./components/CalculatorPanel";
 
 type Row =
   | { key: string; kind: "calc"; calculation: Calculation }
@@ -88,12 +83,19 @@ function App() {
     const active = highlightedRow ?? rows[0] ?? null;
     if (!active) return [];
     if (active.kind === "calc") {
+      const { calculation: calc } = active;
       return [
         {
           id: "copy-result",
           label: "Copy Result",
           shortcut: "Enter",
           onSelect: copyCalculation,
+        },
+        {
+          id: "use-as-input",
+          label: "Use as Input",
+          shortcut: "CommandOrControl+Enter",
+          onSelect: () => setQuery(calc.rawValue),
         },
       ];
     }
@@ -135,6 +137,16 @@ function App() {
   // Arrow keys / Enter are handled by Autocomplete; we only add the launcher's
   // own shortcuts on top.
   function onInputKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      // ⌘↵ on a calculation feeds the answer back into the search box to keep
+      // calculating, instead of copying + dismissing.
+      const active = highlightedRow ?? rows[0] ?? null;
+      if (active?.kind === "calc") {
+        e.preventDefault();
+        setQuery(active.calculation.rawValue);
+      }
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       if (query) {
@@ -180,20 +192,11 @@ function App() {
                 onClick={() => runRow(row)}
                 render={(props, state) =>
                   row.kind === "calc" ? (
-                    <div
+                    <CalculatorPanel
                       {...props}
-                      className={cn(
-                        "cursor-default rounded p-2 px-3",
-                        state.highlighted && "bg-item-selected text-foreground",
-                      )}
-                    >
-                      <div className="text-foreground-subtle font-medium text-xs">
-                        Calculator
-                      </div>
-                      <div className="text-2xl flex font-medium">
-                        {row.calculation.value}
-                      </div>
-                    </div>
+                      calculation={row.calculation}
+                      highlighted={state.highlighted}
+                    />
                   ) : (
                     <SearchItem
                       {...props}
