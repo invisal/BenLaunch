@@ -8,6 +8,21 @@ test('returns the value from a module.exports async function', async () => {
   assert.deepEqual(result, { ok: true, value: 42 })
 })
 
+test('strips TypeScript type annotations before running', async () => {
+  const result = await runUserCode(
+    'module.exports = async (): Promise<{ value: number }> => {\n' +
+      '  const n: number = 21\n' +
+      '  return { value: n * 2 } satisfies { value: number }\n' +
+      '}'
+  )
+  assert.deepEqual(result, { ok: true, value: 42 })
+})
+
+test('reports a TypeScript syntax error', async () => {
+  const result = await runUserCode('module.exports = () => ({ value: :: })')
+  assert.equal(result.ok, false)
+})
+
 test('supports a default export and string values', async () => {
   const result = await runUserCode('exports.default = () => ({ value: "hi" })')
   assert.deepEqual(result, { ok: true, value: 'hi' })

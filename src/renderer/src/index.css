@@ -28,18 +28,16 @@ body,
   margin: 0;
   overflow: hidden;
   background: transparent;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 body {
   font-size: 14px;
 }
 
-input {
-  -webkit-user-select: text;
-  user-select: text;
-}
+/* Per-window CSS lives next to each screen's entry (e.g.
+   `screens/launcher/launcher.css`), imported after this file. Anything that
+   should NOT reach every window — the launcher's `user-select: none`, say —
+   belongs there, not here. */
 
 ::selection {
   background: var(--color-item-selected);

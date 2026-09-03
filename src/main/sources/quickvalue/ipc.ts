@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { IPC_CHANNELS, type QuickValueDraft } from '../../shared/types'
+import { IPC_CHANNELS, type QuickValueDraft } from '../../../shared/types'
 import type { QuickValueRunner } from './runner'
 import type { QuickValueStore } from './store'
 

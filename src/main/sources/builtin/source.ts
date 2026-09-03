@@ -3,7 +3,7 @@ import { exec } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ActionDefinition } from '../../types'
-import { openQuickValueWindow } from '../../quickvalue-window'
+import { openQuickValueWindow } from '../quickvalue/window'
 import { openSettingsWindow } from '../../settings-window'
 import type { ActionSource } from '../base'
 

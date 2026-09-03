@@ -1,15 +1,15 @@
 import { app } from "electron";
 import type { QueryResult, QuickValueUpdate } from "../shared/types";
 import { evaluate } from "./calculator";
-import { QuickValueRunner } from "./quickvalue/runner";
-import { QuickValueSource } from "./quickvalue/source";
-import { QuickValueStore } from "./quickvalue/store";
 import { fuzzyMatch } from "./search";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
+import { QuickValueRunner } from "./sources/quickvalue/runner";
+import { QuickValueSource } from "./sources/quickvalue/source";
+import { QuickValueStore } from "./sources/quickvalue/store";
 import { Usage } from "./usage/store";
 
 /** Set by `subscribeQuickValueUpdates` once the launcher window exists. */

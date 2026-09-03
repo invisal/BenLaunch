@@ -4,14 +4,14 @@
  * mirroring the app-list stale-then-refresh behaviour.
  *
  * The value cache (`quickvalue-values.json`) uses the same atomic temp-write +
- * rename as `usage/store.ts`. The actual code execution happens in
- * `native/quickvalue-worker.js`, spawned per run; `runCode` is injectable so the
- * `node --test` suite can drive the runner without a build.
+ * rename as `usage/store.ts`. The actual code execution happens in `./worker.ts`
+ * (bundled as `quickvalue-worker.js`), spawned per run; `runCode` is injectable
+ * so the `node --test` suite can drive the runner without a build.
  */
 import { spawn } from 'node:child_process'
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { QuickValueTestResult, QuickValueUpdate } from '../../shared/types'
+import type { QuickValueTestResult, QuickValueUpdate } from '../../../shared/types'
 import type { UserCodeResult } from './run-user-code'
 
 /** Bumped when the persisted shape changes, to invalidate old files. */
@@ -213,7 +213,15 @@ function spawnWorker(code: string, timeoutMs: number): Promise<UserCodeResult> {
   return new Promise((resolve) => {
     const workerPath = join(__dirname, 'quickvalue-worker.js')
     const child = spawn(process.execPath, [workerPath], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        // `stripTypeScriptTypes` (used in run-user-code) is still experimental and
+        // prints a warning to stderr on first use; keep the worker's stderr clean.
+        NODE_OPTIONS: [process.env.NODE_OPTIONS, '--disable-warning=ExperimentalWarning']
+          .filter(Boolean)
+          .join(' ')
+      },
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true
     })

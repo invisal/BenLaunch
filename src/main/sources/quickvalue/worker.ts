@@ -1,14 +1,16 @@
 /**
- * Runs one QuickValue's user function out-of-process, spawned by
- * `quickvalue/runner.ts` via `ELECTRON_RUN_AS_NODE` — never inside Electron's
- * browser process, so a slow `fetch(...)` or a runaway loop can't freeze window
- * paint / IPC. Mirrors `apps-worker.ts`: read input, write one JSON blob to
- * stdout, exit.
+ * Runs one QuickValue's user function out-of-process, spawned by `runner.ts` via
+ * `ELECTRON_RUN_AS_NODE` — never inside Electron's browser process, so a slow
+ * `fetch(...)` or a runaway loop can't freeze window paint / IPC. Mirrors
+ * `native/apps-worker.ts`: read input, write one JSON blob to stdout, exit.
+ *
+ * Bundled as its own electron.vite `main` entry (key `quickvalue-worker`, so the
+ * output is `quickvalue-worker.js` next to `index.js`); `runner.ts` spawns it.
  *
  *   stdin  : { "code": string, "timeoutMs"?: number }
  *   stdout : { "ok": true, "value": string|number|null } | { "ok": false, "error": string }
  */
-import { runUserCode, type UserCodeResult } from '../quickvalue/run-user-code'
+import { runUserCode, type UserCodeResult } from './run-user-code'
 
 async function readStdin(): Promise<string> {
   process.stdin.setEncoding('utf8')

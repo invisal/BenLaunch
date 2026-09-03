@@ -6,7 +6,7 @@ import { afterEach, beforeEach, test } from 'node:test'
 
 import { QuickValueRunner } from './runner.ts'
 import type { UserCodeResult } from './run-user-code.ts'
-import type { QuickValueUpdate } from '../../shared/types.ts'
+import type { QuickValueUpdate } from '../../../shared/types.ts'
 
 let dir: string
 

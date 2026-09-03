@@ -10,7 +10,7 @@
  */
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { QuickValueDef, QuickValueDraft } from '../../shared/types'
+import type { QuickValueDef, QuickValueDraft } from '../../../shared/types'
 
 /** Bumped when the persisted shape changes, to invalidate old files. */
 const CACHE_VERSION = 1

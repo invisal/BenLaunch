@@ -32,7 +32,7 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
           lineNumbers(),
           history(),
           keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
-          javascript(),
+          javascript({ typescript: true }),
           oneDark,
           EditorView.theme({
             '&': { height: '100%', fontSize: '13px' },

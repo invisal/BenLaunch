@@ -1,7 +1,7 @@
 import { clipboard } from 'electron'
-import type { ActionDefinition } from '../types'
-import type { ActionSource } from '../sources/base'
-import { openQuickValueWindow } from '../quickvalue-window'
+import type { ActionDefinition } from '../../types'
+import type { ActionSource } from '../base'
+import { openQuickValueWindow } from './window'
 import type { QuickValueRunner } from './runner'
 import type { QuickValueStore } from './store'
 

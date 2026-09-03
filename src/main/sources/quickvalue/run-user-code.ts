@@ -2,12 +2,17 @@
  * Runs a QuickValue's user-authored code and normalizes what it returns.
  *
  * Kept as a standalone, Electron-free module so both the out-of-process worker
- * (`native/quickvalue-worker.ts`) and the `node --test` suite can use it. It is
+ * (`./worker.ts`) and the `node --test` suite can use it. It is
  * NOT a security sandbox — the code runs with full Node access, on purpose (see
  * the plan's "Known tradeoff"). The process boundary and the timeout are what
  * keep a slow or runaway QuickValue from hurting the launcher.
+ *
+ * Snippets are authored in TypeScript. We strip the types with Node's built-in
+ * `stripTypeScriptTypes` before eval — `mode: 'strip'` only removes annotations
+ * (keeping byte offsets, so error line numbers still match the editor), so
+ * `enum` / `namespace` / parameter properties are not supported.
  */
-import { createRequire } from 'node:module'
+import { createRequire, stripTypeScriptTypes } from 'node:module'
 
 export interface UserCodeOk {
   ok: true
@@ -22,7 +27,7 @@ export type UserCodeResult = UserCodeOk | UserCodeErr
 export const DEFAULT_TIMEOUT_MS = 10_000
 
 const CONTRACT_HINT =
-  'QuickValue code must export a function, e.g. `module.exports = async () => ({ value })`'
+  'QuickValue code must export a function, e.g. `module.exports = async (): Promise<{ value: string }> => ({ value })`'
 
 export async function runUserCode(
   code: string,
@@ -31,8 +36,9 @@ export async function runUserCode(
   try {
     const require = createRequire(import.meta.url)
     const mod: { exports: unknown } = { exports: {} }
+    const js = stripTypeScriptTypes(code, { mode: 'strip' })
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const wrapper = new Function('module', 'exports', 'require', code) as (
+    const wrapper = new Function('module', 'exports', 'require', js) as (
       m: typeof mod,
       e: unknown,
       r: NodeRequire

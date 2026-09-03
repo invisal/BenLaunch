@@ -26,8 +26,9 @@ export default defineConfig({
           // as `join(__dirname, 'apps-worker.js')` at runtime.
           'apps-worker': resolve(__dirname, 'src/main/native/apps-worker.ts'),
           // Runs a QuickValue's user function out-of-process (same reason as above);
-          // src/main/quickvalue/runner.ts spawns it as `quickvalue-worker.js`.
-          'quickvalue-worker': resolve(__dirname, 'src/main/native/quickvalue-worker.ts')
+          // src/main/sources/quickvalue/runner.ts spawns it as `quickvalue-worker.js`
+          // (the input key below sets the output name).
+          'quickvalue-worker': resolve(__dirname, 'src/main/sources/quickvalue/worker.ts')
         }
       }
     }

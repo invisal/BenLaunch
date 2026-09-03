@@ -9,7 +9,7 @@ import {
   refreshActionSources,
   subscribeQuickValueUpdates
 } from './actions'
-import { registerQuickValueIpc } from './quickvalue/ipc'
+import { registerQuickValueIpc } from './sources/quickvalue/ipc'
 import { captureForegroundWindow } from './native'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
