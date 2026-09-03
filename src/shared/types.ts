@@ -1,4 +1,4 @@
-export type LauncherActionType = 'application' | 'command'
+export type LauncherActionType = 'application' | 'command' | 'quickvalue'
 
 export interface LauncherAction {
   id: string
@@ -9,6 +9,41 @@ export interface LauncherAction {
   type: LauncherActionType
   /** Electron accelerator string, e.g. "CommandOrControl+1" */
   shortcut?: string
+  /**
+   * The action is resolving a value in the background (e.g. a QuickValue running
+   * its async function). The list shows a spinner instead of the subtitle.
+   */
+  isLoading?: boolean
+}
+
+/** A user-authored QuickValue definition. Crosses IPC to the manage window. */
+export interface QuickValueDef {
+  /** Stable slug, derived from `name` on creation; used in the action id `qv:<id>`. */
+  id: string
+  name: string
+  code: string
+  exposed: boolean
+}
+
+/** A QuickValue draft on its way in from the editor (no id yet when creating). */
+export interface QuickValueDraft {
+  id?: string
+  name: string
+  code: string
+  exposed: boolean
+}
+
+/** One-shot run result, for the editor's "Test" button. */
+export type QuickValueTestResult =
+  | { ok: true; value: string | number | null }
+  | { ok: false; error: string }
+
+/** Pushed to the launcher when an exposed QuickValue's value changes. */
+export interface QuickValueUpdate {
+  /** Bare slug; the launcher matches the row `qv:<id>`. */
+  id: string
+  subtitle: string
+  isLoading: boolean
 }
 
 /** One run of an expression, classified for syntax highlighting. */
@@ -51,5 +86,13 @@ export const IPC_CHANNELS = {
   query: 'launcher:query',
   execute: 'launcher:execute',
   hide: 'launcher:hide',
-  togglePin: 'launcher:toggle-pin'
+  togglePin: 'launcher:toggle-pin',
+  quickValueList: 'quickvalue:list',
+  quickValueGet: 'quickvalue:get',
+  quickValueSave: 'quickvalue:save',
+  quickValueDelete: 'quickvalue:delete',
+  quickValueSetExposed: 'quickvalue:set-exposed',
+  quickValueTest: 'quickvalue:test',
+  /** main → launcher window: an exposed QuickValue's value changed. */
+  quickValueUpdate: 'quickvalue:update'
 } as const

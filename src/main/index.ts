@@ -1,6 +1,15 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
-import { executeAction, initActionSources, query, refreshActionSources } from './actions'
+import {
+  executeAction,
+  initActionSources,
+  query,
+  quickValueRunner,
+  quickValueStore,
+  refreshActionSources,
+  subscribeQuickValueUpdates
+} from './actions'
+import { registerQuickValueIpc } from './quickvalue/ipc'
 import { captureForegroundWindow } from './native'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
@@ -40,6 +49,11 @@ app.whenReady().then(() => {
   // Warm every action source now (apps: disk cache, then a background worker run)
   // instead of waiting for the renderer's first search.
   initActionSources()
+
+  registerQuickValueIpc(quickValueStore, quickValueRunner)
+  subscribeQuickValueUpdates((update) => {
+    launcherWindow?.webContents.send(IPC_CHANNELS.quickValueUpdate, update)
+  })
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
     return query(text)
