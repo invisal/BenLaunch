@@ -6,6 +6,7 @@ import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { WindowManagementSource } from "./sources/window/source";
+import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
 import { Usage } from "./usage/store";
 
 /**
@@ -17,6 +18,7 @@ const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   new WindowManagementSource(),
   new InstalledAppSource(),
+  new ExchangeRateSource(),
 ];
 
 /** Personalized ranking signal — records what the user picks, boosts it next time. */
@@ -34,7 +36,9 @@ export function refreshActionSources(): void {
 }
 
 export async function query(text: string): Promise<QueryResult> {
-  const lists = await Promise.all(sources.map((source) => source.provide(text)));
+  const lists = await Promise.all(
+    sources.map((source) => source.provide(text)),
+  );
   const definitions = lists.flat();
 
   const trimmed = text.trim();

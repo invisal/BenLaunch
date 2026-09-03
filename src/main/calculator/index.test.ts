@@ -5,8 +5,8 @@ import { evaluate } from './index.ts'
 
 /**
  * The whole pipeline: raw query in, `Calculation` (or `null`) out. Exercises
- * shared `normalize` + the evaluator chain end-to-end. Per-evaluator behaviour
- * is covered in `evaluators/<name>/`.
+ * shared `normalize` + the evaluator chain (`math`, `currency`) end-to-end.
+ * Per-evaluator behaviour is covered in `evaluators/<name>/`.
  */
 
 const resolves: ReadonlyArray<{ query: string; value: string; expression: string }> = [
@@ -53,3 +53,18 @@ for (const query of nullCases) {
     assert.equal(evaluate(query), null)
   })
 }
+
+test('framing is stripped before an evaluator sees the query', () => {
+  // "what is …" + trailing "=" gone → math evaluates "7 * 6".
+  const calc = evaluate('what is 7 * 6 =')
+  assert.equal(calc?.value, '42')
+  assert.equal(calc?.expression, '7 * 6')
+})
+
+test('a currency query is claimed by currency, not math', () => {
+  // Uses the bundled seed rates (no network); assert the shape, not the number.
+  const calc = evaluate('10 usd in eur')
+  assert.ok(calc)
+  assert.match(calc.expression, /^10 USD → EUR/)
+  assert.match(calc.value, /^€/)
+})

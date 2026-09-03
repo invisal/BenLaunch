@@ -15,6 +15,7 @@ const cases: ReadonlyArray<{ raw: string; expected: string }> = [
   { raw: 'whats 7 * 6', expected: '7 * 6' },
   { raw: 'calculate 7 * 6', expected: '7 * 6' },
   { raw: 'compute 7 * 6', expected: '7 * 6' },
+  { raw: 'convert 10 usd to eur', expected: '10 usd to eur' },
   { raw: 'What Is the time in tokyo', expected: 'the time in tokyo' },
 
   // Trailing punctuation.

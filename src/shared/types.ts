@@ -37,6 +37,8 @@ export interface Calculation {
   rawValue: string
   /** `expression` split for syntax highlighting; absent when it could not be tokenized. */
   tokens?: CalcToken[]
+  /** Small print shown bottom-right of the result — e.g. currency's "Updated 2 days ago". */
+  footnote?: string
 }
 
 /** What a query resolves to: the ranked actions, plus an optional inline answer. */
