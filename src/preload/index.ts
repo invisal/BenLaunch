@@ -1,11 +1,18 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
   OpenWithApp,
   Quicklink,
   QuicklinkCreateResult,
   QuicklinkDraft
 } from '../shared/quicklink'
-import { IPC_CHANNELS, type QueryResult } from '../shared/types'
+import {
+  IPC_CHANNELS,
+  type QueryResult,
+  type QuickValueDef,
+  type QuickValueDraft,
+  type QuickValueTestResult,
+  type QuickValueUpdate
+} from '../shared/types'
 
 const api = {
   platform: process.platform,
@@ -30,7 +37,31 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWith, id, text, appPath),
   pickQuicklinkPath: (type: 'file' | 'directory'): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkPickPath, type),
-  openWithApps: (): Promise<OpenWithApp[]> => ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWithApps)
+  openWithApps: (): Promise<OpenWithApp[]> =>
+    ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWithApps),
+
+  /** QuickValue manager window ↔ main. */
+  quickValue: {
+    list: (): Promise<QuickValueDef[]> => ipcRenderer.invoke(IPC_CHANNELS.quickValueList),
+    get: (id: string): Promise<QuickValueDef | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.quickValueGet, id),
+    save: (draft: QuickValueDraft): Promise<QuickValueDef> =>
+      ipcRenderer.invoke(IPC_CHANNELS.quickValueSave, draft),
+    delete: (id: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.quickValueDelete, id),
+    setExposed: (id: string, exposed: boolean): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.quickValueSetExposed, id, exposed),
+    test: (code: string): Promise<QuickValueTestResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.quickValueTest, code)
+  },
+
+  /** Launcher: subscribe to exposed-QuickValue value changes. Returns an unsubscribe fn. */
+  onQuickValueUpdate: (callback: (update: QuickValueUpdate) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, update: QuickValueUpdate): void => callback(update)
+    ipcRenderer.on(IPC_CHANNELS.quickValueUpdate, listener)
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.quickValueUpdate, listener)
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('api', api)

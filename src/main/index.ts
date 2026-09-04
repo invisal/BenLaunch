@@ -9,11 +9,15 @@ import {
   initActionSources,
   openQuicklinkWith,
   query,
+  quickValueRunner,
+  quickValueStore,
   refreshActionSources,
   setQuicklinkHidden,
   setQuicklinkPinned,
+  subscribeQuickValueUpdates,
   updateQuicklink
 } from './actions'
+import { registerQuickValueIpc } from './sources/quickvalue/ipc'
 import { captureForegroundWindow } from './native'
 import { listOpenWithApps } from './sources/apps/open-with'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
@@ -65,6 +69,11 @@ app.whenReady().then(() => {
   // Warm every action source now (apps: disk cache, then a background worker run)
   // instead of waiting for the renderer's first search.
   initActionSources()
+
+  registerQuickValueIpc(quickValueStore, quickValueRunner)
+  subscribeQuickValueUpdates((update) => {
+    launcherWindow?.webContents.send(IPC_CHANNELS.quickValueUpdate, update)
+  })
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
     return query(text)
