@@ -87,20 +87,30 @@ function App() {
   // The list feeds Base UI's Autocomplete: the calculation, when present, is the
   // first row, then the ranked actions. Filtering/ranking stays in the main
   // process (`mode="none"`); Base UI only owns keyboard navigation and a11y.
+  //
+  // Deliberately NOT keyed on `qvLive`: a background QuickValue update must not
+  // change row identity. Autocomplete tracks the highlighted item by identity
+  // in this `rows`/`items` array, so rebuilding it on every live push (which,
+  // since deferred rows fetch on mount, happens continuously while scrolling)
+  // made it lose track of the highlighted item and fall back to re-highlighting
+  // the first row — which then yanked the list back to the top. Live values are
+  // merged in at the point of use instead (`getLiveAction` below), so a push
+  // only re-renders the affected `SearchItem`, never the row list itself.
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = [];
     if (calculation) list.push({ key: "__calc__", kind: "calc", calculation });
     for (const action of results) {
-      const override =
-        action.type === "quickvalue" ? qvLive.get(action.id) : undefined;
-      list.push({
-        key: action.id,
-        kind: "action",
-        action: override ? { ...action, ...override } : action,
-      });
+      list.push({ key: action.id, kind: "action", action });
     }
     return list;
-  }, [calculation, results, qvLive]);
+  }, [calculation, results]);
+
+  /** Overlay a QuickValue row's live subtitle/isLoading, without touching row identity. */
+  function getLiveAction(action: LauncherAction): LauncherAction {
+    if (action.type !== "quickvalue") return action;
+    const override = qvLive.get(action.id);
+    return override ? { ...action, ...override } : action;
+  }
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -129,8 +139,9 @@ function App() {
     }
     if (row.action.type === "quickvalue") {
       // The row is a value, not an action — Enter copies it, like the calc row.
-      if (row.action.subtitle) {
-        void navigator.clipboard.writeText(row.action.subtitle);
+      const subtitle = getLiveAction(row.action).subtitle;
+      if (subtitle) {
+        void navigator.clipboard.writeText(subtitle);
       }
       dismiss();
       return;
@@ -259,12 +270,12 @@ function App() {
       autoHighlight="always"
       onItemHighlighted={(row, { index }) => {
         setHighlightedRow(row ?? null);
-        // Rows are rebuilt (new object identities) whenever query results or
-        // QuickValue live updates land, which re-fires this callback even
-        // though the highlighted *index* hasn't moved. Only scroll when the
-        // index actually changes, so a background data refresh doesn't yank
-        // the list back to the highlighted row while the user has scrolled
-        // elsewhere.
+        // Rows are rebuilt (new object identities) whenever query results
+        // change, which re-fires this callback even though the highlighted
+        // *index* hasn't moved. Only scroll when the index actually changes,
+        // so a results refresh doesn't yank the list back to the highlighted
+        // row while the user has scrolled elsewhere. (QuickValue live updates
+        // no longer rebuild `rows` at all — see the comment above `rows`.)
         if (row && index !== lastHighlightedIndex.current) {
           lastHighlightedIndex.current = index;
           queueMicrotask(() => virtualizer.scrollToIndex(index, { align: "auto" }));
@@ -314,7 +325,7 @@ function App() {
                     ) : (
                       <SearchItem
                         {...props}
-                        action={row.action}
+                        action={getLiveAction(row.action)}
                         highlighted={state.highlighted}
                       />
                     )

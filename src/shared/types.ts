@@ -14,6 +14,14 @@ export interface LauncherAction {
    * its async function). The list shows a spinner instead of the subtitle.
    */
   isLoading?: boolean
+  /**
+   * The subtitle isn't computed up front — it needs an IPC round-trip to fetch
+   * (e.g. a QuickValue's cached/live value). The renderer requests it only once
+   * the row actually renders (virtualization keeps this lazy: off-screen rows
+   * never fire the request), rather than the action source computing it eagerly
+   * for every row on every `provide()`.
+   */
+  isDeferredSubtitle?: boolean
 }
 
 /** A user-authored QuickValue definition. Crosses IPC to the manage window. */
@@ -87,6 +95,9 @@ export const IPC_CHANNELS = {
   execute: 'launcher:execute',
   hide: 'launcher:hide',
   togglePin: 'launcher:toggle-pin',
+  /** launcher → main: a deferred-subtitle row (`isDeferredSubtitle`) rendered;
+   *  whichever source owns it should fetch/refresh its subtitle. Not QuickValue-specific. */
+  requestSubtitle: 'launcher:request-subtitle',
   quickValueList: 'quickvalue:list',
   quickValueGet: 'quickvalue:get',
   quickValueSave: 'quickvalue:save',

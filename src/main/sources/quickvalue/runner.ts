@@ -109,13 +109,30 @@ export class QuickValueRunner {
     return this.inFlight.has(id)
   }
 
-  /** Re-run `id` unless a run is already in flight or its value is still fresh. */
-  refreshIfStale(id: string, code: string, ttlMs: number = DEFAULT_TTL_MS): void {
+  /**
+   * Re-run `id` unless a run is already in flight or its value is still fresh.
+   * Resolves once settled either way, so a caller can await "is this up to date
+   * now" — a no-op call resolves immediately.
+   */
+  refreshIfStale(id: string, code: string, ttlMs: number = DEFAULT_TTL_MS): Promise<void> {
     this.init()
-    if (this.inFlight.has(id)) return
+    const existing = this.inFlight.get(id)
+    if (existing) {
+      console.log(`[quickvalue] ${id}: skip run — already in flight`)
+      return existing
+    }
     const cached = this.values[id]
-    if (cached && this.now() - cached.fetchedAt < ttlMs) return
-    void this.run(id, code)
+    if (cached) {
+      const age = this.now() - cached.fetchedAt
+      if (age < ttlMs) {
+        console.log(`[quickvalue] ${id}: skip run — cache fresh (age ${age}ms, ttl ${ttlMs}ms)`)
+        return Promise.resolve()
+      }
+      console.log(`[quickvalue] ${id}: cache stale (age ${age}ms, ttl ${ttlMs}ms) — running`)
+    } else {
+      console.log(`[quickvalue] ${id}: no cache — running`)
+    }
+    return this.run(id, code)
   }
 
   /** Force a run now. Single-flight per `id`: concurrent callers share one run. */
@@ -126,11 +143,14 @@ export class QuickValueRunner {
 
     this.onUpdate({ id, subtitle: this.getSubtitle(id), isLoading: true })
 
+    console.log(`[quickvalue] ${id}: executing code`)
+    const startedAt = this.now()
     const task = this.runCode(code, RUN_TIMEOUT_MS)
       .then((result) => this.store(id, result))
       .catch((error) => this.store(id, { ok: false, error: toMessage(error) }))
       .finally(() => {
         this.inFlight.delete(id)
+        console.log(`[quickvalue] ${id}: execution finished in ${this.now() - startedAt}ms`)
         this.onUpdate({ id, subtitle: this.getSubtitle(id), isLoading: false })
       })
 

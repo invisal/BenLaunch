@@ -96,3 +96,8 @@ export async function executeAction(id: string, text: string): Promise<void> {
   // `qv:edit:*` is a UI shortcut (open the editor), not a real action to rank.
   if (!id.startsWith("qv:edit:")) usage.record(id, text);
 }
+
+/** A deferred-subtitle row rendered in the launcher; ask whichever source owns it for a fresh subtitle. */
+export async function requestSubtitle(id: string): Promise<void> {
+  await sources.find((source) => source.owns(id))?.requestSubtitle?.(id);
+}

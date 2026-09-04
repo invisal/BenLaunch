@@ -31,6 +31,16 @@ export interface ActionSource {
 
   /** Refresh hook, called when the launcher window is shown. */
   refresh?(): void
+
+  /**
+   * Called when a row this source produced with `isDeferredSubtitle: true`
+   * actually renders in the launcher, so the source can fetch/refresh its
+   * subtitle. Resolving is the only signal the renderer gets back over IPC —
+   * it drives that row's loading state — so this should resolve once the
+   * fetch settles, not fire-and-forget. Sources that never mark a row
+   * `isDeferredSubtitle` can omit it.
+   */
+  requestSubtitle?(actionId: string): void | Promise<void>
 }
 
 /**

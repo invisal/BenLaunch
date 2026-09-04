@@ -1,5 +1,5 @@
 import { cn } from "cnfast";
-import type { ComponentPropsWithRef } from "react";
+import { useEffect, useState, type ComponentPropsWithRef } from "react";
 import type { LauncherAction } from "../../../../../shared/types";
 import { formatShortcut } from "../../../lib/shortcut";
 
@@ -47,7 +47,34 @@ function Spinner() {
 }
 
 function SearchItem({ action, highlighted, className, ...rest }: SearchItemProps) {
-  const { icon, title, subtitle, type, shortcut, isLoading } = action;
+  const { id, icon, title, subtitle, type, shortcut, isLoading, isDeferredSubtitle } = action;
+
+  // Own loading state for the in-flight request itself, on top of whatever
+  // `isLoading` the action source reports (e.g. QuickValue also pushes updates
+  // out-of-band, for its own row + row menu "Refresh"). `requestSubtitle`
+  // resolving is the only signal a source is guaranteed to give back, so this
+  // is what guarantees a spinner for *any* deferred-subtitle row, not just ones
+  // with a push channel of their own.
+  const [pending, setPending] = useState(false);
+
+  // Virtualization mounts this component only for rows currently on screen (plus
+  // overscan), so this naturally fires just for rows the user can actually see —
+  // never for the rest of an exposed-QuickValue list scrolled out of view. The
+  // main process caches/dedupes (TTL + single-flight), so re-requesting on every
+  // mount is cheap.
+  useEffect(() => {
+    if (!isDeferredSubtitle) return;
+    let cancelled = false;
+    setPending(true);
+    window.api.requestSubtitle(id).finally(() => {
+      if (!cancelled) setPending(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isDeferredSubtitle]);
+
+  const loading = isLoading || pending;
 
   return (
     <div
@@ -65,7 +92,7 @@ function SearchItem({ action, highlighted, className, ...rest }: SearchItemProps
           <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
             {formatShortcut(shortcut)}
           </kbd>
-        ) : isLoading ? (
+        ) : loading ? (
           <Spinner />
         ) : (
           <span className="min-w-0 truncate text-foreground-subtle font-medium">

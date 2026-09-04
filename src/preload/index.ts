@@ -16,6 +16,10 @@ const api = {
   hide: (): void => ipcRenderer.send(IPC_CHANNELS.hide),
   togglePin: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.togglePin),
 
+  /** Launcher: a deferred-subtitle row rendered — fetch/refresh its subtitle. Resolves once settled. */
+  requestSubtitle: (actionId: string): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.requestSubtitle, actionId),
+
   /** QuickValue manager window ↔ main. */
   quickValue: {
     list: (): Promise<QuickValueDef[]> => ipcRenderer.invoke(IPC_CHANNELS.quickValueList),

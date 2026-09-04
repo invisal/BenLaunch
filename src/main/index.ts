@@ -7,6 +7,7 @@ import {
   quickValueRunner,
   quickValueStore,
   refreshActionSources,
+  requestSubtitle,
   subscribeQuickValueUpdates
 } from './actions'
 import { registerQuickValueIpc } from './sources/quickvalue/ipc'
@@ -70,6 +71,8 @@ app.whenReady().then(() => {
   ipcMain.on(IPC_CHANNELS.hide, () => {
     launcherWindow?.hide()
   })
+
+  ipcMain.handle(IPC_CHANNELS.requestSubtitle, (_event, id: string) => requestSubtitle(id))
 
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
     pinned = !pinned
