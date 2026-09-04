@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { cn } from "cnfast";
 import type { OpenWithApp } from "../../../../shared/quicklink";
@@ -324,18 +331,12 @@ function App() {
         id: "delete",
         section: "Danger Zone",
         label: "Delete Quicklink",
+        confirmLabel: `Click again to delete "${action.title}"`,
         danger: true,
-        submenu: [
-          {
-            id: "delete-confirm",
-            label: `Delete "${action.title}"`,
-            danger: true,
-            onSelect: async () => {
-              await window.api.deleteQuicklink(id);
-              reload();
-            },
-          },
-        ],
+        onSelect: async () => {
+          await window.api.deleteQuicklink(id);
+          reload();
+        },
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -425,6 +426,11 @@ function App() {
                 value={row}
                 index={index}
                 onClick={() => runRow(row)}
+                onContextMenu={(e: MouseEvent) => {
+                  e.preventDefault();
+                  setHighlightedRow(row);
+                  setMenuOpen(true);
+                }}
                 render={(props, state) =>
                   row.kind === "calc" ? (
                     <CalculatorPanel

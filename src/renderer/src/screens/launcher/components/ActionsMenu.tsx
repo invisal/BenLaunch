@@ -29,6 +29,14 @@ export interface MenuActionItem {
   onSelect?: () => void;
   /** When present, selecting the item drills into this nested list instead. */
   submenu?: MenuActionItem[];
+  /**
+   * Destructive leaf action guarded by a second activation: the first
+   * activation just swaps the label to this text (arming it); a second
+   * activation within a few seconds runs `onSelect`. Avoids a real submenu
+   * for a one-item confirm — safer against activation-source edge cases
+   * (mouse vs. keyboard) than drilling into a nested list.
+   */
+  confirmLabel?: string;
 }
 
 interface ActionsMenuProps {
@@ -51,6 +59,8 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   // The root list, plus one entry per open submenu.
   const [stack, setStack] = useState<Level[]>([{ label: null, items: actions }]);
+  // Id of a `confirmLabel` item awaiting its second activation, if any.
+  const [armedId, setArmedId] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const level = stack[stack.length - 1] ?? { label: null, items: actions };
@@ -63,10 +73,23 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
     setStack([{ label: null, items: actions }]);
     setSearch("");
     setHighlightedIndex(0);
+    setArmedId(null);
     const raf = requestAnimationFrame(() => searchRef.current?.focus());
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // A pending confirm auto-disarms after a few seconds, and whenever the
+  // user filters or navigates away from it.
+  useEffect(() => {
+    if (!armedId) return;
+    const timer = setTimeout(() => setArmedId(null), 4000);
+    return () => clearTimeout(timer);
+  }, [armedId]);
+
+  useEffect(() => {
+    setArmedId(null);
+  }, [search]);
 
   const filtered = useMemo(() => {
     const trimmed = search.trim().toLowerCase();
@@ -84,9 +107,15 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
       setStack((s) => [...s, { label: item.label, items: item.submenu! }]);
       setSearch("");
       setHighlightedIndex(0);
+      setArmedId(null);
       searchRef.current?.focus();
       return;
     }
+    if (item.confirmLabel && armedId !== item.id) {
+      setArmedId(item.id);
+      return;
+    }
+    setArmedId(null);
     item.onSelect?.();
     onOpenChange(false);
   }
@@ -95,29 +124,51 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
     setStack((s) => (s.length > 1 ? s.slice(0, -1) : s));
     setSearch("");
     setHighlightedIndex(0);
+    setArmedId(null);
     searchRef.current?.focus();
   }
 
   function onSearchKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
+    // Navigation here is fully custom (search-filtered, flat highlightedIndex),
+    // so these keys must not also reach Base UI's own roving-focus/typeahead
+    // handling on the Menu — otherwise the two selection models drift apart and
+    // Enter can activate whatever Base UI thinks is highlighted instead of what
+    // the user sees highlighted here.
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      e.stopPropagation();
       setHighlightedIndex((i) => Math.min(i + 1, filtered.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      e.stopPropagation();
       setHighlightedIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
       activate(filtered[highlightedIndex]);
     } else if (e.key === "ArrowRight" && filtered[highlightedIndex]?.submenu) {
       e.preventDefault();
+      e.stopPropagation();
       activate(filtered[highlightedIndex]);
     } else if ((e.key === "ArrowLeft" || e.key === "Backspace") && !search && inSubmenu) {
       e.preventDefault();
+      e.stopPropagation();
       pop();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       if (inSubmenu) pop();
       else onOpenChange(false);
+    } else if (e.key === " ") {
+      // Base UI's typeahead treats Space as a normal character only while
+      // `typingRef` is set; left alone it can be swallowed for menu typeahead
+      // instead of reaching the search box.
+      e.stopPropagation();
+    } else {
+      // Any other printable key: still typed into the search box, but must not
+      // also drive Base UI's own typeahead (which would fight over `activeIndex`
+      // and desync it from `highlightedIndex`).
+      e.stopPropagation();
     }
   }
 
@@ -165,6 +216,7 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
               {filtered.map((action, index) => {
                 const showHeading =
                   !!action.section && action.section !== filtered[index - 1]?.section;
+                const armed = action.id === armedId;
                 return (
                   <Fragment key={action.id}>
                     {showHeading && (
@@ -183,10 +235,13 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={cn(
                         "flex w-full cursor-default items-center justify-between gap-3 rounded px-2 py-1.5 text-sm outline-none",
-                        index === highlightedIndex
-                          ? "bg-item-selected text-foreground"
-                          : "text-foreground",
-                        action.danger &&
+                        armed
+                          ? "bg-red-500/20 text-red-400"
+                          : index === highlightedIndex
+                            ? "bg-item-selected text-foreground"
+                            : "text-foreground",
+                        !armed &&
+                          action.danger &&
                           (index === highlightedIndex ? "text-red-400" : "text-red-400/90"),
                       )}
                     >
@@ -203,7 +258,9 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
                               {action.icon}
                             </span>
                           ))}
-                        <span className="truncate">{action.label}</span>
+                        <span className="truncate">
+                          {armed && action.confirmLabel ? action.confirmLabel : action.label}
+                        </span>
                       </span>
                       {action.submenu ? (
                         <span
