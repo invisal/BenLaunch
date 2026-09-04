@@ -20,6 +20,9 @@ interface CalculatorPanelProps extends ComponentPropsWithRef<"div"> {
   highlighted: boolean;
 }
 
+/** Locked to the virtualized list's row height for this item (see App.tsx). */
+export const CALCULATOR_PANEL_HEIGHT = 146;
+
 /**
  * The first row of the result list whenever a query resolves to a `Calculation`.
  * Labelled Expression / Result fields split by a rule; both values are selectable
@@ -36,7 +39,7 @@ function CalculatorPanel({
     <div
       {...rest}
       className={cn(
-        "flex cursor-default flex-col gap-3 rounded-lg px-4 py-3.5",
+        "flex h-[146px] cursor-default flex-col justify-center gap-3 rounded-lg px-4 py-3.5",
         highlighted ? "bg-item-selected" : "bg-item-hover",
         className,
       )}

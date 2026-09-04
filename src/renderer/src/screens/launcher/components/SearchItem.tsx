@@ -34,6 +34,9 @@ interface SearchItemProps extends ComponentPropsWithRef<"div"> {
   highlighted: boolean;
 }
 
+/** Locked to the virtualized list's row height for this item (see App.tsx). */
+export const SEARCH_ITEM_HEIGHT = 40;
+
 function Spinner() {
   return (
     <span
@@ -50,7 +53,7 @@ function SearchItem({ action, highlighted, className, ...rest }: SearchItemProps
     <div
       {...rest}
       className={cn(
-        "flex cursor-default items-center gap-2 rounded px-1 py-1",
+        "flex h-10 cursor-default items-center gap-2 rounded px-1 py-1",
         highlighted ? "bg-item-selected text-foreground" : "hover:bg-item-hover",
         className,
       )}

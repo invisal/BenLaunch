@@ -1,18 +1,32 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cnfast";
 import type {
   Calculation,
   LauncherAction,
   QuickValueUpdate,
 } from "../../../../shared/types";
-import SearchItem from "./components/SearchItem";
+import SearchItem, { SEARCH_ITEM_HEIGHT } from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
-import CalculatorPanel from "./components/CalculatorPanel";
+import CalculatorPanel, {
+  CALCULATOR_PANEL_HEIGHT,
+} from "./components/CalculatorPanel";
 
 type Row =
   | { key: string; kind: "calc"; calculation: Calculation }
   | { key: string; kind: "action"; action: LauncherAction };
+
+/** Both row kinds are fixed-height, so one virtualizer can size purely from `kind` — no measureElement/ResizeObserver needed. */
+function rowHeight(row: Row): number {
+  return row.kind === "calc" ? CALCULATOR_PANEL_HEIGHT : SEARCH_ITEM_HEIGHT;
+}
 
 function App() {
   const [query, setQuery] = useState("");
@@ -27,6 +41,8 @@ function App() {
   const [pinned, setPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const lastHighlightedIndex = useRef<number | null>(null);
 
   async function togglePin(): Promise<void> {
     setPinned(await window.api.togglePin());
@@ -85,6 +101,14 @@ function App() {
     }
     return list;
   }, [calculation, results, qvLive]);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => rowHeight(rows[index]),
+    overscan: 8,
+    gap: 1,
+  });
 
   function dismiss(): void {
     setQuery("");
@@ -158,7 +182,8 @@ function App() {
         {
           id: "manage",
           label: "Manage QuickValues",
-          onSelect: () => void window.api.execute("cmd:quickvalue-manage", query),
+          onSelect: () =>
+            void window.api.execute("cmd:quickvalue-manage", query),
         },
       ];
     }
@@ -230,8 +255,21 @@ function App() {
       mode="none"
       inline
       open
+      loopFocus={false}
       autoHighlight="always"
-      onItemHighlighted={(row) => setHighlightedRow(row ?? null)}
+      onItemHighlighted={(row, { index }) => {
+        setHighlightedRow(row ?? null);
+        // Rows are rebuilt (new object identities) whenever query results or
+        // QuickValue live updates land, which re-fires this callback even
+        // though the highlighted *index* hasn't moved. Only scroll when the
+        // index actually changes, so a background data refresh doesn't yank
+        // the list back to the highlighted row while the user has scrolled
+        // elsewhere.
+        if (row && index !== lastHighlightedIndex.current) {
+          lastHighlightedIndex.current = index;
+          queueMicrotask(() => virtualizer.scrollToIndex(index, { align: "auto" }));
+        }
+      }}
     >
       <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
         <div className="flex items-center border-b border-border px-2 p-1 [-webkit-app-region:drag]">
@@ -244,31 +282,46 @@ function App() {
           />
         </div>
 
-        <div className="result-scroll flex-1 overflow-y-auto p-2">
-          <Autocomplete.List className="flex flex-col gap-[1px]">
-            {(row: Row, index: number) => (
-              <Autocomplete.Item
-                key={row.key}
-                value={row}
-                index={index}
-                onClick={() => runRow(row)}
-                render={(props, state) =>
-                  row.kind === "calc" ? (
-                    <CalculatorPanel
-                      {...props}
-                      calculation={row.calculation}
-                      highlighted={state.highlighted}
-                    />
-                  ) : (
-                    <SearchItem
-                      {...props}
-                      action={row.action}
-                      highlighted={state.highlighted}
-                    />
-                  )
-                }
-              />
-            )}
+        <div ref={scrollRef} className="result-scroll flex-1 overflow-y-auto p-2">
+          <Autocomplete.List
+            className="relative w-full"
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              if (!row) return null;
+              return (
+                <Autocomplete.Item
+                  key={row.key}
+                  value={row}
+                  index={virtualRow.index}
+                  onClick={() => runRow(row)}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: virtualRow.size,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                  render={(props, state) =>
+                    row.kind === "calc" ? (
+                      <CalculatorPanel
+                        {...props}
+                        calculation={row.calculation}
+                        highlighted={state.highlighted}
+                      />
+                    ) : (
+                      <SearchItem
+                        {...props}
+                        action={row.action}
+                        highlighted={state.highlighted}
+                      />
+                    )
+                  }
+                />
+              );
+            })}
           </Autocomplete.List>
 
           {rows.length === 0 && (
