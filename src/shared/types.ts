@@ -46,12 +46,9 @@ export type QuickValueTestResult =
   | { ok: true; value: string | number | null }
   | { ok: false; error: string }
 
-/** Pushed to the launcher when an exposed QuickValue's value changes. */
-export interface QuickValueUpdate {
-  /** Bare slug; the launcher matches the row `qv:<id>`. */
-  id: string
-  subtitle: string
-  isLoading: boolean
+/** Options for `requestSubtitle`. `force` bypasses any staleness cache (e.g. "Refresh"). */
+export interface RequestSubtitleOptions {
+  force?: boolean
 }
 
 /** One run of an expression, classified for syntax highlighting. */
@@ -95,15 +92,15 @@ export const IPC_CHANNELS = {
   execute: 'launcher:execute',
   hide: 'launcher:hide',
   togglePin: 'launcher:toggle-pin',
-  /** launcher → main: a deferred-subtitle row (`isDeferredSubtitle`) rendered;
-   *  whichever source owns it should fetch/refresh its subtitle. Not QuickValue-specific. */
+  /** launcher → main: a deferred-subtitle row (`isDeferredSubtitle`) rendered
+   *  (or asked to force-refresh); whichever source owns it resolves with the
+   *  fresh subtitle. Not QuickValue-specific — there is no separate push
+   *  channel, the resolved value IS the update. */
   requestSubtitle: 'launcher:request-subtitle',
   quickValueList: 'quickvalue:list',
   quickValueGet: 'quickvalue:get',
   quickValueSave: 'quickvalue:save',
   quickValueDelete: 'quickvalue:delete',
   quickValueSetExposed: 'quickvalue:set-exposed',
-  quickValueTest: 'quickvalue:test',
-  /** main → launcher window: an exposed QuickValue's value changed. */
-  quickValueUpdate: 'quickvalue:update'
+  quickValueTest: 'quickvalue:test'
 } as const

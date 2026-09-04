@@ -1,5 +1,5 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from 'electron'
-import { IPC_CHANNELS } from '../shared/types'
+import { IPC_CHANNELS, type RequestSubtitleOptions } from '../shared/types'
 import {
   executeAction,
   initActionSources,
@@ -7,8 +7,7 @@ import {
   quickValueRunner,
   quickValueStore,
   refreshActionSources,
-  requestSubtitle,
-  subscribeQuickValueUpdates
+  requestSubtitle
 } from './actions'
 import { registerQuickValueIpc } from './sources/quickvalue/ipc'
 import { captureForegroundWindow } from './native'
@@ -52,9 +51,6 @@ app.whenReady().then(() => {
   initActionSources()
 
   registerQuickValueIpc(quickValueStore, quickValueRunner)
-  subscribeQuickValueUpdates((update) => {
-    launcherWindow?.webContents.send(IPC_CHANNELS.quickValueUpdate, update)
-  })
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
     return query(text)
@@ -72,7 +68,9 @@ app.whenReady().then(() => {
     launcherWindow?.hide()
   })
 
-  ipcMain.handle(IPC_CHANNELS.requestSubtitle, (_event, id: string) => requestSubtitle(id))
+  ipcMain.handle(IPC_CHANNELS.requestSubtitle, (_event, id: string, opts?: RequestSubtitleOptions) =>
+    requestSubtitle(id, opts)
+  )
 
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
     pinned = !pinned

@@ -1,11 +1,11 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import {
   IPC_CHANNELS,
   type QueryResult,
   type QuickValueDef,
   type QuickValueDraft,
   type QuickValueTestResult,
-  type QuickValueUpdate
+  type RequestSubtitleOptions
 } from '../shared/types'
 
 const api = {
@@ -16,9 +16,9 @@ const api = {
   hide: (): void => ipcRenderer.send(IPC_CHANNELS.hide),
   togglePin: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.togglePin),
 
-  /** Launcher: a deferred-subtitle row rendered — fetch/refresh its subtitle. Resolves once settled. */
-  requestSubtitle: (actionId: string): Promise<void> =>
-    ipcRenderer.invoke(IPC_CHANNELS.requestSubtitle, actionId),
+  /** Launcher: a deferred-subtitle row rendered (or force-refreshed) — resolves with the fresh subtitle. */
+  requestSubtitle: (actionId: string, opts?: RequestSubtitleOptions): Promise<string | undefined> =>
+    ipcRenderer.invoke(IPC_CHANNELS.requestSubtitle, actionId, opts),
 
   /** QuickValue manager window ↔ main. */
   quickValue: {
@@ -32,15 +32,6 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.quickValueSetExposed, id, exposed),
     test: (code: string): Promise<QuickValueTestResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.quickValueTest, code)
-  },
-
-  /** Launcher: subscribe to exposed-QuickValue value changes. Returns an unsubscribe fn. */
-  onQuickValueUpdate: (callback: (update: QuickValueUpdate) => void): (() => void) => {
-    const listener = (_event: IpcRendererEvent, update: QuickValueUpdate): void => callback(update)
-    ipcRenderer.on(IPC_CHANNELS.quickValueUpdate, listener)
-    return () => {
-      ipcRenderer.removeListener(IPC_CHANNELS.quickValueUpdate, listener)
-    }
   }
 }
 

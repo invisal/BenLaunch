@@ -1,3 +1,4 @@
+import type { RequestSubtitleOptions } from '../../shared/types'
 import type { ActionDefinition } from '../types'
 
 /**
@@ -34,13 +35,17 @@ export interface ActionSource {
 
   /**
    * Called when a row this source produced with `isDeferredSubtitle: true`
-   * actually renders in the launcher, so the source can fetch/refresh its
-   * subtitle. Resolving is the only signal the renderer gets back over IPC —
-   * it drives that row's loading state — so this should resolve once the
-   * fetch settles, not fire-and-forget. Sources that never mark a row
-   * `isDeferredSubtitle` can omit it.
+   * actually renders in the launcher (or the row asks to force-refresh, e.g.
+   * a "Refresh" command), so the source can fetch/refresh its subtitle.
+   * Resolves with the fresh subtitle — there is no separate push channel, this
+   * return value IS how the renderer learns the new value. `opts.force` skips
+   * any staleness cache and refetches unconditionally. Sources that never mark
+   * a row `isDeferredSubtitle` can omit it.
    */
-  requestSubtitle?(actionId: string): void | Promise<void>
+  requestSubtitle?(
+    actionId: string,
+    opts?: RequestSubtitleOptions
+  ): string | undefined | Promise<string | undefined>
 }
 
 /**

@@ -11,7 +11,6 @@ import { cn } from "cnfast";
 import type {
   Calculation,
   LauncherAction,
-  QuickValueUpdate,
 } from "../../../../shared/types";
 import SearchItem, { SEARCH_ITEM_HEIGHT } from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
@@ -32,11 +31,16 @@ function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<LauncherAction[]>([]);
   const [calculation, setCalculation] = useState<Calculation | null>(null);
-  // Live overrides for exposed QuickValue rows, pushed from the main process as
-  // their async functions resolve. Keyed by the full action id (`qv:<slug>`).
-  const [qvLive, setQvLive] = useState<
-    Map<string, { subtitle: string; isLoading: boolean }>
-  >(new Map());
+  // One-shot "please force-refresh this row" signal for a `SearchItem` — not a
+  // value store. SearchItem owns its own subtitle/loading state and fetches it
+  // itself via `requestSubtitle`; this only tells the one row matching `id` to
+  // re-call that (with `force: true`) after an out-of-band change like the row
+  // menu's "Refresh". A fresh `token` on every trigger so re-refreshing the same
+  // id still re-fires the matching SearchItem's effect.
+  const [forceRefresh, setForceRefresh] = useState<{
+    id: string;
+    token: number;
+  } | null>(null);
   const [highlightedRow, setHighlightedRow] = useState<Row | null>(null);
   const [pinned, setPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -59,19 +63,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    return window.api.onQuickValueUpdate((update: QuickValueUpdate) => {
-      setQvLive((prev) => {
-        const next = new Map(prev);
-        next.set(`qv:${update.id}`, {
-          subtitle: update.subtitle,
-          isLoading: update.isLoading,
-        });
-        return next;
-      });
-    });
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
     window.api.query(query).then((res) => {
       if (!cancelled) {
@@ -88,14 +79,14 @@ function App() {
   // first row, then the ranked actions. Filtering/ranking stays in the main
   // process (`mode="none"`); Base UI only owns keyboard navigation and a11y.
   //
-  // Deliberately NOT keyed on `qvLive`: a background QuickValue update must not
-  // change row identity. Autocomplete tracks the highlighted item by identity
-  // in this `rows`/`items` array, so rebuilding it on every live push (which,
-  // since deferred rows fetch on mount, happens continuously while scrolling)
-  // made it lose track of the highlighted item and fall back to re-highlighting
-  // the first row — which then yanked the list back to the top. Live values are
-  // merged in at the point of use instead (`getLiveAction` below), so a push
-  // only re-renders the affected `SearchItem`, never the row list itself.
+  // Deliberately depends only on `calculation`/`results`: a row's live subtitle
+  // is fetched and held by its own `SearchItem` instance, not lifted up here —
+  // see SearchItem.tsx. `rows` used to be rebuilt on every QuickValue value
+  // push, which changed every row's identity; Autocomplete tracks the
+  // highlighted item by identity in this `rows`/`items` array, so that churn
+  // (which, since deferred rows fetch on mount, happened continuously while
+  // scrolling) made it lose track and fall back to re-highlighting the first
+  // row — which then yanked the list back to the top.
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = [];
     if (calculation) list.push({ key: "__calc__", kind: "calc", calculation });
@@ -104,13 +95,6 @@ function App() {
     }
     return list;
   }, [calculation, results]);
-
-  /** Overlay a QuickValue row's live subtitle/isLoading, without touching row identity. */
-  function getLiveAction(action: LauncherAction): LauncherAction {
-    if (action.type !== "quickvalue") return action;
-    const override = qvLive.get(action.id);
-    return override ? { ...action, ...override } : action;
-  }
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -139,10 +123,14 @@ function App() {
     }
     if (row.action.type === "quickvalue") {
       // The row is a value, not an action — Enter copies it, like the calc row.
-      const subtitle = getLiveAction(row.action).subtitle;
-      if (subtitle) {
-        void navigator.clipboard.writeText(subtitle);
-      }
+      // Ask for the current value directly (cheap: a no-op refresh resolves
+      // from cache instantly) rather than reading `row.action.subtitle`, which
+      // is only a snapshot from the last query and may be behind what the row's
+      // own SearchItem has since fetched.
+      const id = row.action.id;
+      void window.api.requestSubtitle(id).then((subtitle) => {
+        if (subtitle) void navigator.clipboard.writeText(subtitle);
+      });
       dismiss();
       return;
     }
@@ -183,7 +171,14 @@ function App() {
         {
           id: "refresh",
           label: "Refresh",
-          onSelect: () => void window.api.execute(action.id, query),
+          onSelect: () => {
+            // `execute` runs it for real (and counts as a usage pick, like any
+            // other run); the force-refresh signal is what makes the row's own
+            // SearchItem visibly pick up the new value right away instead of
+            // waiting for the next query.
+            void window.api.execute(action.id, query);
+            setForceRefresh({ id: action.id, token: Date.now() });
+          },
         },
         {
           id: "edit",
@@ -325,8 +320,13 @@ function App() {
                     ) : (
                       <SearchItem
                         {...props}
-                        action={getLiveAction(row.action)}
+                        action={row.action}
                         highlighted={state.highlighted}
+                        forceRefreshToken={
+                          forceRefresh?.id === row.action.id
+                            ? forceRefresh.token
+                            : undefined
+                        }
                       />
                     )
                   }

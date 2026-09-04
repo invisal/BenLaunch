@@ -32,6 +32,13 @@ function ItemIcon({ icon }: { icon?: string }) {
 interface SearchItemProps extends ComponentPropsWithRef<"div"> {
   action: LauncherAction;
   highlighted: boolean;
+  /**
+   * Bumping this (to any new number) tells this row to force-refresh its
+   * subtitle right now, bypassing whatever staleness cache the source uses —
+   * e.g. the row menu's "Refresh". `undefined` most of the time; App.tsx only
+   * sets it for the one row being refreshed. Not a value store — see App.tsx.
+   */
+  forceRefreshToken?: number;
 }
 
 /** Locked to the virtualized list's row height for this item (see App.tsx). */
@@ -46,35 +53,59 @@ function Spinner() {
   );
 }
 
-function SearchItem({ action, highlighted, className, ...rest }: SearchItemProps) {
-  const { id, icon, title, subtitle, type, shortcut, isLoading, isDeferredSubtitle } = action;
+function SearchItem({
+  action,
+  highlighted,
+  className,
+  forceRefreshToken,
+  ...rest
+}: SearchItemProps) {
+  const { id, icon, title, type, shortcut, isDeferredSubtitle } = action;
 
-  // Own loading state for the in-flight request itself, on top of whatever
-  // `isLoading` the action source reports (e.g. QuickValue also pushes updates
-  // out-of-band, for its own row + row menu "Refresh"). `requestSubtitle`
-  // resolving is the only signal a source is guaranteed to give back, so this
-  // is what guarantees a spinner for *any* deferred-subtitle row, not just ones
-  // with a push channel of their own.
-  const [pending, setPending] = useState(false);
+  // This row owns both its subtitle and loading state once it's deferred —
+  // `requestSubtitle` resolves with the fresh value directly (there's no
+  // separate push channel to listen on instead). Seeded from the prop so a
+  // freshly-mounted row shows whatever was already cached (and its correct
+  // "no cache yet" loading state) instead of a blank flash. Deliberately NOT
+  // `action.isLoading || pending`: `action.isLoading` is a snapshot from
+  // whenever `provide()` last ran and never updates on its own, so once our
+  // own fetch resolves it would stay stuck `true` forever with nothing to
+  // clear it back to `false`.
+  const [subtitle, setSubtitle] = useState(action.subtitle);
+  const [loading, setLoading] = useState(!!action.isLoading);
+
+  // A new `provide()` result (the user typed something, re-running the query)
+  // can hand this same row a newer subtitle/loading state than what we've
+  // fetched ourselves — both read the same backend cache, so the prop is
+  // never *behind* our own last fetch, only possibly ahead of it.
+  useEffect(() => {
+    setSubtitle(action.subtitle);
+    setLoading(!!action.isLoading);
+  }, [action.subtitle, action.isLoading]);
 
   // Virtualization mounts this component only for rows currently on screen (plus
   // overscan), so this naturally fires just for rows the user can actually see —
   // never for the rest of an exposed-QuickValue list scrolled out of view. The
   // main process caches/dedupes (TTL + single-flight), so re-requesting on every
-  // mount is cheap.
+  // mount is cheap. Re-fires with `force: true` when `forceRefreshToken` changes
+  // (App.tsx sets it for exactly one row at a time, e.g. the row menu's "Refresh").
   useEffect(() => {
     if (!isDeferredSubtitle) return;
     let cancelled = false;
-    setPending(true);
-    window.api.requestSubtitle(id).finally(() => {
-      if (!cancelled) setPending(false);
-    });
+    setLoading(true);
+    const opts = forceRefreshToken !== undefined ? { force: true } : undefined;
+    window.api
+      .requestSubtitle(id, opts)
+      .then((fresh) => {
+        if (!cancelled && fresh !== undefined) setSubtitle(fresh);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [id, isDeferredSubtitle]);
-
-  const loading = isLoading || pending;
+  }, [id, isDeferredSubtitle, forceRefreshToken]);
 
   return (
     <div

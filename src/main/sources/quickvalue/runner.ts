@@ -11,7 +11,7 @@
 import { spawn } from 'node:child_process'
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { QuickValueTestResult, QuickValueUpdate } from '../../../shared/types'
+import type { QuickValueTestResult } from '../../../shared/types'
 import type { UserCodeResult } from './run-user-code'
 
 /** Bumped when the persisted shape changes, to invalidate old files. */
@@ -60,7 +60,6 @@ function isCacheFile(value: unknown): value is CacheFile {
 
 export class QuickValueRunner {
   private readonly dir: string
-  private readonly onUpdate: (u: QuickValueUpdate) => void
   private readonly runCode: RunCode
   private readonly now: () => number
 
@@ -68,14 +67,8 @@ export class QuickValueRunner {
   private loaded = false
   private readonly inFlight = new Map<string, Promise<void>>()
 
-  constructor(opts: {
-    dir: string
-    onUpdate: (u: QuickValueUpdate) => void
-    runCode?: RunCode
-    now?: () => number
-  }) {
+  constructor(opts: { dir: string; runCode?: RunCode; now?: () => number }) {
     this.dir = opts.dir
-    this.onUpdate = opts.onUpdate
     this.runCode = opts.runCode ?? spawnWorker
     this.now = opts.now ?? Date.now
   }
@@ -141,8 +134,6 @@ export class QuickValueRunner {
     const existing = this.inFlight.get(id)
     if (existing) return existing
 
-    this.onUpdate({ id, subtitle: this.getSubtitle(id), isLoading: true })
-
     console.log(`[quickvalue] ${id}: executing code`)
     const startedAt = this.now()
     const task = this.runCode(code, RUN_TIMEOUT_MS)
@@ -151,7 +142,6 @@ export class QuickValueRunner {
       .finally(() => {
         this.inFlight.delete(id)
         console.log(`[quickvalue] ${id}: execution finished in ${this.now() - startedAt}ms`)
-        this.onUpdate({ id, subtitle: this.getSubtitle(id), isLoading: false })
       })
 
     this.inFlight.set(id, task)

@@ -1,5 +1,5 @@
 import { app } from "electron";
-import type { QueryResult, QuickValueUpdate } from "../shared/types";
+import type { QueryResult, RequestSubtitleOptions } from "../shared/types";
 import { evaluate } from "./calculator";
 import { fuzzyMatch } from "./search";
 import type { ActionSource } from "./sources/base";
@@ -12,25 +12,13 @@ import { QuickValueSource } from "./sources/quickvalue/source";
 import { QuickValueStore } from "./sources/quickvalue/store";
 import { Usage } from "./usage/store";
 
-/** Set by `subscribeQuickValueUpdates` once the launcher window exists. */
-let quickValueUpdateListener: ((update: QuickValueUpdate) => void) | null =
-  null;
-
 /** Persisted QuickValue definitions + the cache of their last computed values. */
 export const quickValueStore = new QuickValueStore({
   dir: app.getPath("userData"),
 });
 export const quickValueRunner = new QuickValueRunner({
   dir: app.getPath("userData"),
-  onUpdate: (update) => quickValueUpdateListener?.(update),
 });
-
-/** Forward exposed-QuickValue value changes to the launcher window. */
-export function subscribeQuickValueUpdates(
-  listener: (update: QuickValueUpdate) => void,
-): void {
-  quickValueUpdateListener = listener;
-}
 
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
@@ -98,6 +86,9 @@ export async function executeAction(id: string, text: string): Promise<void> {
 }
 
 /** A deferred-subtitle row rendered in the launcher; ask whichever source owns it for a fresh subtitle. */
-export async function requestSubtitle(id: string): Promise<void> {
-  await sources.find((source) => source.owns(id))?.requestSubtitle?.(id);
+export async function requestSubtitle(
+  id: string,
+  opts?: RequestSubtitleOptions,
+): Promise<string | undefined> {
+  return await sources.find((source) => source.owns(id))?.requestSubtitle?.(id, opts);
 }
