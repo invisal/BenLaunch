@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { cn } from "cnfast";
+import type { OpenWithApp } from "../../../../shared/quicklink";
 import type {
   Calculation,
   LauncherAction,
@@ -9,10 +10,17 @@ import type {
 import SearchItem from "./components/SearchItem";
 import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
 import CalculatorPanel from "./components/CalculatorPanel";
+import CreateQuicklink from "../../components/CreateQuicklink";
 
 type Row =
   | { key: string; kind: "calc"; calculation: Calculation }
   | { key: string; kind: "action"; action: LauncherAction };
+
+/** The launcher form that's open on top of the search view, if any. */
+type Editor =
+  | { mode: "create" }
+  | { mode: "edit"; id: string }
+  | { mode: "duplicate"; id: string };
 
 function App() {
   const [query, setQuery] = useState("");
@@ -26,21 +34,41 @@ function App() {
   const [highlightedRow, setHighlightedRow] = useState<Row | null>(null);
   const [pinned, setPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  // Bumped to re-run the current query after a quicklink is changed underneath us.
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const [apps, setApps] = useState<OpenWithApp[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function togglePin(): Promise<void> {
     setPinned(await window.api.togglePin());
   }
 
+  /** Re-run the current query (e.g. after pin/hide/delete changes the list). */
+  function reload(): void {
+    setReloadNonce((n) => n + 1);
+  }
+
+  useEffect(() => {
+    let live = true;
+    void window.api.openWithApps().then((list) => {
+      if (live) setApps(list);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   useEffect(() => {
     function focusAndSelect(): void {
+      if (editor) return;
       inputRef.current?.focus();
       inputRef.current?.select();
     }
     focusAndSelect();
     window.addEventListener("focus", focusAndSelect);
     return () => window.removeEventListener("focus", focusAndSelect);
-  }, []);
+  }, [editor]);
 
   useEffect(() => {
     return window.api.onQuickValueUpdate((update: QuickValueUpdate) => {
@@ -66,7 +94,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [query]);
+  }, [query, reloadNonce]);
 
   // The list feeds Base UI's Autocomplete: the calculation, when present, is the
   // first row, then the ranked actions. Filtering/ranking stays in the main
@@ -89,6 +117,7 @@ function App() {
   function dismiss(): void {
     setQuery("");
     setMenuOpen(false);
+    setEditor(null);
     if (!pinned) window.api.hide();
   }
 
@@ -103,15 +132,23 @@ function App() {
       copyCalculation();
       return;
     }
-    if (row.action.type === "quickvalue") {
+    const { action } = row;
+    // Some actions open a renderer view (e.g. the Create Quicklink form) instead
+    // of executing in the main process — switch to it and keep the launcher open.
+    if (action.view === "create-quicklink") {
+      setMenuOpen(false);
+      setEditor({ mode: "create" });
+      return;
+    }
+    if (action.type === "quickvalue") {
       // The row is a value, not an action — Enter copies it, like the calc row.
-      if (row.action.subtitle) {
-        void navigator.clipboard.writeText(row.action.subtitle);
+      if (action.subtitle) {
+        void navigator.clipboard.writeText(action.subtitle);
       }
       dismiss();
       return;
     }
-    void window.api.execute(row.action.id, query);
+    void window.api.execute(action.id, query);
     dismiss();
   }
 
@@ -135,7 +172,25 @@ function App() {
         },
       ];
     }
+
     const { action } = active;
+
+    const copyName: MenuActionItem = {
+      id: "copy-name",
+      label: "Copy Name",
+      shortcut: "CommandOrControl+C",
+      onSelect: () => void navigator.clipboard.writeText(action.title),
+    };
+
+    const createQuicklinkItem: MenuActionItem = {
+      id: "create-quicklink",
+      label: "Create Quicklink",
+      onSelect: () => {
+        setMenuOpen(false);
+        setEditor({ mode: "create" });
+      },
+    };
+
     if (action.type === "quickvalue") {
       const slug = action.id.slice("qv:".length);
       return [
@@ -162,31 +217,133 @@ function App() {
         },
       ];
     }
+
+    const run: MenuActionItem = {
+      id: "run",
+      label: action.type === "quicklink" ? "Open Quicklink" : "Run",
+      shortcut: "Enter",
+      onSelect: () => runRow(active),
+    };
+
+    if (action.type !== "quicklink" || !action.id.startsWith("ql:")) {
+      return [
+        run,
+        copyName,
+        {
+          id: "pin",
+          label: pinned ? "Unpin" : "Pin",
+          shortcut: "CommandOrControl+P",
+          onSelect: () => void togglePin(),
+        },
+        { ...createQuicklinkItem, section: "Quicklink" },
+      ];
+    }
+
+    // Store methods (pin/hide/delete/get/edit) key on the bare slug; `execute`
+    // (used by Open With) keys on the full `ql:` action id.
+    const actionId = action.id;
+    const id = actionId.slice(3);
+    const isPinned = !!action.pinned;
+    const isHidden = !!action.hidden;
+
+    const openWith: MenuActionItem = {
+      id: "open-with",
+      label: "Open With…",
+      submenu: [
+        {
+          id: "ow:__default",
+          label: "Default App",
+          onSelect: () => {
+            void window.api.openQuicklinkWith(actionId, query, "");
+            dismiss();
+          },
+        },
+        ...apps.map((app) => ({
+          id: `ow:${app.path}`,
+          label: app.name,
+          icon: app.icon,
+          onSelect: () => {
+            void window.api.openQuicklinkWith(actionId, query, app.path);
+            dismiss();
+          },
+        })),
+      ],
+    };
+
     return [
-      {
-        id: "run",
-        label: "Run",
-        shortcut: "Enter",
-        onSelect: () => runRow(active),
-      },
-      {
-        id: "copy-name",
-        label: "Copy Name",
-        shortcut: "CommandOrControl+C",
-        onSelect: () => void navigator.clipboard.writeText(action.title),
-      },
+      run,
+      openWith,
       {
         id: "pin",
-        label: pinned ? "Unpin" : "Pin",
-        shortcut: "CommandOrControl+P",
-        onSelect: () => void togglePin(),
+        section: "Manage Quicklink",
+        label: isPinned ? "Unpin Quicklink" : "Pin Quicklink",
+        onSelect: async () => {
+          await window.api.setQuicklinkPinned(id, !isPinned);
+          reload();
+        },
+      },
+      {
+        id: "edit",
+        section: "Manage Quicklink",
+        label: "Edit Quicklink",
+        onSelect: () => {
+          setMenuOpen(false);
+          setEditor({ mode: "edit", id });
+        },
+      },
+      {
+        id: "duplicate",
+        section: "Manage Quicklink",
+        label: "Duplicate Quicklink",
+        onSelect: () => {
+          setMenuOpen(false);
+          setEditor({ mode: "duplicate", id });
+        },
+      },
+      {
+        id: "hide",
+        section: "Manage Quicklink",
+        label: isHidden ? "Show in Root Search" : "Hide in Root Search",
+        onSelect: async () => {
+          await window.api.setQuicklinkHidden(id, !isHidden);
+          reload();
+        },
+      },
+      { ...copyName, section: "Copy" },
+      {
+        id: "copy-link",
+        section: "Copy",
+        label: "Copy Link",
+        onSelect: async () => {
+          const ql = await window.api.getQuicklink(id);
+          if (ql) await navigator.clipboard.writeText(ql.link);
+        },
+      },
+      { ...createQuicklinkItem, section: "Quicklink" },
+      {
+        id: "delete",
+        section: "Danger Zone",
+        label: "Delete Quicklink",
+        danger: true,
+        submenu: [
+          {
+            id: "delete-confirm",
+            label: `Delete "${action.title}"`,
+            danger: true,
+            onSelect: async () => {
+              await window.api.deleteQuicklink(id);
+              reload();
+            },
+          },
+        ],
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightedRow, rows, pinned, query]);
+  }, [highlightedRow, rows, pinned, apps, query]);
 
   useEffect(() => {
     function onGlobalKeyDown(e: globalThis.KeyboardEvent): void {
+      if (editor) return;
       if (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         setMenuOpen((open) => !open);
@@ -194,7 +351,7 @@ function App() {
     }
     window.addEventListener("keydown", onGlobalKeyDown);
     return () => window.removeEventListener("keydown", onGlobalKeyDown);
-  }, []);
+  }, [editor]);
 
   // Arrow keys / Enter are handled by Autocomplete; we only add the launcher's
   // own shortcuts on top.
@@ -220,6 +377,22 @@ function App() {
       e.preventDefault();
       void togglePin();
     }
+  }
+
+  if (editor) {
+    return (
+      <CreateQuicklink
+        seed={editor.mode === "create" ? query : undefined}
+        editId={editor.mode === "edit" ? editor.id : undefined}
+        duplicateId={editor.mode === "duplicate" ? editor.id : undefined}
+        onCancel={() => setEditor(null)}
+        onCreated={(name) => {
+          setEditor(null);
+          setQuery(name);
+          reload();
+        }}
+      />
+    );
   }
 
   return (

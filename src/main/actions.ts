@@ -5,7 +5,6 @@ import type {
   QuicklinkCreateResult,
   QuicklinkDraft,
 } from "../shared/quicklink";
-import type { QueryResult } from "../shared/types";
 import { evaluate } from "./calculator";
 import { matchAction } from "./search";
 import type { ActionSource } from "./sources/base";
@@ -153,9 +152,7 @@ export async function query(text: string): Promise<QueryResult> {
 }
 
 export async function executeAction(id: string, text: string): Promise<void> {
-  await sources.find((source) => source.owns(id))?.execute(id);
+  await sources.find((source) => source.owns(id))?.execute(id, text);
   // `qv:edit:*` is a UI shortcut (open the editor), not a real action to rank.
   if (!id.startsWith("qv:edit:")) usage.record(id, text);
-  await sources.find((source) => source.owns(id))?.execute(id, text);
-  usage.record(id, text);
 }

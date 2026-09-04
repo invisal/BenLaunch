@@ -1,7 +1,6 @@
-export type LauncherActionType = 'application' | 'command' | 'quickvalue'
 import type { LauncherView } from './quicklink'
 
-export type LauncherActionType = 'application' | 'command' | 'quicklink'
+export type LauncherActionType = 'application' | 'command' | 'quicklink' | 'quickvalue'
 
 export interface LauncherAction {
   id: string
@@ -12,6 +11,22 @@ export interface LauncherAction {
   type: LauncherActionType
   /** Electron accelerator string, e.g. "CommandOrControl+1" */
   shortcut?: string
+  /**
+   * Short alias that invokes this action when typed as the query's first word
+   * (e.g. "g" for a Google quicklink). Everything after it becomes the argument.
+   */
+  keyword?: string
+  /**
+   * When set, running this action opens a renderer view (e.g. the Create
+   * Quicklink form) instead of executing a handler in the main process.
+   */
+  view?: LauncherView
+  /** Extra terms this action should also match on (e.g. a quicklink's tags). */
+  tags?: string[]
+  /** Quicklink is pinned — sorts above unpinned actions in the root list. */
+  pinned?: boolean
+  /** Quicklink is hidden from the root list (still returned for an explicit search). */
+  hidden?: boolean
   /**
    * The action is resolving a value in the background (e.g. a QuickValue running
    * its async function). The list shows a spinner instead of the subtitle.
@@ -63,22 +78,6 @@ export type CalcTokenKind =
 export interface CalcToken {
   text: string
   kind: CalcTokenKind
-  /**
-   * Short alias that invokes this action when typed as the query's first word
-   * (e.g. "g" for a Google quicklink). Everything after it becomes the argument.
-   */
-  keyword?: string
-  /**
-   * When set, running this action opens a renderer view (e.g. the Create
-   * Quicklink form) instead of executing a handler in the main process.
-   */
-  view?: LauncherView
-  /** Extra terms this action should also match on (e.g. a quicklink's tags). */
-  tags?: string[]
-  /** Quicklink is pinned — sorts above unpinned actions in the root list. */
-  pinned?: boolean
-  /** Quicklink is hidden from the root list (still returned for an explicit search). */
-  hidden?: boolean
 }
 
 /** An evaluated expression the query itself resolved to (e.g. `"1 + 2"` → `"3"`). */
@@ -113,8 +112,7 @@ export const IPC_CHANNELS = {
   quickValueSetExposed: 'quickvalue:set-exposed',
   quickValueTest: 'quickvalue:test',
   /** main → launcher window: an exposed QuickValue's value changed. */
-  quickValueUpdate: 'quickvalue:update'
-  togglePin: 'launcher:toggle-pin',
+  quickValueUpdate: 'quickvalue:update',
   quicklinkCreate: 'quicklink:create',
   quicklinkUpdate: 'quicklink:update',
   quicklinkDelete: 'quicklink:delete',
