@@ -4,11 +4,45 @@ import { test } from "node:test";
 import {
   computeEdgeMove,
   computeTargetRect,
+  GRID_REGION_IDS,
   mapRectToDisplay,
   pickAdjacentDisplay,
+  regionSpan,
   type Rect,
   type SnapRegion,
 } from "./layout.ts";
+
+test("GRID_REGION_IDS has no duplicates", () => {
+  assert.equal(new Set(GRID_REGION_IDS).size, GRID_REGION_IDS.length);
+});
+
+test("GRID_REGION_IDS includes every grid region added alongside the original halves/quarters/thirds set", () => {
+  const ids = new Set(GRID_REGION_IDS);
+  for (const id of [
+    "top-left-sixth",
+    "bottom-right-sixth",
+    "first-fourth",
+    "last-fourth",
+    "top-first-fourth",
+    "bottom-last-fourth",
+    "center-two-thirds",
+    "top-center-two-thirds",
+    "first-three-fourths",
+    "top-third",
+    "bottom-two-thirds",
+  ] satisfies SnapRegion[]) {
+    assert.ok(ids.has(id), id);
+  }
+});
+
+test("regionSpan resolves every id in GRID_REGION_IDS, and only those", () => {
+  for (const id of GRID_REGION_IDS) {
+    assert.ok(regionSpan(id), id);
+  }
+  for (const id of ["center", "center-half", "almost-maximize", "maximize", "maximize-width", "maximize-height"] satisfies SnapRegion[]) {
+    assert.equal(regionSpan(id), null, id);
+  }
+});
 
 const WORK_AREA: Rect = { x: 0, y: 0, width: 1920, height: 1000 };
 
@@ -27,10 +61,52 @@ const regionCases: ReadonlyArray<{ region: SnapRegion; rect: Rect }> = [
   { region: "last-third", rect: { x: 1280, y: 0, width: 640, height: 1000 } },
   { region: "first-two-thirds", rect: { x: 0, y: 0, width: 1280, height: 1000 } },
   { region: "last-two-thirds", rect: { x: 640, y: 0, width: 1280, height: 1000 } },
+  { region: "center-two-thirds", rect: { x: 320, y: 0, width: 1280, height: 1000 } },
   { region: "almost-maximize", rect: { x: 96, y: 50, width: 1728, height: 900 } },
   { region: "maximize", rect: { x: 0, y: 0, width: 1920, height: 1000 } },
   { region: "maximize-width", rect: { x: 0, y: 0, width: 1920, height: 1000 } },
   { region: "maximize-height", rect: { x: 0, y: 0, width: 1920, height: 1000 } },
+
+  // Fourths (standalone column, full height).
+  { region: "first-fourth", rect: { x: 0, y: 0, width: 480, height: 1000 } },
+  { region: "second-fourth", rect: { x: 480, y: 0, width: 480, height: 1000 } },
+  { region: "third-fourth", rect: { x: 960, y: 0, width: 480, height: 1000 } },
+  { region: "last-fourth", rect: { x: 1440, y: 0, width: 480, height: 1000 } },
+
+  // Three-fourths (standalone column, full height).
+  { region: "first-three-fourths", rect: { x: 0, y: 0, width: 1440, height: 1000 } },
+  { region: "center-three-fourths", rect: { x: 240, y: 0, width: 1440, height: 1000 } },
+  { region: "last-three-fourths", rect: { x: 480, y: 0, width: 1440, height: 1000 } },
+
+  // Row equivalents of third/two-thirds/three-fourths, anchored top/bottom.
+  { region: "top-third", rect: { x: 0, y: 0, width: 1920, height: 333 } },
+  { region: "bottom-third", rect: { x: 0, y: 667, width: 1920, height: 333 } },
+  { region: "top-two-thirds", rect: { x: 0, y: 0, width: 1920, height: 667 } },
+  { region: "bottom-two-thirds", rect: { x: 0, y: 333, width: 1920, height: 667 } },
+  { region: "top-three-fourths", rect: { x: 0, y: 0, width: 1920, height: 750 } },
+  { region: "bottom-three-fourths", rect: { x: 0, y: 250, width: 1920, height: 750 } },
+
+  // Sixths: a row half crossed with a column third.
+  { region: "top-left-sixth", rect: { x: 0, y: 0, width: 640, height: 500 } },
+  { region: "top-center-sixth", rect: { x: 640, y: 0, width: 640, height: 500 } },
+  { region: "top-right-sixth", rect: { x: 1280, y: 0, width: 640, height: 500 } },
+  { region: "bottom-left-sixth", rect: { x: 0, y: 500, width: 640, height: 500 } },
+  { region: "bottom-center-sixth", rect: { x: 640, y: 500, width: 640, height: 500 } },
+  { region: "bottom-right-sixth", rect: { x: 1280, y: 500, width: 640, height: 500 } },
+
+  // Fourths grid: a row half crossed with a column fourth.
+  { region: "top-first-fourth", rect: { x: 0, y: 0, width: 480, height: 500 } },
+  { region: "top-second-fourth", rect: { x: 480, y: 0, width: 480, height: 500 } },
+  { region: "top-third-fourth", rect: { x: 960, y: 0, width: 480, height: 500 } },
+  { region: "top-last-fourth", rect: { x: 1440, y: 0, width: 480, height: 500 } },
+  { region: "bottom-first-fourth", rect: { x: 0, y: 500, width: 480, height: 500 } },
+  { region: "bottom-second-fourth", rect: { x: 480, y: 500, width: 480, height: 500 } },
+  { region: "bottom-third-fourth", rect: { x: 960, y: 500, width: 480, height: 500 } },
+  { region: "bottom-last-fourth", rect: { x: 1440, y: 500, width: 480, height: 500 } },
+
+  // Centered two-thirds, crossed with a row half.
+  { region: "top-center-two-thirds", rect: { x: 320, y: 0, width: 1280, height: 500 } },
+  { region: "bottom-center-two-thirds", rect: { x: 320, y: 500, width: 1280, height: 500 } },
 ];
 
 for (const { region, rect } of regionCases) {
@@ -38,6 +114,10 @@ for (const { region, rect } of regionCases) {
     assert.deepEqual(computeTargetRect(region, { workArea: WORK_AREA }), rect);
   });
 }
+
+test("computeTargetRect throws on an id that isn't a real region", () => {
+  assert.throws(() => computeTargetRect("not-a-region" as SnapRegion, { workArea: WORK_AREA }));
+});
 
 test("computeTargetRect(center) preserves the window's current size", () => {
   const currentRect: Rect = { x: 500, y: 500, width: 800, height: 600 };

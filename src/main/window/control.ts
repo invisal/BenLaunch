@@ -2,7 +2,8 @@ import * as linux from './control-linux'
 import * as mac from './control-mac'
 import * as win from './control-win'
 
-export type { EdgeDirection, SnapRegion } from './layout'
+export type { EdgeDirection, FractionSpan, GridRegion, SnapRegion } from './layout'
+export { GRID_REGION_IDS, regionSpan } from './layout'
 import type { EdgeDirection, SnapRegion } from './layout'
 
 /**

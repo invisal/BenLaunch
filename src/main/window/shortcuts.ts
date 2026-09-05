@@ -4,8 +4,6 @@
  * `Control+Alt` on Windows/Linux, `Control+Option` on macOS (the Electron
  * accelerator name for the same physical key) — deliberately avoids `Super`/
  * `Meta` entirely, since Windows already reserves `Win+Arrow` for its own Snap.
- * `⌃⌥←` for Left Half matches the example Raycast itself gives on
- * https://www.raycast.com/core-features/window-management.
  *
  * The halves get the bare arrows; "Move" (nudge, no resize) is Shift+arrow, so
  * it reads as a variant of the same direction rather than a competing scheme.

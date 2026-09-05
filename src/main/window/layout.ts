@@ -13,32 +13,152 @@ export interface Rect {
   height: number
 }
 
+/** A 1D position as a fraction of an axis — both in `[0, 1]`. */
+export interface FractionSpan {
+  start: number
+  size: number
+}
+
+const FULL_SPAN: FractionSpan = { start: 0, size: 1 }
+
+const HALF = 1 / 2
+const THIRD = 1 / 3
+const TWO_THIRDS = 2 / 3
+const THREE_FOURTHS = 3 / 4
+
 /**
- * The Raycast-documented set (https://www.raycast.com/core-features/window-management),
- * including its naming ("First/Last Third", not "Left/Right Third" — Raycast reserves
- * Left/Right for the halves) — plus `almost-maximize`, a useful extra Raycast's own app
- * also ships (a 90%-size centered window) that just isn't called out on that page.
+ * A span of `size` (as a fraction of the axis) anchored at the start, the
+ * end, or centered. `first`/`last` sit flush against the axis's edges;
+ * `center` splits the leftover room evenly on both sides — which, for a
+ * fraction that evenly divides the axis (thirds, sixths), also happens to
+ * land exactly on the middle tile, so this one function covers both "center
+ * third of three" and "two-thirds, centered" alike.
  */
-export type SnapRegion =
-  | 'left-half'
-  | 'right-half'
-  | 'top-half'
-  | 'bottom-half'
-  | 'center-half'
-  | 'top-left'
-  | 'top-right'
-  | 'bottom-left'
-  | 'bottom-right'
-  | 'first-third'
-  | 'center-third'
-  | 'last-third'
-  | 'first-two-thirds'
-  | 'last-two-thirds'
-  | 'center'
-  | 'almost-maximize'
-  | 'maximize'
-  | 'maximize-width'
-  | 'maximize-height'
+type EdgePosition = 'first' | 'center' | 'last'
+function edgeSpan(size: number, position: EdgePosition): FractionSpan {
+  const start = position === 'first' ? 0 : position === 'last' ? 1 - size : (1 - size) / 2
+  return { start, size }
+}
+
+/** One quarter-width tile, evenly spaced — unlike `edgeSpan`, all four are named ordinally (no "left/right"). */
+type QuarterPosition = 'first' | 'second' | 'third' | 'last'
+const QUARTER_INDEX: Record<QuarterPosition, number> = { first: 0, second: 1, third: 2, last: 3 }
+function quarterSpan(position: QuarterPosition): FractionSpan {
+  return { start: QUARTER_INDEX[position] / 4, size: 1 / 4 }
+}
+
+function spanRect(workArea: Rect, col: FractionSpan, row: FractionSpan): Rect {
+  return round({
+    x: workArea.x + col.start * workArea.width,
+    y: workArea.y + row.start * workArea.height,
+    width: col.size * workArea.width,
+    height: row.size * workArea.height
+  })
+}
+
+/**
+ * Every region whose target rect is a fixed `{ col, row }` fraction of the
+ * work area, fed straight to `spanRect` — halves, quarters, thirds/two-thirds
+ * (as a column, full height), the equivalent top/bottom row fractions,
+ * fourths, three-fourths, and the sixths/fourths grids (a row half crossed
+ * with a column third/fourth). `SnapRegion` is derived from this table's keys
+ * plus the handful of regions below that aren't a fixed fraction (`center*`,
+ * `almost-maximize`, `maximize*` — they depend on `currentRect` or fill
+ * everything), so every new grid region only needs one line here.
+ */
+const GRID_REGIONS = {
+  'left-half': { col: edgeSpan(HALF, 'first'), row: FULL_SPAN },
+  'right-half': { col: edgeSpan(HALF, 'last'), row: FULL_SPAN },
+  'top-half': { col: FULL_SPAN, row: edgeSpan(HALF, 'first') },
+  'bottom-half': { col: FULL_SPAN, row: edgeSpan(HALF, 'last') },
+
+  'top-left': { col: edgeSpan(HALF, 'first'), row: edgeSpan(HALF, 'first') },
+  'top-right': { col: edgeSpan(HALF, 'last'), row: edgeSpan(HALF, 'first') },
+  'bottom-left': { col: edgeSpan(HALF, 'first'), row: edgeSpan(HALF, 'last') },
+  'bottom-right': { col: edgeSpan(HALF, 'last'), row: edgeSpan(HALF, 'last') },
+
+  'first-third': { col: edgeSpan(THIRD, 'first'), row: FULL_SPAN },
+  'center-third': { col: edgeSpan(THIRD, 'center'), row: FULL_SPAN },
+  'last-third': { col: edgeSpan(THIRD, 'last'), row: FULL_SPAN },
+  'first-two-thirds': { col: edgeSpan(TWO_THIRDS, 'first'), row: FULL_SPAN },
+  'center-two-thirds': { col: edgeSpan(TWO_THIRDS, 'center'), row: FULL_SPAN },
+  'last-two-thirds': { col: edgeSpan(TWO_THIRDS, 'last'), row: FULL_SPAN },
+
+  'first-fourth': { col: quarterSpan('first'), row: FULL_SPAN },
+  'second-fourth': { col: quarterSpan('second'), row: FULL_SPAN },
+  'third-fourth': { col: quarterSpan('third'), row: FULL_SPAN },
+  'last-fourth': { col: quarterSpan('last'), row: FULL_SPAN },
+
+  'first-three-fourths': { col: edgeSpan(THREE_FOURTHS, 'first'), row: FULL_SPAN },
+  'center-three-fourths': { col: edgeSpan(THREE_FOURTHS, 'center'), row: FULL_SPAN },
+  'last-three-fourths': { col: edgeSpan(THREE_FOURTHS, 'last'), row: FULL_SPAN },
+
+  'top-third': { col: FULL_SPAN, row: edgeSpan(THIRD, 'first') },
+  'bottom-third': { col: FULL_SPAN, row: edgeSpan(THIRD, 'last') },
+  'top-two-thirds': { col: FULL_SPAN, row: edgeSpan(TWO_THIRDS, 'first') },
+  'bottom-two-thirds': { col: FULL_SPAN, row: edgeSpan(TWO_THIRDS, 'last') },
+  'top-three-fourths': { col: FULL_SPAN, row: edgeSpan(THREE_FOURTHS, 'first') },
+  'bottom-three-fourths': { col: FULL_SPAN, row: edgeSpan(THREE_FOURTHS, 'last') },
+
+  'top-left-sixth': { col: edgeSpan(THIRD, 'first'), row: edgeSpan(HALF, 'first') },
+  'top-center-sixth': { col: edgeSpan(THIRD, 'center'), row: edgeSpan(HALF, 'first') },
+  'top-right-sixth': { col: edgeSpan(THIRD, 'last'), row: edgeSpan(HALF, 'first') },
+  'bottom-left-sixth': { col: edgeSpan(THIRD, 'first'), row: edgeSpan(HALF, 'last') },
+  'bottom-center-sixth': { col: edgeSpan(THIRD, 'center'), row: edgeSpan(HALF, 'last') },
+  'bottom-right-sixth': { col: edgeSpan(THIRD, 'last'), row: edgeSpan(HALF, 'last') },
+
+  'top-first-fourth': { col: quarterSpan('first'), row: edgeSpan(HALF, 'first') },
+  'top-second-fourth': { col: quarterSpan('second'), row: edgeSpan(HALF, 'first') },
+  'top-third-fourth': { col: quarterSpan('third'), row: edgeSpan(HALF, 'first') },
+  'top-last-fourth': { col: quarterSpan('last'), row: edgeSpan(HALF, 'first') },
+  'bottom-first-fourth': { col: quarterSpan('first'), row: edgeSpan(HALF, 'last') },
+  'bottom-second-fourth': { col: quarterSpan('second'), row: edgeSpan(HALF, 'last') },
+  'bottom-third-fourth': { col: quarterSpan('third'), row: edgeSpan(HALF, 'last') },
+  'bottom-last-fourth': { col: quarterSpan('last'), row: edgeSpan(HALF, 'last') },
+
+  'top-center-two-thirds': { col: edgeSpan(TWO_THIRDS, 'center'), row: edgeSpan(HALF, 'first') },
+  'bottom-center-two-thirds': { col: edgeSpan(TWO_THIRDS, 'center'), row: edgeSpan(HALF, 'last') }
+} satisfies Record<string, { col: FractionSpan; row: FractionSpan }>
+
+export type GridRegion = keyof typeof GRID_REGIONS
+
+/**
+ * Every grid region's id, in the order they're declared above — the
+ * authoritative list `WindowManagementSource` builds its commands from, so a
+ * new region only ever needs one line in `GRID_REGIONS` and shows up
+ * everywhere (search, icon, and — since ids and titles are generated
+ * together from this same list — its title) with nothing to keep in sync by
+ * hand.
+ */
+export const GRID_REGION_IDS = Object.keys(GRID_REGIONS) as GridRegion[]
+
+/**
+ * Looks up a grid region's `{ col, row }` fraction span — exported so
+ * `WindowManagementSource` can derive each command's icon from the same
+ * geometry it snaps to, instead of a separately hand-maintained rect. `null`
+ * for the non-fraction regions (`center*`, `almost-maximize`, `maximize*`).
+ */
+export function regionSpan(region: SnapRegion): { col: FractionSpan; row: FractionSpan } | null {
+  return (GRID_REGIONS as Record<string, { col: FractionSpan; row: FractionSpan } | undefined>)[region] ?? null
+}
+
+/**
+ * The handful of regions that aren't a fixed fraction of the work area —
+ * `center`/`center-half` re-center a window, `almost-maximize` is a fixed 90%,
+ * and the `maximize*` variants fill an axis while preserving the other one
+ * from `currentRect`. Everything else is a `GridRegion`.
+ */
+type SpecialRegion = 'center' | 'center-half' | 'almost-maximize' | 'maximize' | 'maximize-width' | 'maximize-height'
+
+/**
+ * Halves, quarters, thirds/two-thirds/three-fourths/fourths (as a column,
+ * full height), the equivalent top/bottom row fractions, and the
+ * sixths/fourths grids (a row half crossed with a column third/fourth) —
+ * ordinal naming ("First/Last Third", not "Left/Right Third" — Left/Right is
+ * reserved for the halves) — plus `almost-maximize`, a 90%-size centered
+ * window.
+ */
+export type SnapRegion = GridRegion | SpecialRegion
 
 export type EdgeDirection = 'up' | 'down' | 'left' | 'right'
 
@@ -92,38 +212,11 @@ function clampPosition(pos: number, size: number, areaStart: number, areaSize: n
 export function computeTargetRect(region: SnapRegion, input: LayoutInput): Rect {
   const { workArea, currentRect } = input
   const { x, y, width, height } = workArea
-  const halfW = width / 2
-  const halfH = height / 2
-  const thirdW = width / 3
-  const twoThirdsW = (width * 2) / 3
 
-  switch (region) {
-    case 'left-half':
-      return round({ x, y, width: halfW, height })
-    case 'right-half':
-      return round({ x: x + halfW, y, width: width - halfW, height })
-    case 'top-half':
-      return round({ x, y, width, height: halfH })
-    case 'bottom-half':
-      return round({ x, y: y + halfH, width, height: height - halfH })
-    case 'top-left':
-      return round({ x, y, width: halfW, height: halfH })
-    case 'top-right':
-      return round({ x: x + halfW, y, width: width - halfW, height: halfH })
-    case 'bottom-left':
-      return round({ x, y: y + halfH, width: halfW, height: height - halfH })
-    case 'bottom-right':
-      return round({ x: x + halfW, y: y + halfH, width: width - halfW, height: height - halfH })
-    case 'first-third':
-      return round({ x, y, width: thirdW, height })
-    case 'center-third':
-      return round({ x: x + thirdW, y, width: thirdW, height })
-    case 'last-third':
-      return round({ x: x + twoThirdsW, y, width: width - twoThirdsW, height })
-    case 'first-two-thirds':
-      return round({ x, y, width: twoThirdsW, height })
-    case 'last-two-thirds':
-      return round({ x: x + thirdW, y, width: width - thirdW, height })
+  const grid = regionSpan(region)
+  if (grid) return spanRect(workArea, grid.col, grid.row)
+
+  switch (region as SpecialRegion) {
     case 'center':
       return round(
         centeredIn(
@@ -133,7 +226,7 @@ export function computeTargetRect(region: SnapRegion, input: LayoutInput): Rect 
         )
       )
     case 'center-half':
-      return round(centeredIn(workArea, halfW, halfH))
+      return round(centeredIn(workArea, width * HALF, height * HALF))
     case 'almost-maximize':
       return round(
         centeredIn(workArea, width * ALMOST_MAXIMIZE_FRACTION, height * ALMOST_MAXIMIZE_FRACTION)
@@ -150,6 +243,13 @@ export function computeTargetRect(region: SnapRegion, input: LayoutInput): Rect 
       const xPos = currentRect ? clampPosition(currentRect.x, w, x, width) : x
       return round({ x: xPos, y, width: w, height })
     }
+    default:
+      // Unreachable for a real `SnapRegion` — every member is either a `GridRegion`
+      // (handled above) or one of the `SpecialRegion` cases above. Only reachable if
+      // a caller building an id from a string template (`WindowManagementSource`'s
+      // `gridRegion()`) passes one that doesn't match an actual `GRID_REGIONS` entry;
+      // failing loudly here beats a window silently not moving.
+      throw new Error(`computeTargetRect: unknown region "${region}"`)
   }
 }
 
