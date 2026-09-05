@@ -1,17 +1,35 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, systemPreferences } from 'electron'
-import { IPC_CHANNELS } from '../shared/types'
-import { executeAction, getWindowShortcuts, initActionSources, query, refreshActionSources, settings } from './actions'
-import { captureFocusedWindow } from './window/control'
-import { DEFAULT_WINDOW_SHORTCUTS } from './window/shortcuts'
-import { centerOnActiveDisplay, createLauncherWindow } from './window'
+import {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  ipcMain,
+  systemPreferences,
+} from "electron";
+import { captureFocusedWindow } from "./window/control";
+import { DEFAULT_WINDOW_SHORTCUTS } from "./window/shortcuts";
+import { IPC_CHANNELS, type RequestSubtitleOptions } from "../shared/types";
+import {
+  executeAction,
+  getWindowShortcuts,
+  initActionSources,
+  query,
+  quickValueRunner,
+  quickValueStore,
+  refreshActionSources,
+  requestSubtitle,
+  settings,
+} from "./actions";
+import { registerQuickValueIpc } from "./sources/quickvalue/ipc";
+import { centerOnActiveDisplay, createLauncherWindow } from "./window";
 
 // Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
 // (e.g. to Mission Control/Spotlight variants) and Cmd+Space/Cmd+Option+Space/
 // Cmd+Ctrl+Space are all reserved by the OS, so macOS gets its own default.
-const TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Command+Shift+Space' : 'Alt+Space'
+const TOGGLE_SHORTCUT =
+  process.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
 
-let launcherWindow: BrowserWindow | null = null
-let pinned = false
+let launcherWindow: BrowserWindow | null = null;
+let pinned = false;
 
 /**
  * The launcher's own window handle, so window-management commands never target
@@ -21,23 +39,23 @@ let pinned = false
  * `control-mac.ts`), so this returns 0 there.
  */
 function launcherHandle(win: BrowserWindow): number {
-  if (process.platform !== 'win32' && process.platform !== 'linux') return 0
-  return win.getNativeWindowHandle().readUInt32LE(0)
+  if (process.platform !== "win32" && process.platform !== "linux") return 0;
+  return win.getNativeWindowHandle().readUInt32LE(0);
 }
 
 function toggleLauncher(): void {
-  if (!launcherWindow) return
+  if (!launcherWindow) return;
   if (launcherWindow.isVisible()) {
-    launcherWindow.hide()
-    return
+    launcherWindow.hide();
+    return;
   }
   // Grab the window the user is in now, before show()/focus() makes it the launcher.
-  captureFocusedWindow(launcherHandle(launcherWindow))
-  centerOnActiveDisplay(launcherWindow)
-  launcherWindow.show()
-  launcherWindow.focus()
+  captureFocusedWindow(launcherHandle(launcherWindow));
+  centerOnActiveDisplay(launcherWindow);
+  launcherWindow.show();
+  launcherWindow.focus();
   // Pick up changes since the last run (e.g. apps installed/removed); sources throttle.
-  refreshActionSources()
+  refreshActionSources();
 }
 
 /**
@@ -55,86 +73,100 @@ function toggleLauncher(): void {
  */
 function registerWindowShortcuts(): void {
   if (
-    process.platform !== 'win32' &&
-    process.platform !== 'darwin' &&
-    process.platform !== 'linux'
+    process.platform !== "win32" &&
+    process.platform !== "darwin" &&
+    process.platform !== "linux"
   ) {
-    return
+    return;
   }
-  for (const [actionId, platformDefault] of Object.entries(DEFAULT_WINDOW_SHORTCUTS)) {
-    const accelerator = settings.getWindowShortcut(actionId, platformDefault)
-    if (!accelerator) continue // user explicitly disabled this shortcut
+  for (const [actionId, platformDefault] of Object.entries(
+    DEFAULT_WINDOW_SHORTCUTS,
+  )) {
+    const accelerator = settings.getWindowShortcut(actionId, platformDefault);
+    if (!accelerator) continue; // user explicitly disabled this shortcut
     const ok = globalShortcut.register(accelerator, () => {
-      captureFocusedWindow(launcherWindow ? launcherHandle(launcherWindow) : undefined)
-      void executeAction(actionId, '')
-    })
+      captureFocusedWindow(
+        launcherWindow ? launcherHandle(launcherWindow) : undefined,
+      );
+      void executeAction(actionId, "");
+    });
     if (!ok) {
-      console.error(`[main] Failed to register window shortcut ${accelerator} for ${actionId}`)
+      console.error(
+        `[main] Failed to register window shortcut ${accelerator} for ${actionId}`,
+      );
     }
   }
 }
 
 app.whenReady().then(() => {
-  launcherWindow = createLauncherWindow(() => pinned)
+  launcherWindow = createLauncherWindow(() => pinned);
 
   // Warm every action source now (apps: disk cache, then a background worker run)
   // instead of waiting for the renderer's first search.
-  initActionSources()
+  initActionSources();
+
+  registerQuickValueIpc(quickValueStore, quickValueRunner);
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
-    return query(text)
-  })
+    return query(text);
+  });
 
   ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string, text: string) => {
     // Hide synchronously before launching so the launcher disappears instantly,
     // instead of lingering until the launched app grabs focus and triggers `blur`.
-    if (!pinned) launcherWindow?.hide()
+    if (!pinned) launcherWindow?.hide();
     // `text` is threaded through so usage tracking can learn "typed X, picked Y".
-    return executeAction(id, text)
-  })
+    return executeAction(id, text);
+  });
 
   ipcMain.on(IPC_CHANNELS.hide, () => {
-    launcherWindow?.hide()
-  })
+    launcherWindow?.hide();
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.requestSubtitle,
+    (_event, id: string, opts?: RequestSubtitleOptions) =>
+      requestSubtitle(id, opts),
+  );
 
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
-    pinned = !pinned
-    return pinned
-  })
+    pinned = !pinned;
+    return pinned;
+  });
 
   ipcMain.handle(IPC_CHANNELS.windowShortcuts, () => {
-    return getWindowShortcuts()
-  })
+    return getWindowShortcuts();
+  });
 
   ipcMain.handle(IPC_CHANNELS.accessibilityStatus, () => {
-    if (process.platform !== 'darwin') return true
-    return systemPreferences.isTrustedAccessibilityClient(false)
-  })
+    if (process.platform !== "darwin") return true;
+    return systemPreferences.isTrustedAccessibilityClient(false);
+  });
 
   ipcMain.handle(IPC_CHANNELS.requestAccessibility, () => {
-    if (process.platform !== 'darwin') return true
-    return systemPreferences.isTrustedAccessibilityClient(true)
-  })
+    if (process.platform !== "darwin") return true;
+    return systemPreferences.isTrustedAccessibilityClient(true);
+  });
 
   if (!globalShortcut.register(TOGGLE_SHORTCUT, toggleLauncher)) {
-    console.error(`Failed to register global shortcut: ${TOGGLE_SHORTCUT}`)
+    console.error(`Failed to register global shortcut: ${TOGGLE_SHORTCUT}`);
   }
 
-  registerWindowShortcuts()
+  registerWindowShortcuts();
 
-  app.on('activate', () => {
+  app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      launcherWindow = createLauncherWindow(() => pinned)
+      launcherWindow = createLauncherWindow(() => pinned);
     }
-  })
-})
+  });
+});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
   }
-})
+});
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
-})
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
+});

@@ -1,3 +1,4 @@
+import type { RequestSubtitleOptions } from '../../shared/types'
 import type { ActionDefinition } from '../types'
 
 /**
@@ -31,6 +32,20 @@ export interface ActionSource {
 
   /** Refresh hook, called when the launcher window is shown. */
   refresh?(): void
+
+  /**
+   * Called when a row this source produced with `isDeferredSubtitle: true`
+   * actually renders in the launcher (or the row asks to force-refresh, e.g.
+   * a "Refresh" command), so the source can fetch/refresh its subtitle.
+   * Resolves with the fresh subtitle — there is no separate push channel, this
+   * return value IS how the renderer learns the new value. `opts.force` skips
+   * any staleness cache and refetches unconditionally. Sources that never mark
+   * a row `isDeferredSubtitle` can omit it.
+   */
+  requestSubtitle?(
+    actionId: string,
+    opts?: RequestSubtitleOptions
+  ): string | undefined | Promise<string | undefined>
 }
 
 /**

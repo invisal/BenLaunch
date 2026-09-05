@@ -1,10 +1,12 @@
 import { cn } from "cnfast";
+import { useEffect, useState, type ComponentPropsWithRef } from "react";
 import type { LauncherAction } from "../../../../../shared/types";
 import { formatShortcut } from "../../../lib/shortcut";
 
 const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   application: "Application",
   command: "Command",
+  quickvalue: "QuickValue",
 };
 
 function isImageIcon(icon: string): boolean {
@@ -27,43 +29,113 @@ function ItemIcon({ icon }: { icon?: string }) {
   );
 }
 
-interface SearchItemProps {
+interface SearchItemProps extends ComponentPropsWithRef<"div"> {
   action: LauncherAction;
-  selected: boolean;
-  onClick: () => void;
+  highlighted: boolean;
+  /**
+   * Bumping this (to any new number) tells this row to force-refresh its
+   * subtitle right now, bypassing whatever staleness cache the source uses —
+   * e.g. the row menu's "Refresh". `undefined` most of the time; App.tsx only
+   * sets it for the one row being refreshed. Not a value store — see App.tsx.
+   */
+  forceRefreshToken?: number;
 }
 
-function SearchItem({ action, selected, onClick }: SearchItemProps) {
-  const { icon, title, subtitle, type, shortcut } = action;
+/** Locked to the virtualized list's row height for this item (see App.tsx). */
+export const SEARCH_ITEM_HEIGHT = 40;
+
+function Spinner() {
+  return (
+    <span
+      className="inline-block h-3 w-3 shrink-0 animate-spin rounded-full border border-foreground-subtle border-t-transparent"
+      aria-label="Loading"
+    />
+  );
+}
+
+function SearchItem({
+  action,
+  highlighted,
+  className,
+  forceRefreshToken,
+  ...rest
+}: SearchItemProps) {
+  const { id, icon, title, type, shortcut, isDeferredSubtitle } = action;
+
+  // This row owns both its subtitle and loading state once it's deferred —
+  // `requestSubtitle` resolves with the fresh value directly (there's no
+  // separate push channel to listen on instead). Seeded from the prop so a
+  // freshly-mounted row shows whatever was already cached (and its correct
+  // "no cache yet" loading state) instead of a blank flash. Deliberately NOT
+  // `action.isLoading || pending`: `action.isLoading` is a snapshot from
+  // whenever `provide()` last ran and never updates on its own, so once our
+  // own fetch resolves it would stay stuck `true` forever with nothing to
+  // clear it back to `false`.
+  const [subtitle, setSubtitle] = useState(action.subtitle);
+  const [loading, setLoading] = useState(!!action.isLoading);
+
+  // A new `provide()` result (the user typed something, re-running the query)
+  // can hand this same row a newer subtitle/loading state than what we've
+  // fetched ourselves — both read the same backend cache, so the prop is
+  // never *behind* our own last fetch, only possibly ahead of it.
+  useEffect(() => {
+    setSubtitle(action.subtitle);
+    setLoading(!!action.isLoading);
+  }, [action.subtitle, action.isLoading]);
+
+  // Virtualization mounts this component only for rows currently on screen (plus
+  // overscan), so this naturally fires just for rows the user can actually see —
+  // never for the rest of an exposed-QuickValue list scrolled out of view. The
+  // main process caches/dedupes (TTL + single-flight), so re-requesting on every
+  // mount is cheap. Re-fires with `force: true` when `forceRefreshToken` changes
+  // (App.tsx sets it for exactly one row at a time, e.g. the row menu's "Refresh").
+  useEffect(() => {
+    if (!isDeferredSubtitle) return;
+    let cancelled = false;
+    setLoading(true);
+    const opts = forceRefreshToken !== undefined ? { force: true } : undefined;
+    window.api
+      .requestSubtitle(id, opts)
+      .then((fresh) => {
+        if (!cancelled && fresh !== undefined) setSubtitle(fresh);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isDeferredSubtitle, forceRefreshToken]);
 
   return (
-    <li
-      onClick={onClick}
+    <div
+      {...rest}
       className={cn(
-        "flex items-center gap-2 rounded px-1 py-1",
-        selected ? "bg-item-selected text-foreground" : "hover:bg-item-hover",
+        "flex h-10 cursor-default items-center gap-2 rounded px-1 py-1",
+        highlighted ? "bg-item-selected text-foreground" : "hover:bg-item-hover",
+        className,
       )}
     >
       <ItemIcon icon={icon} />
-      {
-        <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <span className="shrink-0 truncate">{title}</span>
-          {shortcut && selected ? (
-            <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
-              {formatShortcut(shortcut)}
-            </kbd>
-          ) : (
-            <span className="min-w-0 truncate text-foreground-subtle font-medium">
-              {subtitle}
-            </span>
-          )}
-        </div>
-      }
+      <div className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="shrink-0 truncate">{title}</span>
+        {shortcut && highlighted ? (
+          <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
+            {formatShortcut(shortcut)}
+          </kbd>
+        ) : loading ? (
+          <Spinner />
+        ) : (
+          <span className="min-w-0 truncate text-foreground-subtle font-medium">
+            {subtitle}
+          </span>
+        )}
+      </div>
 
       <span className="shrink-0 rounded px-1.5 py-0.5 text-foreground-subtle">
         {TYPE_LABEL[type]}
       </span>
-    </li>
+    </div>
   );
 }
 

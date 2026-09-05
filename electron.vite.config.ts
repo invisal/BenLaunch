@@ -24,7 +24,11 @@ export default defineConfig({
           // main/browser process. See src/main/native/apps.ts.
           // Output name stays `apps-worker.js` (the input key); apps.ts resolves it
           // as `join(__dirname, 'apps-worker.js')` at runtime.
-          'apps-worker': resolve(__dirname, 'src/main/native/apps-worker.ts')
+          'apps-worker': resolve(__dirname, 'src/main/native/apps-worker.ts'),
+          // Runs a QuickValue's user function out-of-process (same reason as above);
+          // src/main/sources/quickvalue/runner.ts spawns it as `quickvalue-worker.js`
+          // (the input key below sets the output name).
+          'quickvalue-worker': resolve(__dirname, 'src/main/sources/quickvalue/worker.ts')
         }
       }
     }
@@ -38,7 +42,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
-          settings: resolve(__dirname, 'src/renderer/settings.html')
+          settings: resolve(__dirname, 'src/renderer/settings.html'),
+          quickvalue: resolve(__dirname, 'src/renderer/quickvalue.html')
         }
       }
     },

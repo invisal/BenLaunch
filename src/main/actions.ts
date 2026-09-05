@@ -1,5 +1,9 @@
 import { app } from "electron";
-import type { QueryResult, WindowShortcutInfo } from "../shared/types";
+import type {
+  QueryResult,
+  RequestSubtitleOptions,
+  WindowShortcutInfo,
+} from "../shared/types";
 import { evaluate } from "./calculator";
 import { fuzzyMatch } from "./search";
 import { SettingsStore } from "./settings/store";
@@ -7,6 +11,10 @@ import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { WindowManagementSource } from "./sources/window/source";
+import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
+import { QuickValueRunner } from "./sources/quickvalue/runner";
+import { QuickValueSource } from "./sources/quickvalue/source";
+import { QuickValueStore } from "./sources/quickvalue/store";
 import { Usage } from "./usage/store";
 
 /** Persisted user settings (today: Window Management shortcut overrides). Also read directly by `index.ts` to register global shortcuts. */
@@ -14,6 +22,13 @@ export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
 /** Held separately (not just in `sources`) so `getWindowShortcuts` can read its action list for the Settings screen. */
 const windowSource = new WindowManagementSource(settings);
+/** Persisted QuickValue definitions + the cache of their last computed values. */
+export const quickValueStore = new QuickValueStore({
+  dir: app.getPath("userData"),
+});
+export const quickValueRunner = new QuickValueRunner({
+  dir: app.getPath("userData"),
+});
 
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
@@ -23,7 +38,10 @@ const windowSource = new WindowManagementSource(settings);
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   windowSource,
+  new WindowManagementSource(settings),
+  new QuickValueSource(quickValueStore, quickValueRunner),
   new InstalledAppSource(),
+  new ExchangeRateSource(),
 ];
 
 /** Personalized ranking signal — records what the user picks, boosts it next time. */
@@ -42,7 +60,9 @@ export function refreshActionSources(): void {
 }
 
 export async function query(text: string): Promise<QueryResult> {
-  const lists = await Promise.all(sources.map((source) => source.provide(text)));
+  const lists = await Promise.all(
+    sources.map((source) => source.provide(text)),
+  );
   const definitions = lists.flat();
 
   const trimmed = text.trim();
@@ -73,7 +93,18 @@ export async function query(text: string): Promise<QueryResult> {
 
 export async function executeAction(id: string, text: string): Promise<void> {
   await sources.find((source) => source.owns(id))?.execute(id);
-  usage.record(id, text);
+  // `qv:edit:*` is a UI shortcut (open the editor), not a real action to rank.
+  if (!id.startsWith("qv:edit:")) usage.record(id, text);
+}
+
+/** A deferred-subtitle row rendered in the launcher; ask whichever source owns it for a fresh subtitle. */
+export async function requestSubtitle(
+  id: string,
+  opts?: RequestSubtitleOptions,
+): Promise<string | undefined> {
+  return await sources
+    .find((source) => source.owns(id))
+    ?.requestSubtitle?.(id, opts);
 }
 
 /** Window Management commands' id/title/shortcut, for the Settings screen. */

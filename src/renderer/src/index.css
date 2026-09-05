@@ -7,6 +7,12 @@
   --color-foreground: #f5f5f4;
   --color-foreground-subtle: #8a8582;
   --color-border: rgb(255 255 255 / 8%);
+
+  /* Calculator expression syntax highlighting — a faint accent on units,
+     functions and constants; numbers and operators use the base tokens. */
+  --color-syntax-function: #e3c088;
+  --color-syntax-unit: #8fbf9f;
+  --color-syntax-constant: #c9a0dc;
 }
 
 /* On macOS the window is backed by an electron-liquid-glass surface, so let the
@@ -20,59 +26,29 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  overflow: hidden;
   background: transparent;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 body {
   font-size: 14px;
 }
 
-input {
-  -webkit-user-select: text;
-  user-select: text;
-}
+/* Per-window CSS lives next to each screen's entry (e.g.
+   `screens/launcher/launcher.css`), imported after this file. Anything that
+   should NOT reach every window — the launcher's `user-select: none`, say —
+   belongs there, not here. */
 
-input::selection {
+::selection {
   background: var(--color-item-selected);
   color: var(--color-foreground);
 }
 
-.result-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-
-.result-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.result-scroll::-webkit-scrollbar-button,
-.result-scroll::-webkit-scrollbar-button:single-button,
-.result-scroll::-webkit-scrollbar-button:start:decrement,
-.result-scroll::-webkit-scrollbar-button:end:increment {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-.result-scroll::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 9999px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-  min-height: 24px;
-}
-
-.result-scroll:hover::-webkit-scrollbar-thumb,
-.result-scroll:focus-within::-webkit-scrollbar-thumb {
-  background-color: rgb(255 255 255 / 18%);
-}
-
-.result-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(255 255 255 / 28%);
-}
-
-.result-scroll::-webkit-scrollbar-thumb:active {
-  background-color: rgb(255 255 255 / 36%);
+/* Standard scrollbar properties (not `::-webkit-scrollbar`) keep the overlay
+   behavior enabled by the `OverlayScrollbar` switch in the main process: the
+   thumb floats over the content and the list never reflows when it starts to
+   scroll. The overlay thumb already auto-hides when idle. */
+.result-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 22%) transparent;
 }

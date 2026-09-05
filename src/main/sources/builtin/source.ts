@@ -3,6 +3,7 @@ import { exec } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ActionDefinition } from '../../types'
+import { openQuickValueWindow } from '../quickvalue/window'
 import { openSettingsWindow } from '../../settings-window'
 import type { ActionSource } from '../base'
 
@@ -35,6 +36,30 @@ export class BuiltinCommandSource implements ActionSource {
       },
       run: () => {
         openSettingsWindow()
+      }
+    },
+    {
+      action: {
+        id: 'cmd:quickvalue-create',
+        title: 'Create QuickValue',
+        subtitle: 'Write a new QuickValue snippet',
+        icon: '⚡',
+        type: 'command'
+      },
+      run: () => {
+        openQuickValueWindow({ view: 'create' })
+      }
+    },
+    {
+      action: {
+        id: 'cmd:quickvalue-manage',
+        title: 'Manage QuickValue',
+        subtitle: 'View, edit and expose your QuickValues',
+        icon: '🗂️',
+        type: 'command'
+      },
+      run: () => {
+        openQuickValueWindow({ view: 'list' })
       }
     },
     {
