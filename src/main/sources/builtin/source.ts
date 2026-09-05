@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { ActionDefinition } from '../../types'
 import { openQuickValueWindow } from '../quickvalue/window'
 import { openCustomLayoutWindow } from '../window/custom-window'
+import { isSupported } from '../../window/control'
 import { openSettingsWindow } from '../../settings-window'
 import type { ActionSource } from '../base'
 
@@ -63,18 +64,26 @@ export class BuiltinCommandSource implements ActionSource {
         openQuickValueWindow({ view: 'list' })
       }
     },
-    {
-      action: {
-        id: 'cmd:custom-layout-create',
-        title: 'Create Command',
-        subtitle: 'Design a custom window layout',
-        icon: '➕',
-        type: 'command'
-      },
-      run: () => {
-        openCustomLayoutWindow()
-      }
-    },
+    // A layout designed here can only ever run as a `win:custom:*` command,
+    // which `WindowManagementSource` already hides when `isSupported()` is
+    // false (see `sources/window/source.ts`) — offering the editor anyway
+    // would just let the user build something that can never be executed.
+    ...(isSupported()
+      ? [
+          {
+            action: {
+              id: 'cmd:custom-layout-create',
+              title: 'Create Command',
+              subtitle: 'Design a custom window layout',
+              icon: '➕',
+              type: 'command' as const
+            },
+            run: () => {
+              openCustomLayoutWindow()
+            }
+          }
+        ]
+      : []),
     {
       action: {
         id: 'cmd:open-downloads',

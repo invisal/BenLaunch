@@ -20,6 +20,21 @@ function impl(): typeof win | typeof mac | typeof linux | null {
 }
 
 /**
+ * Whether window management can actually work here — beyond just "is there a
+ * backend for this platform at all" (`impl()` above). win32/darwin always
+ * have a real native window to act on; a Linux Wayland session can have zero
+ * XWayland windows on the whole desktop, meaning `xdotool`/`wmctrl` would
+ * have nothing to operate on no matter which command runs — see
+ * `hasXWaylandWindows` in `control-linux.ts`. Checked once and cached for the
+ * process's lifetime, so this is cheap to call from `WindowManagementSource`.
+ */
+export function isSupported(): boolean {
+  if (process.platform === 'win32' || process.platform === 'darwin') return true
+  if (process.platform === 'linux') return linux.hasXWaylandWindows()
+  return false
+}
+
+/**
  * Records the window/app the user was focused on before it loses focus.
  * `excludeHandle` is the launcher's own window handle on Windows/Linux (so a
  * stray capture of the launcher itself isn't moved later); macOS self-excludes

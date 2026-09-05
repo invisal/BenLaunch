@@ -5,6 +5,7 @@ import {
   applyCustomLayout,
   applyRegion,
   GRID_REGION_IDS,
+  isSupported,
   moveToDisplay,
   moveToEdge,
   regionSpan,
@@ -21,10 +22,12 @@ import type { CustomLayoutStore } from "./custom-store";
 
 /**
  * `window/control` has a backend for all three desktop platforms — see
- * `control-win.ts`/`control-mac.ts`/`control-linux.ts`.
+ * `control-win.ts`/`control-mac.ts`/`control-linux.ts`. On Linux this also
+ * checks that there's actually an XWayland window to act on at all — see
+ * `isSupported` in `control.ts`. Checked once (and cached) the first time
+ * this module loads, effectively at startup.
  */
-const SUPPORTED_PLATFORM =
-  process.platform === "win32" || process.platform === "darwin" || process.platform === "linux";
+const SUPPORTED_PLATFORM = isSupported();
 
 /**
  * Window-management commands (`win:` ids) — halves, quarters, thirds/two-thirds,
@@ -58,6 +61,7 @@ export class WindowManagementSource implements ActionSource {
   ) {}
 
   provide(): ActionDefinition[] {
+    if (!SUPPORTED_PLATFORM) return [];
     return [...this.definitions, ...this.customLayoutDefinitions()];
   }
 

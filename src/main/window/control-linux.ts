@@ -34,6 +34,37 @@ const execFileAsync = promisify(execFile)
  * one, and there is no workaround from here.
  */
 
+/**
+ * Whether any real application window is reachable via XWayland at all, checked
+ * once at startup and cached for the process's lifetime (see `hasXWaylandWindows`
+ * below). On a Wayland session where every running app happens to be a native
+ * Wayland client — no XWayland windows exist for `xdotool`/`wmctrl` to act on at
+ * all, not even in principle — `WindowManagementSource` uses this to hide the
+ * feature entirely instead of offering commands that can silently no-op.
+ */
+let xwaylandWindowsChecked = false
+let xwaylandWindowsPresent = false
+
+/**
+ * `wmctrl -l` lists every window on the EWMH `_NET_CLIENT_LIST` — empty output
+ * means there are zero XWayland-backed windows on the whole desktop right now,
+ * not just that the currently focused one happens to be native Wayland. Treated
+ * the same as "unsupported" if `wmctrl` itself is missing or the check fails:
+ * nothing here can prove the feature would work, so don't offer it.
+ */
+export function hasXWaylandWindows(): boolean {
+  if (xwaylandWindowsChecked) return xwaylandWindowsPresent
+  xwaylandWindowsChecked = true
+  try {
+    const out = execFileSync('wmctrl', ['-l'], { encoding: 'utf8', timeout: 1000 }).trim()
+    xwaylandWindowsPresent = out.length > 0
+  } catch (error) {
+    console.error('[window/linux] hasXWaylandWindows check failed (is wmctrl installed?):', error)
+    xwaylandWindowsPresent = false
+  }
+  return xwaylandWindowsPresent
+}
+
 /** Last-captured X11 window id (decimal, as `xdotool` prints it); `null` when none/unknown. */
 let capturedWindowId: string | null = null
 
