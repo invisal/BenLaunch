@@ -700,11 +700,11 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
+module.exports.applyWindowRect = nativeBinding.applyWindowRect
 module.exports.extractIconPng = nativeBinding.extractIconPng
 module.exports.extractPackagedIconPng = nativeBinding.extractPackagedIconPng
 module.exports.foregroundWindow = nativeBinding.foregroundWindow
 module.exports.getWindowRect = nativeBinding.getWindowRect
-module.exports.applyWindowRect = nativeBinding.applyWindowRect
-module.exports.toggleMaximize = nativeBinding.toggleMaximize
 module.exports.listStartApps = nativeBinding.listStartApps
 module.exports.resolveShortcut = nativeBinding.resolveShortcut
+module.exports.toggleMaximize = nativeBinding.toggleMaximize
