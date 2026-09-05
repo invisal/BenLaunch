@@ -2,3 +2,4 @@
 // launcher has its own glassy chrome and does not pull from here.
 export { WindowFrame } from "./WindowFrame";
 export { Breadcrumb } from "./Breadcrumb";
+export { Layout } from "./Layout";

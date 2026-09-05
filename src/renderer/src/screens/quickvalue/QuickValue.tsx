@@ -4,7 +4,7 @@ import type {
   QuickValueDef,
   QuickValueTestResult,
 } from "../../../../shared/types";
-import { Breadcrumb, WindowFrame } from "../../shared/ui";
+import { Breadcrumb, Layout, WindowFrame } from "../../shared/ui";
 import CodeEditor from "./CodeEditor";
 
 type Route =
@@ -256,7 +256,7 @@ function MetaForm({
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
+    <Layout>
       <WindowFrame.Title>
         <Breadcrumb>
           <Breadcrumb.Item>Quick Values</Breadcrumb.Item>
@@ -265,60 +265,63 @@ function MetaForm({
           </Breadcrumb.Current>
         </Breadcrumb>
       </WindowFrame.Title>
-      <div>
+
+      <Layout.Content className="flex flex-col gap-6">
+        <h2 className="text-base text-foreground">
+          {id === null ? "New QuickValue" : "Edit QuickValue"}
+        </h2>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm text-foreground-subtle">Name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Node stars"
+            autoFocus
+          />
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-foreground-subtle">
+          <input
+            type="checkbox"
+            checked={exposed}
+            onChange={(e) => setExposed(e.target.checked)}
+          />
+          Expose as a launcher command
+        </label>
+      </Layout.Content>
+
+      <Layout.Footer>
         <button
           type="button"
           onClick={onDone}
-          className="text-sm text-foreground-subtle hover:text-foreground"
+          className="shrink-0 text-sm text-foreground-subtle hover:text-foreground"
         >
-          ← QuickValues
+          Cancel
         </button>
-      </div>
 
-      <h2 className="text-base text-foreground">
-        {id === null ? "New QuickValue" : "Edit QuickValue"}
-      </h2>
-
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm text-foreground-subtle">Name</span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Node stars"
-          autoFocus
-        />
-      </label>
-
-      <label className="flex items-center gap-2 text-sm text-foreground-subtle">
-        <input
-          type="checkbox"
-          checked={exposed}
-          onChange={(e) => setExposed(e.target.checked)}
-        />
-        Expose as a launcher command
-      </label>
-
-      <div className="mt-auto flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => void saveAndEditCode()}
-          disabled={busy || !name.trim()}
-          className="rounded bg-item-selected px-3 py-1.5 text-sm text-foreground hover:brightness-125 disabled:opacity-50"
-        >
-          {id === null ? "Continue to code →" : "Edit code →"}
-        </button>
-        {id !== null ? (
+        <div className="ml-auto flex items-center gap-3">
+          {id !== null ? (
+            <button
+              type="button"
+              onClick={() => void saveAndClose()}
+              disabled={busy || !name.trim()}
+              className="rounded border border-border px-3 py-1.5 text-sm hover:bg-item-hover disabled:opacity-50"
+            >
+              {busy ? "Saving…" : "Save"}
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={() => void saveAndClose()}
+            onClick={() => void saveAndEditCode()}
             disabled={busy || !name.trim()}
-            className="rounded border border-border px-3 py-1.5 text-sm hover:bg-item-hover disabled:opacity-50"
+            className="rounded bg-item-selected px-3 py-1.5 text-sm text-foreground hover:brightness-125 disabled:opacity-50"
           >
-            {busy ? "Saving…" : "Save"}
+            {id === null ? "Continue to code →" : "Edit code →"}
           </button>
-        ) : null}
-      </div>
-    </div>
+        </div>
+      </Layout.Footer>
+    </Layout>
   );
 }
 
@@ -394,7 +397,7 @@ function CodeView({ id, onBack }: { id: string; onBack: () => void }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <Layout>
       <WindowFrame.Title>
         <Breadcrumb>
           <Breadcrumb.Item>Quick Values</Breadcrumb.Item>
@@ -402,11 +405,12 @@ function CodeView({ id, onBack }: { id: string; onBack: () => void }) {
           <Breadcrumb.Current>Code</Breadcrumb.Current>
         </Breadcrumb>
       </WindowFrame.Title>
-      <div className="min-h-0 flex-1 p-2">
-        <CodeEditor value={code} onChange={setCode} />
-      </div>
 
-      <div className="flex items-center gap-3 border-t border-border px-4 py-2">
+      <Layout.Content className="overflow-hidden p-2">
+        <CodeEditor value={code} onChange={setCode} />
+      </Layout.Content>
+
+      <Layout.Footer>
         <button
           type="button"
           onClick={onBack}
@@ -434,8 +438,8 @@ function CodeView({ id, onBack }: { id: string; onBack: () => void }) {
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
-      </div>
-    </div>
+      </Layout.Footer>
+    </Layout>
   );
 }
 
