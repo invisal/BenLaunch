@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { javascript } from '@codemirror/lang-javascript'
 import { EditorState } from '@codemirror/state'
@@ -7,10 +8,101 @@ import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import * as prettier from 'prettier/standalone'
 import prettierTypescript from 'prettier/plugins/typescript'
 import prettierEstree from 'prettier/plugins/estree'
+import type * as TS from 'typescript'
+import typescriptScriptUrl from 'virtual:typescript-runtime-url'
+import {
+  createSystem,
+  createVirtualTypeScriptEnvironment,
+  type VirtualTypeScriptEnvironment
+} from '@typescript/vfs'
+import { tsAutocomplete, tsFacet, tsHover, tsLinter, tsSync } from '@valtown/codemirror-ts'
+
+type TSModule = typeof TS
 
 interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
+}
+
+/**
+ * typescript.js is loaded as a same-origin classic `<script>` tag (populating
+ * `window.ts`) rather than a normal `import ts from 'typescript'`. Bundling
+ * this 9MB self-referential CJS module through Rollup's ESM interop leaves
+ * the checker with corrupted per-file binder state (`file.locals` ends up
+ * `undefined` for some source files, crashing `initializeTypeChecker`) —
+ * loading the file untransformed sidesteps that. A `new Function(...)` eval
+ * would too, but the app's CSP is `script-src 'self'` with no `unsafe-eval`.
+ */
+let typescriptLoadPromise: Promise<TSModule> | null = null
+
+function loadTypescript(): Promise<TSModule> {
+  if (!typescriptLoadPromise) {
+    typescriptLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = typescriptScriptUrl
+      script.onload = () => resolve((window as unknown as { ts: TSModule }).ts)
+      script.onerror = () => reject(new Error('Failed to load typescript.js'))
+      document.head.appendChild(script)
+    })
+  }
+  return typescriptLoadPromise
+}
+
+/**
+ * lib.*.d.ts text bundled straight from the installed `typescript` package
+ * (rather than @typescript/vfs's CDN-fetching helper) so the language service
+ * works fully offline. Loaded eagerly as raw strings by Vite; only paid for
+ * once the QuickValue editor chunk actually runs `getTsEnv()`.
+ */
+// Relative, not `/`-rooted: electron.vite.config.ts sets the renderer's Vite
+// root to `src/renderer`, so a `/`-prefixed glob would resolve against that
+// instead of the real project root and silently match nothing.
+const TS_LIB_SOURCES = import.meta.glob('../../../../../node_modules/typescript/lib/lib*.d.ts', {
+  eager: true,
+  query: '?raw',
+  import: 'default'
+}) as Record<string, string>
+
+const TS_ENTRY_PATH = 'index.ts'
+
+// The sandbox `runUserCode` runs QuickValue snippets in (see
+// src/main/sources/quickvalue/run-user-code.ts): a bare `new Function('module',
+// 'exports', 'require', code)` call, not a real CommonJS loader. These globals
+// are what's actually in scope there — modeled here so the editor's type
+// checking matches reality instead of flagging `module`/`require` as undefined.
+const SANDBOX_GLOBALS_PATH = 'globals.d.ts'
+const SANDBOX_GLOBALS_SOURCE = `declare const module: { exports: any }
+declare const exports: any
+declare function require(id: string): any
+`
+
+let tsEnvPromise: Promise<VirtualTypeScriptEnvironment> | null = null
+
+/** Builds (once, lazily) the shared virtual TypeScript environment powering
+ * autocomplete/hover/diagnostics for every CodeEditor instance. */
+function getTsEnv(): Promise<VirtualTypeScriptEnvironment> {
+  if (!tsEnvPromise) {
+    tsEnvPromise = loadTypescript().then((ts) => {
+      const fsMap = new Map<string, string>()
+      for (const [path, content] of Object.entries(TS_LIB_SOURCES)) {
+        fsMap.set('/' + path.slice(path.lastIndexOf('/') + 1), content)
+      }
+      fsMap.set(SANDBOX_GLOBALS_PATH, SANDBOX_GLOBALS_SOURCE)
+
+      const compilerOptions: TS.CompilerOptions = {
+        target: ts.ScriptTarget.ESNext,
+        module: ts.ModuleKind.CommonJS,
+        lib: ['ESNext', 'DOM'],
+        esModuleInterop: true,
+        skipLibCheck: true,
+        strict: false
+      }
+
+      const system = createSystem(fsMap)
+      return createVirtualTypeScriptEnvironment(system, [SANDBOX_GLOBALS_PATH], ts, compilerOptions)
+    })
+  }
+  return tsEnvPromise
 }
 
 async function formatCode(source: string): Promise<string> {
@@ -48,54 +140,68 @@ async function formatInPlace(view: EditorView): Promise<void> {
 }
 
 /**
- * A thin CodeMirror 6 wrapper. Built once on mount; external `value` changes
- * (e.g. loading a different QuickValue into the editor) are reconciled via a
- * dispatch rather than a rebuild.
+ * A thin CodeMirror 6 wrapper. Built once on mount (once the shared
+ * TypeScript environment is ready); external `value` changes (e.g. loading a
+ * different QuickValue into the editor) are reconciled via a dispatch rather
+ * than a rebuild.
  */
 function CodeEditor({ value, onChange }: CodeEditorProps) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
+  const valueRef = useRef(value)
   onChangeRef.current = onChange
+  valueRef.current = value
 
   useEffect(() => {
-    if (!host.current) return
+    let cancelled = false
 
-    const editor = new EditorView({
-      parent: host.current,
-      state: EditorState.create({
-        doc: value,
-        extensions: [
-          lineNumbers(),
-          history(),
-          keymap.of([
-            {
-              key: 'Mod-s',
-              run: (v) => {
-                void formatInPlace(v)
-                return true
-              }
-            },
-            indentWithTab,
-            ...defaultKeymap,
-            ...historyKeymap
-          ]),
-          javascript({ typescript: true }),
-          oneDark,
-          EditorView.theme({
-            '&': { height: '100%', fontSize: '13px' },
-            '.cm-scroller': { overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }
-          }),
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged) onChangeRef.current(update.state.doc.toString())
-          })
-        ]
+    void getTsEnv().then((env) => {
+      if (cancelled || !host.current) return
+
+      const editor = new EditorView({
+        parent: host.current,
+        state: EditorState.create({
+          doc: valueRef.current,
+          extensions: [
+            lineNumbers(),
+            history(),
+            keymap.of([
+              {
+                key: 'Mod-s',
+                run: (v) => {
+                  void formatInPlace(v)
+                  return true
+                }
+              },
+              indentWithTab,
+              ...defaultKeymap,
+              ...historyKeymap,
+              ...completionKeymap
+            ]),
+            javascript({ typescript: true }),
+            tsFacet.of({ env, path: TS_ENTRY_PATH }),
+            tsSync(),
+            tsLinter(),
+            autocompletion({ override: [tsAutocomplete()] }),
+            tsHover(),
+            oneDark,
+            EditorView.theme({
+              '&': { height: '100%', fontSize: '13px' },
+              '.cm-scroller': { overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }
+            }),
+            EditorView.updateListener.of((update) => {
+              if (update.docChanged) onChangeRef.current(update.state.doc.toString())
+            })
+          ]
+        })
       })
+      view.current = editor
     })
-    view.current = editor
 
     return () => {
-      editor.destroy()
+      cancelled = true
+      view.current?.destroy()
       view.current = null
     }
     // Built once; `value` sync is handled by the effect below.
