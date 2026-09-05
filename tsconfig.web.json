@@ -11,7 +11,10 @@
     "skipLibCheck": true,
     "noEmit": true,
     "resolveJsonModule": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "paths": {
+      "@renderer/*": ["./src/renderer/src/*"]
+    }
   },
   "include": [
     "src/renderer/src/**/*",

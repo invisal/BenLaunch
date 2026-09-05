@@ -1,7 +1,7 @@
 import { cn } from "cnfast";
 import { useEffect, useState, type ComponentPropsWithRef } from "react";
 import type { LauncherAction } from "../../../../../shared/types";
-import { formatShortcut } from "../../../lib/shortcut";
+import { formatShortcut } from "@renderer/lib/shortcut";
 
 const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   application: "Application",

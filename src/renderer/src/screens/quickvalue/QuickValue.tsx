@@ -4,7 +4,7 @@ import type {
   QuickValueDef,
   QuickValueTestResult,
 } from "../../../../shared/types";
-import { Breadcrumb, Layout, WindowFrame } from "../../shared/ui";
+import { Breadcrumb, Layout, WindowFrame } from "@renderer/shared/ui";
 import CodeEditor from "./CodeEditor";
 
 type Route =

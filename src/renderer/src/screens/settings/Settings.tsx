@@ -1,5 +1,5 @@
-import { formatShortcut } from '../../lib/shortcut'
-import { WindowFrame } from '../../shared/ui'
+import { formatShortcut } from '@renderer/lib/shortcut'
+import { WindowFrame } from '@renderer/shared/ui'
 
 const TOGGLE_SHORTCUT =
   window.api.platform === 'darwin' ? 'Command+Shift+Space' : 'Alt+Space'

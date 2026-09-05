@@ -89,6 +89,11 @@ export default defineConfig({
   },
   renderer: {
     root: 'src/renderer',
+    resolve: {
+      alias: {
+        '@renderer': resolve(__dirname, 'src/renderer/src')
+      }
+    },
     build: {
       rollupOptions: {
         input: {
