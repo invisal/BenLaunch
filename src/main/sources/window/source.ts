@@ -112,14 +112,14 @@ function buildDefinitions(): ActionDefinition[] {
         void toggleFullscreen();
       },
     },
-    display("next-display", "Move to Next Display", "➡️", "next"),
-    display("previous-display", "Move to Previous Display", "⬅️", "previous"),
+    display("next-display", "Move to Next Display", "→", "next"),
+    display("previous-display", "Move to Previous Display", "←", "previous"),
     {
       action: {
         id: "win:restore",
         title: "Restore",
         subtitle: "Window Management",
-        icon: "↩️",
+        icon: "↺",
         type: "command",
       },
       run: () => {
