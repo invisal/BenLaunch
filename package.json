@@ -44,6 +44,7 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "postcss": "^8.5.26",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3",
     "vite": "^7.3.6"

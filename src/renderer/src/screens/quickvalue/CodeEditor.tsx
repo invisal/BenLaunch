@@ -4,10 +4,47 @@ import { javascript } from '@codemirror/lang-javascript'
 import { EditorState } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
+import * as prettier from 'prettier/standalone'
+import prettierTypescript from 'prettier/plugins/typescript'
+import prettierEstree from 'prettier/plugins/estree'
 
 interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
+}
+
+async function formatCode(source: string): Promise<string> {
+  return prettier.format(source, {
+    parser: 'typescript',
+    plugins: [prettierTypescript, prettierEstree],
+    semi: false,
+    singleQuote: true
+  })
+}
+
+/**
+ * Ctrl/Cmd-S handler: format-in-place only (best effort — a snippet that
+ * doesn't currently parse is left untouched). Saving stays a separate,
+ * explicit action so this doesn't double as a "close the editor" shortcut.
+ * Cursor position is preserved by character offset, clamped to the
+ * reformatted length.
+ */
+async function formatInPlace(view: EditorView): Promise<void> {
+  const current = view.state.doc.toString()
+  let formatted = current
+  try {
+    formatted = await formatCode(current)
+  } catch {
+    return
+  }
+
+  if (formatted === current) return
+
+  const cursor = Math.min(view.state.selection.main.head, formatted.length)
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: formatted },
+    selection: { anchor: cursor }
+  })
 }
 
 /**
@@ -31,7 +68,18 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
         extensions: [
           lineNumbers(),
           history(),
-          keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
+          keymap.of([
+            {
+              key: 'Mod-s',
+              run: (v) => {
+                void formatInPlace(v)
+                return true
+              }
+            },
+            indentWithTab,
+            ...defaultKeymap,
+            ...historyKeymap
+          ]),
           javascript({ typescript: true }),
           oneDark,
           EditorView.theme({
