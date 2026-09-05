@@ -16,7 +16,6 @@ import {
   type GridRegion,
   type SnapRegion,
 } from "../../window/control";
-import { DEFAULT_WINDOW_SHORTCUTS } from "../../window/shortcuts";
 import type { ActionSource } from "../base";
 import type { CustomLayoutStore } from "./custom-store";
 
@@ -34,10 +33,12 @@ const SUPPORTED_PLATFORM =
  * "Left/Right Third" — Left/Right is reserved for the halves), plus a useful
  * extra, "Almost Maximize" (a 90%-size centered window).
  *
- * Every command acts on the window captured before the launcher (or a direct
- * global shortcut) stole focus — see `toggleLauncher()`/the shortcut handlers in
- * `index.ts`. These entries just tell the platform control module which region,
- * edge, display direction, or toggle to apply.
+ * Every command acts on the window captured just before the launcher stole
+ * focus — see `toggleLauncher()` in `index.ts`. These entries just tell the
+ * platform control module which region, edge, display direction, or toggle to
+ * apply. No command has a global keyboard shortcut of its own today (they only
+ * run from the launcher); direct hotkeys are coming back once there's a
+ * settings UI to let the user assign/rebind them per command.
  *
  * A static list like `BuiltinCommandSource`; add a region to `GRID_REGIONS` in
  * `layout.ts` and it shows up in search with no other wiring — `gridRegion()`
@@ -54,18 +55,7 @@ export class WindowManagementSource implements ActionSource {
   constructor(
     private readonly settings: SettingsStore,
     private readonly customLayoutStore: CustomLayoutStore,
-  ) {
-    // Populate each command's display shortcut from the settings store (falling
-    // back to its platform default) — the actual `globalShortcut` registration
-    // happens separately in `index.ts`, which reads the same store directly.
-    for (const definition of this.definitions) {
-      const platformDefault = DEFAULT_WINDOW_SHORTCUTS[definition.action.id];
-      if (platformDefault) {
-        definition.action.shortcut =
-          settings.getWindowShortcut(definition.action.id, platformDefault) ?? undefined;
-      }
-    }
-  }
+  ) {}
 
   provide(): ActionDefinition[] {
     return [...this.definitions, ...this.customLayoutDefinitions()];

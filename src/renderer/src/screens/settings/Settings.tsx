@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import type { WindowShortcutInfo } from '../../../../shared/types'
 import { formatShortcut } from '../../lib/shortcut'
 
 const TOGGLE_SHORTCUT =
@@ -93,12 +92,6 @@ function GapSizeRow() {
 }
 
 function Settings() {
-  const [windowShortcuts, setWindowShortcuts] = useState<WindowShortcutInfo[]>([])
-
-  useEffect(() => {
-    window.api.getWindowShortcuts().then(setWindowShortcuts)
-  }, [])
-
   return (
     <div className="h-screen w-screen overflow-y-auto bg-background text-foreground">
       <div className="mx-auto max-w-2xl px-6 py-8">
@@ -133,17 +126,6 @@ function Settings() {
           </h2>
           {window.api.platform === 'darwin' && <AccessibilityRow />}
           <GapSizeRow />
-          {windowShortcuts.map((command) => (
-            <Row key={command.id} title={command.title} description="Window Management">
-              {command.shortcut ? (
-                <kbd className="rounded border border-border px-2 py-1 font-sans text-xs text-foreground-subtle">
-                  {formatShortcut(command.shortcut)}
-                </kbd>
-              ) : (
-                <span className="text-xs text-foreground-subtle">Disabled</span>
-              )}
-            </Row>
-          ))}
         </section>
 
         <p className="mt-8 text-xs text-foreground-subtle">

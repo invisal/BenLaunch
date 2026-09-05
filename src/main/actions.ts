@@ -1,9 +1,5 @@
 import { app } from "electron";
-import type {
-  QueryResult,
-  RequestSubtitleOptions,
-  WindowShortcutInfo,
-} from "../shared/types";
+import type { QueryResult, RequestSubtitleOptions } from "../shared/types";
 import { evaluate } from "./calculator";
 import { fuzzyMatch } from "./search";
 import { SettingsStore } from "./settings/store";
@@ -18,13 +14,11 @@ import { QuickValueSource } from "./sources/quickvalue/source";
 import { QuickValueStore } from "./sources/quickvalue/store";
 import { Usage } from "./usage/store";
 
-/** Persisted user settings (today: Window Management shortcut overrides). Also read directly by `index.ts` to register global shortcuts. */
+/** Persisted user settings (today: the custom-layout gap size). Also read directly by `index.ts` to wire the custom-layout manager's IPC. */
 export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
 /** Persisted custom window layouts ("Create Command"). Also read directly by `index.ts` to wire the manager window's IPC. */
 export const customLayoutStore = new CustomLayoutStore({ dir: app.getPath("userData") });
-/** Held separately (not just in `sources`) so `getWindowShortcuts` can read its action list for the Settings screen. */
-const windowSource = new WindowManagementSource(settings, customLayoutStore);
 /** Persisted QuickValue definitions + the cache of their last computed values. */
 export const quickValueStore = new QuickValueStore({
   dir: app.getPath("userData"),
@@ -40,7 +34,7 @@ export const quickValueRunner = new QuickValueRunner({
  */
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
-  windowSource,
+  new WindowManagementSource(settings, customLayoutStore),
   new QuickValueSource(quickValueStore, quickValueRunner),
   new InstalledAppSource(),
   new ExchangeRateSource(),
@@ -108,13 +102,4 @@ export async function requestSubtitle(
   return await sources
     .find((source) => source.owns(id))
     ?.requestSubtitle?.(id, opts);
-}
-
-/** Window Management commands' id/title/shortcut, for the Settings screen. */
-export function getWindowShortcuts(): WindowShortcutInfo[] {
-  return windowSource.provide().map((definition) => ({
-    id: definition.action.id,
-    title: definition.action.title,
-    shortcut: definition.action.shortcut,
-  }));
 }

@@ -135,7 +135,6 @@ export const IPC_CHANNELS = {
   execute: "launcher:execute",
   hide: "launcher:hide",
   togglePin: "launcher:toggle-pin",
-  windowShortcuts: "window:shortcuts",
   accessibilityStatus: "window:accessibility-status",
   requestAccessibility: "window:request-accessibility",
   /** launcher → main: a deferred-subtitle row (`isDeferredSubtitle`) rendered
@@ -158,10 +157,3 @@ export const IPC_CHANNELS = {
   gapSize: "window:gap-size",
   setGapSize: "window:set-gap-size",
 } as const;
-
-/** A single Window Management command's display metadata, for the Settings screen. */
-export interface WindowShortcutInfo {
-  id: string;
-  title: string;
-  shortcut?: string;
-}

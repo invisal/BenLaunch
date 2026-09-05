@@ -6,12 +6,10 @@ import {
   systemPreferences,
 } from "electron";
 import { captureFocusedWindow } from "./window/control";
-import { DEFAULT_WINDOW_SHORTCUTS } from "./window/shortcuts";
 import { IPC_CHANNELS, type RequestSubtitleOptions } from "../shared/types";
 import {
   customLayoutStore,
   executeAction,
-  getWindowShortcuts,
   initActionSources,
   query,
   quickValueRunner,
@@ -60,46 +58,6 @@ function toggleLauncher(): void {
   refreshActionSources();
 }
 
-/**
- * Registers a direct global shortcut per Window Management command, so e.g.
- * "Left Half" fires from anywhere without opening the launcher first — distinct
- * from `toggleLauncher()`'s capture, which happens right before the palette
- * shows. Here capture happens at press-time instead, since the launcher never
- * appears on this path and whatever's focused when the key is pressed is the
- * intended target.
- *
- * No-op on a platform `window/control` has no backend for at all — those
- * commands don't appear in the palette either (see `WindowManagementSource`),
- * so there'd be nothing for these accelerators to do; registering them anyway
- * would just claim 27 global hotkeys the user can't get back for other apps.
- */
-function registerWindowShortcuts(): void {
-  if (
-    process.platform !== "win32" &&
-    process.platform !== "darwin" &&
-    process.platform !== "linux"
-  ) {
-    return;
-  }
-  for (const [actionId, platformDefault] of Object.entries(
-    DEFAULT_WINDOW_SHORTCUTS,
-  )) {
-    const accelerator = settings.getWindowShortcut(actionId, platformDefault);
-    if (!accelerator) continue; // user explicitly disabled this shortcut
-    const ok = globalShortcut.register(accelerator, () => {
-      captureFocusedWindow(
-        launcherWindow ? launcherHandle(launcherWindow) : undefined,
-      );
-      void executeAction(actionId, "");
-    });
-    if (!ok) {
-      console.error(
-        `[main] Failed to register window shortcut ${accelerator} for ${actionId}`,
-      );
-    }
-  }
-}
-
 app.whenReady().then(() => {
   launcherWindow = createLauncherWindow(() => pinned);
 
@@ -137,10 +95,6 @@ app.whenReady().then(() => {
     return pinned;
   });
 
-  ipcMain.handle(IPC_CHANNELS.windowShortcuts, () => {
-    return getWindowShortcuts();
-  });
-
   ipcMain.handle(IPC_CHANNELS.accessibilityStatus, () => {
     if (process.platform !== "darwin") return true;
     return systemPreferences.isTrustedAccessibilityClient(false);
@@ -154,8 +108,6 @@ app.whenReady().then(() => {
   if (!globalShortcut.register(TOGGLE_SHORTCUT, toggleLauncher)) {
     console.error(`Failed to register global shortcut: ${TOGGLE_SHORTCUT}`);
   }
-
-  registerWindowShortcuts();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

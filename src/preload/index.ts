@@ -5,7 +5,6 @@ import {
   type CustomLayoutDraft,
   type DisplayPreviewInfo,
   type QueryResult,
-  type WindowShortcutInfo,
   type QuickValueDef,
   type QuickValueDraft,
   type QuickValueTestResult,
@@ -20,8 +19,6 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.execute, id, text),
   hide: (): void => ipcRenderer.send(IPC_CHANNELS.hide),
   togglePin: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.togglePin),
-  getWindowShortcuts: (): Promise<WindowShortcutInfo[]> =>
-    ipcRenderer.invoke(IPC_CHANNELS.windowShortcuts),
   getAccessibilityStatus: (): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.accessibilityStatus),
   requestAccessibility: (): Promise<boolean> =>
