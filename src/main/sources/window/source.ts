@@ -13,6 +13,13 @@ import { DEFAULT_WINDOW_SHORTCUTS } from "../../window/shortcuts";
 import type { ActionSource } from "../base";
 
 /**
+ * `window/control` has a backend for all three desktop platforms — see
+ * `control-win.ts`/`control-mac.ts`/`control-linux.ts`.
+ */
+const SUPPORTED_PLATFORM =
+  process.platform === "win32" || process.platform === "darwin" || process.platform === "linux";
+
+/**
  * Window-management commands (`win:` ids) — mirrors the command set at
  * https://www.raycast.com/core-features/window-management (naming included:
  * "First/Last Third", not "Left/Right Third" — Raycast keeps Left/Right for the
@@ -30,7 +37,46 @@ import type { ActionSource } from "../base";
 export class WindowManagementSource implements ActionSource {
   readonly id = "win";
 
-  private readonly definitions: ActionDefinition[] = [
+  private readonly definitions: ActionDefinition[] = buildDefinitions();
+
+  constructor(settings: SettingsStore) {
+    // Populate each command's display shortcut from the settings store (falling
+    // back to its platform default) — the actual `globalShortcut` registration
+    // happens separately in `index.ts`, which reads the same store directly.
+    for (const definition of this.definitions) {
+      const platformDefault = DEFAULT_WINDOW_SHORTCUTS[definition.action.id];
+      if (platformDefault) {
+        definition.action.shortcut =
+          settings.getWindowShortcut(definition.action.id, platformDefault) ?? undefined;
+      }
+    }
+  }
+
+  provide(): ActionDefinition[] {
+    return this.definitions;
+  }
+
+  owns(actionId: string): boolean {
+    return actionId.startsWith(`${this.id}:`);
+  }
+
+  async execute(actionId: string): Promise<void> {
+    await this.definitions
+      .find((definition) => definition.action.id === actionId)
+      ?.run();
+  }
+}
+
+/**
+ * All 27 commands — empty on a platform `window/control` has no backend for at
+ * all, rather than listing commands that would silently do nothing when run.
+ * (Today this only matters for an unrecognized `process.platform`; win32,
+ * darwin, and linux are all covered.)
+ */
+function buildDefinitions(): ActionDefinition[] {
+  if (!SUPPORTED_PLATFORM) return [];
+
+  return [
     region("left-half", "Left Half", "left half"),
     region("right-half", "Right Half", "right half"),
     region("top-half", "Top Half", "top half"),
@@ -81,33 +127,6 @@ export class WindowManagementSource implements ActionSource {
       },
     },
   ];
-
-  constructor(settings: SettingsStore) {
-    // Populate each command's display shortcut from the settings store (falling
-    // back to its platform default) — the actual `globalShortcut` registration
-    // happens separately in `index.ts`, which reads the same store directly.
-    for (const definition of this.definitions) {
-      const platformDefault = DEFAULT_WINDOW_SHORTCUTS[definition.action.id];
-      if (platformDefault) {
-        definition.action.shortcut =
-          settings.getWindowShortcut(definition.action.id, platformDefault) ?? undefined;
-      }
-    }
-  }
-
-  provide(): ActionDefinition[] {
-    return this.definitions;
-  }
-
-  owns(actionId: string): boolean {
-    return actionId.startsWith(`${this.id}:`);
-  }
-
-  async execute(actionId: string): Promise<void> {
-    await this.definitions
-      .find((definition) => definition.action.id === actionId)
-      ?.run();
-  }
 }
 
 /**

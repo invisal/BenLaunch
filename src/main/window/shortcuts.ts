@@ -13,7 +13,17 @@
  * tools) since arrows alone can't express "which corner." Thirds use D/F/G,
  * two-thirds add Shift. Maximize's width/height variants are literally W/H,
  * and Toggle Fullscreen is Shift+F ("fullscreen", shifted since F is already
- * Center Third). 27 commands, no collisions.
+ * Center Third). 27 commands, no collisions with each other.
+ *
+ * Known Linux caveat, not fixable from a fixed default table: several desktop
+ * environments (GNOME among them) bind bare `Ctrl+Alt+Arrow` to workspace
+ * switching out of the box, which will shadow the four half-snap defaults
+ * (`globalShortcut.register` reports this — see the "Failed to register"
+ * error logged in `index.ts`). There is no alternate default that's
+ * guaranteed conflict-free across every Linux DE either; a user who hits this
+ * can rebind that one command's accelerator once Settings supports it (see
+ * `SettingsStore.setWindowShortcut`), or free it up in their DE's own
+ * shortcut settings.
  */
 const MODIFIER = process.platform === 'darwin' ? 'Control+Option' : 'Control+Alt'
 

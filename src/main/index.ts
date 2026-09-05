@@ -13,10 +13,15 @@ const TOGGLE_SHORTCUT = process.platform === 'darwin' ? 'Command+Shift+Space' : 
 let launcherWindow: BrowserWindow | null = null
 let pinned = false
 
-/** The launcher's own HWND, so window-snap commands never target the launcher itself. */
+/**
+ * The launcher's own window handle, so window-management commands never target
+ * the launcher itself. Only meaningful on win32 (HWND) and linux (X11 window
+ * id) — both are 32-bit values, so the low 32 bits of the native handle buffer
+ * is the id either way. macOS excludes itself via pid instead (see
+ * `control-mac.ts`), so this returns 0 there.
+ */
 function launcherHandle(win: BrowserWindow): number {
-  if (process.platform !== 'win32') return 0
-  // Win64 HWNDs are 32-bit values, so the low 32 bits of the pointer are the handle.
+  if (process.platform !== 'win32' && process.platform !== 'linux') return 0
   return win.getNativeWindowHandle().readUInt32LE(0)
 }
 
@@ -42,8 +47,20 @@ function toggleLauncher(): void {
  * shows. Here capture happens at press-time instead, since the launcher never
  * appears on this path and whatever's focused when the key is pressed is the
  * intended target.
+ *
+ * No-op on a platform `window/control` has no backend for at all — those
+ * commands don't appear in the palette either (see `WindowManagementSource`),
+ * so there'd be nothing for these accelerators to do; registering them anyway
+ * would just claim 27 global hotkeys the user can't get back for other apps.
  */
 function registerWindowShortcuts(): void {
+  if (
+    process.platform !== 'win32' &&
+    process.platform !== 'darwin' &&
+    process.platform !== 'linux'
+  ) {
+    return
+  }
   for (const [actionId, platformDefault] of Object.entries(DEFAULT_WINDOW_SHORTCUTS)) {
     const accelerator = settings.getWindowShortcut(actionId, platformDefault)
     if (!accelerator) continue // user explicitly disabled this shortcut
