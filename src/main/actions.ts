@@ -38,7 +38,6 @@ export const quickValueRunner = new QuickValueRunner({
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   windowSource,
-  new WindowManagementSource(settings),
   new QuickValueSource(quickValueStore, quickValueRunner),
   new InstalledAppSource(),
   new ExchangeRateSource(),
