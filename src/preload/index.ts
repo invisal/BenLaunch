@@ -20,6 +20,14 @@ const api = {
   requestSubtitle: (actionId: string, opts?: RequestSubtitleOptions): Promise<string | undefined> =>
     ipcRenderer.invoke(IPC_CHANNELS.requestSubtitle, actionId, opts),
 
+  /** Window-chrome controls for the framed windows (Settings, QuickValue), which
+   *  render their own title bar. Each acts on the calling window. */
+  windowControls: {
+    minimize: (): void => ipcRenderer.send(IPC_CHANNELS.windowMinimize),
+    toggleMaximize: (): void => ipcRenderer.send(IPC_CHANNELS.windowToggleMaximize),
+    close: (): void => ipcRenderer.send(IPC_CHANNELS.windowClose)
+  },
+
   /** QuickValue manager window ↔ main. */
   quickValue: {
     list: (): Promise<QuickValueDef[]> => ipcRenderer.invoke(IPC_CHANNELS.quickValueList),

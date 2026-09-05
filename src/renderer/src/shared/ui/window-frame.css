@@ -1,0 +1,14 @@
+/* Framed windows (Settings, QuickValue) render on a translucent backing —
+   acrylic on Windows, `under-window` vibrancy on macOS (see
+   src/main/window-chrome.ts). The window itself, plus html/body/#root, are
+   transparent (index.css); this paints the one semi-opaque panel over the
+   blur, so the desktop shows through the way it does behind the launcher. */
+.window-frame {
+  background-color: rgb(10 9 8 / 90%);
+}
+
+/* macOS vibrancy already darkens and blurs heavily, so lean lighter there —
+   matching the launcher, which is far more translucent on macOS than Windows. */
+:root[data-platform="darwin"] .window-frame {
+  background-color: rgb(10 9 8 / 45%);
+}

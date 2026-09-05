@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'node:path'
+import { framelessChrome } from '../../window-chrome'
 
 /**
  * The QuickValue manager lives in its own framed BrowserWindow with its own
@@ -41,8 +42,8 @@ export function openQuickValueWindow(target: QuickValueView = { view: 'list' }):
     minHeight: 420,
     title: 'QuickValue',
     show: false,
-    backgroundColor: '#0a0908',
     autoHideMenuBar: true,
+    ...framelessChrome,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,

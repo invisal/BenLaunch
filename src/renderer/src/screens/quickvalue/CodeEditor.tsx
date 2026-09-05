@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react'
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { javascript } from '@codemirror/lang-javascript'
+import { syntaxHighlighting } from '@codemirror/language'
 import { EditorState } from '@codemirror/state'
-import { oneDark } from '@codemirror/theme-one-dark'
+import { color as oneDarkColor, oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import * as prettier from 'prettier/standalone'
 import prettierTypescript from 'prettier/plugins/typescript'
@@ -185,11 +186,46 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
             tsLinter(),
             autocompletion({ override: [tsAutocomplete()] }),
             tsHover(),
-            oneDark,
-            EditorView.theme({
-              '&': { height: '100%', fontSize: '13px' },
-              '.cm-scroller': { overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, monospace' }
-            }),
+            // Only One Dark's *syntax* colors — not its editor theme, whose
+            // opaque `#282c34` panel would hide the window's glass. The theme
+            // below supplies transparent surfaces with One Dark's palette.
+            syntaxHighlighting(oneDarkHighlightStyle),
+            EditorView.theme(
+              {
+                '&': {
+                  height: '100%',
+                  fontSize: '13px',
+                  backgroundColor: 'transparent',
+                  color: oneDarkColor.ivory
+                },
+                '&.cm-focused': { outline: 'none' },
+                '.cm-content': { caretColor: oneDarkColor.cursor },
+                '.cm-cursor, .cm-dropCursor': { borderLeftColor: oneDarkColor.cursor },
+                '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
+                  { backgroundColor: oneDarkColor.selection },
+                '.cm-scroller': {
+                  overflow: 'auto',
+                  fontFamily: 'ui-monospace, SFMono-Regular, monospace'
+                },
+                '.cm-gutters': {
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: oneDarkColor.stone
+                },
+                '.cm-activeLine': { backgroundColor: 'rgb(255 255 255 / 4%)' },
+                '.cm-activeLineGutter': { backgroundColor: 'rgb(255 255 255 / 4%)' },
+                // Popups stay opaque so text over them is readable.
+                '.cm-tooltip': {
+                  backgroundColor: oneDarkColor.tooltipBackground,
+                  border: '1px solid rgb(255 255 255 / 12%)'
+                },
+                '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+                  backgroundColor: oneDarkColor.selection,
+                  color: oneDarkColor.ivory
+                }
+              },
+              { dark: true }
+            ),
             EditorView.updateListener.of((update) => {
               if (update.docChanged) onChangeRef.current(update.state.doc.toString())
             })
@@ -215,7 +251,7 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
     }
   }, [value])
 
-  return <div ref={host} className="h-full overflow-hidden rounded border border-border" />
+  return <div ref={host} className="h-full overflow-hidden rounded" />
 }
 
 export default CodeEditor

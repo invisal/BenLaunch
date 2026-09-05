@@ -10,6 +10,7 @@ import {
   requestSubtitle
 } from './actions'
 import { registerQuickValueIpc } from './sources/quickvalue/ipc'
+import { registerWindowControlsIpc } from './window-chrome'
 import { captureForegroundWindow } from './native'
 import { centerOnActiveDisplay, createLauncherWindow } from './window'
 
@@ -51,6 +52,7 @@ app.whenReady().then(() => {
   initActionSources()
 
   registerQuickValueIpc(quickValueStore, quickValueRunner)
+  registerWindowControlsIpc()
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
     return query(text)

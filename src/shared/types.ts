@@ -97,6 +97,12 @@ export const IPC_CHANNELS = {
    *  fresh subtitle. Not QuickValue-specific — there is no separate push
    *  channel, the resolved value IS the update. */
   requestSubtitle: 'launcher:request-subtitle',
+  /** Renderer → main window-chrome controls for the framed windows (Settings,
+   *  QuickValue), which draw their own title bar via `shared/ui/WindowFrame`.
+   *  Each targets whichever `BrowserWindow` the sender belongs to. */
+  windowMinimize: 'window:minimize',
+  windowToggleMaximize: 'window:toggle-maximize',
+  windowClose: 'window:close',
   quickValueList: 'quickvalue:list',
   quickValueGet: 'quickvalue:get',
   quickValueSave: 'quickvalue:save',

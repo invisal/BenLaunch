@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
   --color-background: rgb(10 9 8 / 97%);
@@ -17,8 +17,14 @@
 
 /* On macOS the window is backed by an electron-liquid-glass surface, so let the
    glass show through instead of painting a near-opaque panel over it. */
-:root[data-platform='darwin'] {
+:root[data-platform="darwin"] {
   --color-background: rgb(10 9 8 / 45%);
+}
+
+/* On Windows the launcher sits on an acrylic backdrop (see src/main/window.ts);
+   let a little of the blur read through while keeping text crisp. */
+:root[data-platform="win32"] {
+  --color-background: rgb(10 9 8 / 90%);
 }
 
 html,
