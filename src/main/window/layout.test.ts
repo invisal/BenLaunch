@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  computeCustomRect,
   computeEdgeMove,
   computeTargetRect,
   GRID_REGION_IDS,
   mapRectToDisplay,
   pickAdjacentDisplay,
   regionSpan,
+  type CustomLayoutGeometry,
   type Rect,
   type SnapRegion,
 } from "./layout.ts";
@@ -203,6 +205,81 @@ test("computeEdgeMove clamps a window larger than the work area", () => {
   assert.equal(result.width, WORK_AREA.width);
   assert.equal(result.height, WORK_AREA.height);
   assert.equal(result.x, 0);
+});
+
+function customLayout(overrides: Partial<CustomLayoutGeometry>): CustomLayoutGeometry {
+  return {
+    position: "top-left",
+    widthFraction: 0.5,
+    heightFraction: 0.5,
+    offsetXFraction: 0,
+    offsetYPoints: 0,
+    ...overrides,
+  };
+}
+
+test("computeCustomRect anchors top-left with no offset", () => {
+  const layout = customLayout({ widthFraction: 0.5, heightFraction: 0.3 });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  assert.deepEqual(result, { x: 0, y: 0, width: 960, height: 300 });
+});
+
+test("computeCustomRect anchors bottom-right with no offset", () => {
+  const layout = customLayout({ position: "bottom-right", widthFraction: 0.25, heightFraction: 0.25 });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  assert.deepEqual(result, { x: 1440, y: 750, width: 480, height: 250 });
+});
+
+test("computeCustomRect centers middle-center with no offset", () => {
+  const layout = customLayout({ position: "middle-center" });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  assert.deepEqual(result, { x: 480, y: 250, width: 960, height: 500 });
+});
+
+test("computeCustomRect applies offsetXFraction/offsetYPoints on top of the anchor", () => {
+  const layout = customLayout({ widthFraction: 0.2, heightFraction: 0.2, offsetXFraction: 0.1, offsetYPoints: 50 });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  assert.deepEqual(result, { x: 192, y: 50, width: 384, height: 200 });
+});
+
+test("computeCustomRect Auto size keeps currentRect's size, clamped", () => {
+  const layout = customLayout({ widthFraction: null, heightFraction: null });
+  const currentRect: Rect = { x: 999, y: 999, width: 500, height: 400 };
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, currentRect, useGap: false, gapPx: 0 });
+  assert.deepEqual(result, { x: 0, y: 0, width: 500, height: 400 });
+});
+
+test("computeCustomRect Auto size with no currentRect falls back to 80% of the work area", () => {
+  const layout = customLayout({ position: "middle-center", widthFraction: null, heightFraction: null });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  assert.deepEqual(result, { x: 192, y: 100, width: 1536, height: 800 });
+});
+
+test("computeCustomRect Auto size clamps a currentRect larger than the work area", () => {
+  const layout = customLayout({ widthFraction: null, heightFraction: null });
+  const currentRect: Rect = { x: 0, y: 0, width: 3000, height: 2000 };
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, currentRect, useGap: false, gapPx: 0 });
+  assert.equal(result.width, WORK_AREA.width);
+  assert.equal(result.height, WORK_AREA.height);
+});
+
+test("computeCustomRect with useGap insets the rect by half the gap on each side", () => {
+  const layout = customLayout({ widthFraction: 0.5, heightFraction: 0.5 });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: true, gapPx: 20 });
+  assert.deepEqual(result, { x: 10, y: 10, width: 940, height: 480 });
+});
+
+test("computeCustomRect with useGap floors at zero size for a gap larger than the rect", () => {
+  const layout = customLayout({ widthFraction: 0.005, heightFraction: 0.005 });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: true, gapPx: 100 });
+  assert.equal(result.width, 0);
+  assert.equal(result.height, 0);
+});
+
+test("computeCustomRect without useGap ignores gapPx entirely", () => {
+  const layout = customLayout({ widthFraction: 0.5, heightFraction: 0.5 });
+  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 999 });
+  assert.deepEqual(result, { x: 0, y: 0, width: 960, height: 500 });
 });
 
 const A = { id: 1, workArea: { x: 0, y: 0, width: 1920, height: 1000 } };

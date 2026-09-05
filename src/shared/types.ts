@@ -51,6 +51,49 @@ export interface RequestSubtitleOptions {
   force?: boolean;
 }
 
+/** Where a custom layout's rect anchors within the work area, before its offset is applied. */
+export type AnchorPosition =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "middle-left"
+  | "middle-center"
+  | "middle-right"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
+
+/**
+ * A user-authored custom window layout, on its way in from the editor (no id
+ * yet when creating). `widthPercent`/`heightPercent` of `null` means "Auto" —
+ * keep whatever size the target window already is on that axis.
+ */
+export interface CustomLayoutDraft {
+  id?: string;
+  name: string;
+  position: AnchorPosition;
+  widthPercent: number | null;
+  heightPercent: number | null;
+  /** Offset from `position`'s anchor point, as a percent of the work area's width. */
+  offsetXPercent: number;
+  /** Offset from `position`'s anchor point, in points (not scaled by display size). */
+  offsetYPoints: number;
+  /** Whether to inset the result by the user's preferred gap (see `getGapSize`). */
+  useGap: boolean;
+}
+
+/** A saved custom layout. Crosses IPC to the manage window and into search as `win:custom:<id>`. */
+export interface CustomLayoutDef extends CustomLayoutDraft {
+  id: string;
+}
+
+/** The primary display's work-area size + a human label, for the create-command preview to scale against. */
+export interface DisplayPreviewInfo {
+  width: number;
+  height: number;
+  label: string;
+}
+
 /** One run of an expression, classified for syntax highlighting. */
 export type CalcTokenKind =
   | "number"
@@ -106,6 +149,14 @@ export const IPC_CHANNELS = {
   quickValueDelete: "quickvalue:delete",
   quickValueSetExposed: "quickvalue:set-exposed",
   quickValueTest: "quickvalue:test",
+  customLayoutList: "window:custom-layout-list",
+  customLayoutGet: "window:custom-layout-get",
+  customLayoutSave: "window:custom-layout-save",
+  customLayoutDelete: "window:custom-layout-delete",
+  /** The primary display's work-area size, for the create-command preview to scale against. */
+  displayInfo: "window:display-info",
+  gapSize: "window:gap-size",
+  setGapSize: "window:set-gap-size",
 } as const;
 
 /** A single Window Management command's display metadata, for the Settings screen. */

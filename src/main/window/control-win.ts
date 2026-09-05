@@ -1,10 +1,17 @@
 import { createRequire } from 'node:module'
 import { allDisplays, centerOf, currentDisplay, toRect, workAreaFor } from './electron-screen'
-import { computeEdgeMove, computeTargetRect, mapRectToDisplay, pickAdjacentDisplay } from './layout'
+import {
+  computeCustomRect,
+  computeEdgeMove,
+  computeTargetRect,
+  mapRectToDisplay,
+  pickAdjacentDisplay,
+  type Rect
+} from './layout'
 import { popRestore, saveForRestore } from './restore-stack'
-import type { EdgeDirection, SnapRegion } from './layout'
+import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from './layout'
 
-export type { EdgeDirection, SnapRegion } from './layout'
+export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from './layout'
 
 /**
  * `@benpocket/win` is an optionalDependency that only installs on win32, so it
@@ -58,16 +65,31 @@ export function capture(exclude?: number): void {
   capturedHandle = handle !== 0 && handle !== exclude ? handle : 0
 }
 
-/** Snap the captured window to `region`. No-op (returns `false`) if nothing was captured. */
-export async function applyRegion(region: SnapRegion): Promise<boolean> {
+/** Shared by `applyRegion`/`applyCustomLayout`: capture check, read the current frame, compute, save-for-restore, write. */
+function applyComputedRect(computeRect: (workArea: Rect, currentRect: Rect) => Rect): Promise<boolean> {
   const win = loadNative()
-  if (!win || capturedHandle === 0) return false
+  if (!win || capturedHandle === 0) return Promise.resolve(false)
   const current = win.getWindowRect(capturedHandle)
-  if (!current) return false
+  if (!current) return Promise.resolve(false)
 
-  const target = computeTargetRect(region, { workArea: workAreaFor(current), currentRect: current })
+  const target = computeRect(workAreaFor(current), current)
   saveForRestore(String(capturedHandle), current)
-  return win.applyWindowRect(capturedHandle, target)
+  return Promise.resolve(win.applyWindowRect(capturedHandle, target))
+}
+
+/** Snap the captured window to `region`. No-op (returns `false`) if nothing was captured. */
+export function applyRegion(region: SnapRegion): Promise<boolean> {
+  return applyComputedRect((workArea, currentRect) => computeTargetRect(region, { workArea, currentRect }))
+}
+
+export function applyCustomLayout(
+  layout: CustomLayoutGeometry,
+  useGap: boolean,
+  gapPx: number
+): Promise<boolean> {
+  return applyComputedRect((workArea, currentRect) =>
+    computeCustomRect(layout, { workArea, currentRect, useGap, gapPx })
+  )
 }
 
 /** Move the captured window to the next/previous display, keeping its relative size/position. */

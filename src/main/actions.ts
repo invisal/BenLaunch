@@ -11,6 +11,7 @@ import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { WindowManagementSource } from "./sources/window/source";
+import { CustomLayoutStore } from "./sources/window/custom-store";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
 import { QuickValueRunner } from "./sources/quickvalue/runner";
 import { QuickValueSource } from "./sources/quickvalue/source";
@@ -20,8 +21,10 @@ import { Usage } from "./usage/store";
 /** Persisted user settings (today: Window Management shortcut overrides). Also read directly by `index.ts` to register global shortcuts. */
 export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
+/** Persisted custom window layouts ("Create Command"). Also read directly by `index.ts` to wire the manager window's IPC. */
+export const customLayoutStore = new CustomLayoutStore({ dir: app.getPath("userData") });
 /** Held separately (not just in `sources`) so `getWindowShortcuts` can read its action list for the Settings screen. */
-const windowSource = new WindowManagementSource(settings);
+const windowSource = new WindowManagementSource(settings, customLayoutStore);
 /** Persisted QuickValue definitions + the cache of their last computed values. */
 export const quickValueStore = new QuickValueStore({
   dir: app.getPath("userData"),
@@ -50,6 +53,7 @@ const usage = new Usage({ dir: app.getPath("userData") });
 export function initActionSources(): void {
   usage.init();
   settings.init();
+  customLayoutStore.init();
   for (const source of sources) source.init?.();
 }
 

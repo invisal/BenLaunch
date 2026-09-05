@@ -14,15 +14,30 @@ import { join } from 'node:path'
 /** Bumped when the persisted shape changes, to invalidate old files. */
 const SETTINGS_VERSION = 1
 
+/** Default "preferred gap" (px) a custom layout's `useGap` inserts around it, absent a saved override. */
+const DEFAULT_GAP_PX = 8
+
 interface SettingsFile {
   version: number
   savedAt: number
   /** actionId ("win:left-half") -> accelerator, or `null` when the user disabled it. */
   windowShortcuts: Record<string, string | null>
+  /**
+   * The user's preferred gap (px), for a custom layout's "Use preferred gap
+   * settings" toggle. Optional so a `SETTINGS_VERSION` 1 file saved before this
+   * existed still validates — a missing value just falls back to `DEFAULT_GAP_PX`.
+   */
+  gapPx?: number
 }
 
-function emptyState(): Pick<SettingsFile, 'windowShortcuts'> {
-  return { windowShortcuts: {} }
+/** In-memory state — unlike `SettingsFile`, `gapPx` is always populated (defaulted on load). */
+interface State {
+  windowShortcuts: Record<string, string | null>
+  gapPx: number
+}
+
+function emptyState(): State {
+  return { windowShortcuts: {}, gapPx: DEFAULT_GAP_PX }
 }
 
 function isShortcutMap(value: unknown): value is Record<string, string | null> {
@@ -37,7 +52,8 @@ function isSettingsFile(value: unknown): value is SettingsFile {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<SettingsFile>
   if (candidate.version !== SETTINGS_VERSION) return false
-  return !!candidate.windowShortcuts && isShortcutMap(candidate.windowShortcuts)
+  if (!candidate.windowShortcuts || !isShortcutMap(candidate.windowShortcuts)) return false
+  return candidate.gapPx === undefined || typeof candidate.gapPx === 'number'
 }
 
 export class SettingsStore {
@@ -56,7 +72,7 @@ export class SettingsStore {
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path(), 'utf8'))
       if (isSettingsFile(parsed)) {
-        this.state = { windowShortcuts: parsed.windowShortcuts }
+        this.state = { windowShortcuts: parsed.windowShortcuts, gapPx: parsed.gapPx ?? DEFAULT_GAP_PX }
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -94,6 +110,19 @@ export class SettingsStore {
     this.persist()
   }
 
+  /** The user's preferred gap (px) for a custom layout's "Use preferred gap settings" toggle. */
+  getGapSize(): number {
+    this.init()
+    return this.state.gapPx
+  }
+
+  /** Persists immediately. */
+  setGapSize(px: number): void {
+    this.init()
+    this.state.gapPx = Math.max(0, px)
+    this.persist()
+  }
+
   private path(): string {
     return join(this.dir, 'settings.json')
   }
@@ -105,7 +134,8 @@ export class SettingsStore {
     const payload: SettingsFile = {
       version: SETTINGS_VERSION,
       savedAt: Date.now(),
-      windowShortcuts: this.state.windowShortcuts
+      windowShortcuts: this.state.windowShortcuts,
+      gapPx: this.state.gapPx
     }
     try {
       writeFileSync(tmp, JSON.stringify(payload))

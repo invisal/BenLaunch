@@ -287,6 +287,98 @@ export function computeEdgeMove(
   return round({ x, y, width, height })
 }
 
+/** Where a custom layout's rect anchors within the work area — see `computeCustomRect`. */
+export type AnchorPosition =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'middle-left'
+  | 'middle-center'
+  | 'middle-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right'
+
+/** A user-authored custom layout's geometry — the pure-math half of `CustomLayoutDef`. */
+export interface CustomLayoutGeometry {
+  position: AnchorPosition
+  /** Fraction of `workArea`'s width, in `[0, 1]`; `null` means "Auto" — keep `currentRect`'s width. */
+  widthFraction: number | null
+  /** Fraction of `workArea`'s height, in `[0, 1]`; `null` means "Auto" — keep `currentRect`'s height. */
+  heightFraction: number | null
+  /** Offset from `position`'s anchor point, as a fraction of `workArea`'s width. */
+  offsetXFraction: number
+  /** Offset from `position`'s anchor point, in points (not scaled by display size). */
+  offsetYPoints: number
+}
+
+/**
+ * Shrinks `rect` by `gapPx / 2` on every side — the visual "gap" between it and
+ * its neighbors (including the screen edge). Floors width/height at zero for a
+ * gap larger than the rect, shifting x/y by however much was actually trimmed
+ * (half of that, same as the normal case) so the result stays centered in
+ * `rect` rather than pinned to one corner.
+ */
+function insetByGap(rect: Rect, gapPx: number): Rect {
+  const width = Math.max(0, rect.width - gapPx)
+  const height = Math.max(0, rect.height - gapPx)
+  return {
+    x: rect.x + (rect.width - width) / 2,
+    y: rect.y + (rect.height - height) / 2,
+    width,
+    height
+  }
+}
+
+/**
+ * Computes a custom layout's target rect: size from `widthFraction`/`heightFraction`
+ * (or `currentRect`'s own size, clamped, when "Auto"), positioned at `position`'s
+ * anchor point, then shifted by the offset — same edge/center math as the named
+ * grid regions' `edgeSpan`, just parameterized by size instead of a fixed fraction
+ * table. `gapPx` (from the user's preferred gap setting) is applied last, only
+ * when the caller passes `useGap: true`.
+ */
+export function computeCustomRect(
+  layout: CustomLayoutGeometry,
+  input: LayoutInput & { useGap: boolean; gapPx: number }
+): Rect {
+  const { workArea, currentRect, useGap, gapPx } = input
+
+  const width =
+    layout.widthFraction != null
+      ? layout.widthFraction * workArea.width
+      : clampSize(currentRect?.width ?? workArea.width * DEFAULT_CENTER_FRACTION, workArea.width)
+  const height =
+    layout.heightFraction != null
+      ? layout.heightFraction * workArea.height
+      : clampSize(currentRect?.height ?? workArea.height * DEFAULT_CENTER_FRACTION, workArea.height)
+
+  const [vAnchor, hAnchor] = layout.position.split('-') as [
+    'top' | 'middle' | 'bottom',
+    'left' | 'center' | 'right'
+  ]
+  const x =
+    hAnchor === 'left'
+      ? workArea.x
+      : hAnchor === 'right'
+        ? workArea.x + workArea.width - width
+        : workArea.x + (workArea.width - width) / 2
+  const y =
+    vAnchor === 'top'
+      ? workArea.y
+      : vAnchor === 'bottom'
+        ? workArea.y + workArea.height - height
+        : workArea.y + (workArea.height - height) / 2
+
+  const rect: Rect = {
+    x: x + layout.offsetXFraction * workArea.width,
+    y: y + layout.offsetYPoints,
+    width,
+    height
+  }
+  return round(useGap ? insetByGap(rect, gapPx) : rect)
+}
+
 export interface DisplayInfo {
   id: number
   workArea: Rect

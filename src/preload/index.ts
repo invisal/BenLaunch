@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 import {
   IPC_CHANNELS,
+  type CustomLayoutDef,
+  type CustomLayoutDraft,
+  type DisplayPreviewInfo,
   type QueryResult,
   type WindowShortcutInfo,
   type QuickValueDef,
@@ -46,6 +49,23 @@ const api = {
     test: (code: string): Promise<QuickValueTestResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.quickValueTest, code),
   },
+
+  /** Create-command manager window ↔ main. */
+  customLayout: {
+    list: (): Promise<CustomLayoutDef[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutList),
+    get: (id: string): Promise<CustomLayoutDef | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutGet, id),
+    save: (draft: CustomLayoutDraft): Promise<CustomLayoutDef> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutSave, draft),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutDelete, id),
+  },
+  getGapSize: (): Promise<number> => ipcRenderer.invoke(IPC_CHANNELS.gapSize),
+  setGapSize: (px: number): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.setGapSize, px),
+  getDisplayInfo: (): Promise<DisplayPreviewInfo> =>
+    ipcRenderer.invoke(IPC_CHANNELS.displayInfo),
 };
 
 contextBridge.exposeInMainWorld("api", api);

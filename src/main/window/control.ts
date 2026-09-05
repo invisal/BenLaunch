@@ -2,9 +2,9 @@ import * as linux from './control-linux'
 import * as mac from './control-mac'
 import * as win from './control-win'
 
-export type { EdgeDirection, FractionSpan, GridRegion, SnapRegion } from './layout'
+export type { CustomLayoutGeometry, EdgeDirection, FractionSpan, GridRegion, SnapRegion } from './layout'
 export { GRID_REGION_IDS, regionSpan } from './layout'
-import type { EdgeDirection, SnapRegion } from './layout'
+import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from './layout'
 
 /**
  * Platform dispatcher for window control — mirrors the `apps.ts` →
@@ -43,6 +43,14 @@ export function captureFocusedWindow(excludeHandle?: number): void {
 
 export function applyRegion(region: SnapRegion): Promise<boolean> {
   return impl()?.applyRegion(region) ?? Promise.resolve(false)
+}
+
+export function applyCustomLayout(
+  layout: CustomLayoutGeometry,
+  useGap: boolean,
+  gapPx: number
+): Promise<boolean> {
+  return impl()?.applyCustomLayout(layout, useGap, gapPx) ?? Promise.resolve(false)
 }
 
 export function moveToDisplay(direction: 'next' | 'previous'): Promise<boolean> {

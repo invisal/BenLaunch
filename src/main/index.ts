@@ -9,6 +9,7 @@ import { captureFocusedWindow } from "./window/control";
 import { DEFAULT_WINDOW_SHORTCUTS } from "./window/shortcuts";
 import { IPC_CHANNELS, type RequestSubtitleOptions } from "../shared/types";
 import {
+  customLayoutStore,
   executeAction,
   getWindowShortcuts,
   initActionSources,
@@ -20,6 +21,7 @@ import {
   settings,
 } from "./actions";
 import { registerQuickValueIpc } from "./sources/quickvalue/ipc";
+import { registerCustomLayoutIpc } from "./sources/window/custom-ipc";
 import { centerOnActiveDisplay, createLauncherWindow } from "./window";
 
 // Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
@@ -106,6 +108,7 @@ app.whenReady().then(() => {
   initActionSources();
 
   registerQuickValueIpc(quickValueStore, quickValueRunner);
+  registerCustomLayoutIpc(customLayoutStore, settings);
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
     return query(text);

@@ -58,6 +58,40 @@ function AccessibilityRow() {
   )
 }
 
+function GapSizeRow() {
+  const [gapPx, setGapPx] = useState<number | null>(null)
+
+  useEffect(() => {
+    window.api.getGapSize().then(setGapPx)
+  }, [])
+
+  async function save(value: number): Promise<void> {
+    setGapPx(value)
+    await window.api.setGapSize(value)
+  }
+
+  return (
+    <Row
+      title="Window gap"
+      description='Spacing a custom layout inserts when its "Use preferred gap settings" is on.'
+    >
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number"
+          min={0}
+          value={gapPx ?? ''}
+          onChange={(e) => {
+            const n = Number(e.target.value)
+            if (Number.isFinite(n)) void save(Math.max(0, n))
+          }}
+          className="w-16 rounded border border-border bg-transparent px-2 py-1 text-right text-xs outline-none"
+        />
+        <span className="text-xs text-foreground-subtle">px</span>
+      </div>
+    </Row>
+  )
+}
+
 function Settings() {
   const [windowShortcuts, setWindowShortcuts] = useState<WindowShortcutInfo[]>([])
 
@@ -98,6 +132,7 @@ function Settings() {
             Window Management
           </h2>
           {window.api.platform === 'darwin' && <AccessibilityRow />}
+          <GapSizeRow />
           {windowShortcuts.map((command) => (
             <Row key={command.id} title={command.title} description="Window Management">
               {command.shortcut ? (

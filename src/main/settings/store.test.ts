@@ -50,6 +50,35 @@ test("getWindowShortcuts fills every default id, overrides included", () => {
   });
 });
 
+test("getGapSize defaults to 8px unset", () => {
+  const settings = new SettingsStore({ dir });
+  assert.equal(settings.getGapSize(), 8);
+});
+
+test("setGapSize overrides the default, and persists across instances", () => {
+  const first = new SettingsStore({ dir });
+  first.setGapSize(16);
+
+  const second = new SettingsStore({ dir });
+  assert.equal(second.getGapSize(), 16);
+});
+
+test("setGapSize clamps a negative value to zero", () => {
+  const settings = new SettingsStore({ dir });
+  settings.setGapSize(-5);
+  assert.equal(settings.getGapSize(), 0);
+});
+
+test("a settings file saved before gapPx existed still validates, defaulting gapPx", () => {
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ version: 1, savedAt: 0, windowShortcuts: { "win:x": "Q" } }),
+  );
+  const settings = new SettingsStore({ dir });
+  assert.equal(settings.getGapSize(), 8);
+  assert.equal(settings.getWindowShortcut("win:x", "D"), "Q");
+});
+
 test("missing, corrupt, and wrong-version files all yield defaults without throwing", () => {
   // Missing: fresh dir.
   assert.equal(new SettingsStore({ dir }).getWindowShortcut("win:x", "D"), "D");

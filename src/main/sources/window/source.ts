@@ -1,6 +1,8 @@
 import type { SettingsStore } from "../../settings/store";
 import type { ActionDefinition } from "../../types";
+import type { CustomLayoutDef } from "../../../shared/types";
 import {
+  applyCustomLayout,
   applyRegion,
   GRID_REGION_IDS,
   moveToDisplay,
@@ -8,6 +10,7 @@ import {
   regionSpan,
   restore,
   toggleFullscreen,
+  type CustomLayoutGeometry,
   type EdgeDirection,
   type FractionSpan,
   type GridRegion,
@@ -15,6 +18,7 @@ import {
 } from "../../window/control";
 import { DEFAULT_WINDOW_SHORTCUTS } from "../../window/shortcuts";
 import type { ActionSource } from "../base";
+import type { CustomLayoutStore } from "./custom-store";
 
 /**
  * `window/control` has a backend for all three desktop platforms — see
@@ -39,12 +43,18 @@ const SUPPORTED_PLATFORM =
  * `layout.ts` and it shows up in search with no other wiring — `gridRegion()`
  * derives every grid command's title and icon from its id alone.
  */
+/** Id prefix for a saved custom layout's searchable command, e.g. `win:custom:sidebar`. */
+const CUSTOM_LAYOUT_PREFIX = "win:custom:";
+
 export class WindowManagementSource implements ActionSource {
   readonly id = "win";
 
   private readonly definitions: ActionDefinition[] = buildDefinitions();
 
-  constructor(settings: SettingsStore) {
+  constructor(
+    private readonly settings: SettingsStore,
+    private readonly customLayoutStore: CustomLayoutStore,
+  ) {
     // Populate each command's display shortcut from the settings store (falling
     // back to its platform default) — the actual `globalShortcut` registration
     // happens separately in `index.ts`, which reads the same store directly.
@@ -58,7 +68,7 @@ export class WindowManagementSource implements ActionSource {
   }
 
   provide(): ActionDefinition[] {
-    return this.definitions;
+    return [...this.definitions, ...this.customLayoutDefinitions()];
   }
 
   owns(actionId: string): boolean {
@@ -66,10 +76,42 @@ export class WindowManagementSource implements ActionSource {
   }
 
   async execute(actionId: string): Promise<void> {
+    if (actionId.startsWith(CUSTOM_LAYOUT_PREFIX)) {
+      const def = this.customLayoutStore.get(actionId.slice(CUSTOM_LAYOUT_PREFIX.length));
+      if (def) void applyCustomLayout(toGeometry(def), def.useGap, this.settings.getGapSize());
+      return;
+    }
     await this.definitions
       .find((definition) => definition.action.id === actionId)
       ?.run();
   }
+
+  /** Each saved custom layout, as a searchable `win:custom:<id>` command. Read fresh every call — the manage window can add/edit/remove them at any time. */
+  private customLayoutDefinitions(): ActionDefinition[] {
+    return this.customLayoutStore.list().map((def) => ({
+      action: {
+        id: `${CUSTOM_LAYOUT_PREFIX}${def.id}`,
+        title: def.name,
+        subtitle: "Window Management · Custom",
+        icon: customLayoutIcon(def),
+        type: "command",
+      },
+      run: () => {
+        void applyCustomLayout(toGeometry(def), def.useGap, this.settings.getGapSize());
+      },
+    }));
+  }
+}
+
+/** `CustomLayoutDef`'s persisted percent/id shape → `computeCustomRect`'s fraction-based geometry. */
+function toGeometry(def: CustomLayoutDef): CustomLayoutGeometry {
+  return {
+    position: def.position,
+    widthFraction: def.widthPercent != null ? def.widthPercent / 100 : null,
+    heightFraction: def.heightPercent != null ? def.heightPercent / 100 : null,
+    offsetXFraction: def.offsetXPercent / 100,
+    offsetYPoints: def.offsetYPoints,
+  };
 }
 
 /**
@@ -270,12 +312,11 @@ function iconRectFromSpan(span: {
 }
 
 /**
- * A `data:` SVG showing a monitor outline with the target region filled — rendered
- * as an `<img>` by `SearchItem`, so colours are baked for the launcher's dark UI
+ * A `data:` SVG showing a monitor outline with `rect` filled — rendered as an
+ * `<img>` by `SearchItem`, so colours are baked for the launcher's dark UI
  * (`--color-foreground-subtle` frame, `--color-foreground` fill).
  */
-function snapIcon(id: SnapRegion): string {
-  const rect = REGION_RECT[id] ?? iconRectFromSpan(regionSpan(id)!);
+function iconSvg(rect: readonly [x: number, y: number, w: number, h: number]): string {
   const [x, y, w, h] = rect;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
@@ -283,4 +324,31 @@ function snapIcon(id: SnapRegion): string {
     `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="#f5f5f4"/>` +
     `</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/** A named region's icon: `REGION_RECT`'s hand-tuned rect, or `iconRectFromSpan` derived from its real geometry. */
+function snapIcon(id: SnapRegion): string {
+  return iconSvg(REGION_RECT[id] ?? iconRectFromSpan(regionSpan(id)!));
+}
+
+/**
+ * A saved custom layout's icon — same anchor math as `computeCustomRect`
+ * (position anchor + width/height), applied directly to the icon's inner
+ * frame instead of a real work area. Ignores offset/gap: those shift the rect
+ * by a few px on a real screen, which would be imperceptible (or misleading)
+ * at icon scale, so the icon shows just the size/anchor at a glance. "Auto"
+ * (`null`) sizing has no real window to measure here, so it previews as 60%.
+ */
+function customLayoutIcon(def: CustomLayoutDef): string {
+  const w = (def.widthPercent != null ? def.widthPercent / 100 : 0.6) * ICON_INNER.width;
+  const h = (def.heightPercent != null ? def.heightPercent / 100 : 0.6) * ICON_INNER.height;
+  const [vAnchor, hAnchor] = def.position.split("-") as [
+    "top" | "middle" | "bottom",
+    "left" | "center" | "right",
+  ];
+  const x =
+    hAnchor === "left" ? 0 : hAnchor === "right" ? ICON_INNER.width - w : (ICON_INNER.width - w) / 2;
+  const y =
+    vAnchor === "top" ? 0 : vAnchor === "bottom" ? ICON_INNER.height - h : (ICON_INNER.height - h) / 2;
+  return iconSvg([ICON_INNER.x + x, ICON_INNER.y + y, w, h]);
 }

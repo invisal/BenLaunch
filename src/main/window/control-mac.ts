@@ -2,11 +2,18 @@ import { dialog, shell, systemPreferences } from 'electron'
 import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { allDisplays, currentDisplay, toRect, workAreaFor } from './electron-screen'
-import { computeEdgeMove, computeTargetRect, mapRectToDisplay, pickAdjacentDisplay, type Rect } from './layout'
+import {
+  computeCustomRect,
+  computeEdgeMove,
+  computeTargetRect,
+  mapRectToDisplay,
+  pickAdjacentDisplay,
+  type Rect
+} from './layout'
 import { popRestore, saveForRestore } from './restore-stack'
-import type { EdgeDirection, SnapRegion } from './layout'
+import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from './layout'
 
-export type { EdgeDirection, SnapRegion } from './layout'
+export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from './layout'
 
 const execFileAsync = promisify(execFile)
 
@@ -167,16 +174,31 @@ function notifyPermissionIssue(): void {
     })
 }
 
-export async function applyRegion(region: SnapRegion): Promise<boolean> {
+/** Shared by `applyRegion`/`applyCustomLayout`: capture check, read the current frame, compute, save-for-restore, write. */
+async function applyComputedRect(computeRect: (workArea: Rect, currentRect: Rect) => Rect): Promise<boolean> {
   if (capturedPid === 0) return false
   ensureAccessibilityPrompted()
 
   const current = await readFrame(capturedPid)
   if (!current) return false
 
-  const target = computeTargetRect(region, { workArea: workAreaFor(current), currentRect: current })
+  const target = computeRect(workAreaFor(current), current)
   saveForRestore(restoreKey(capturedPid), current)
   return writeFrame(capturedPid, target)
+}
+
+export function applyRegion(region: SnapRegion): Promise<boolean> {
+  return applyComputedRect((workArea, currentRect) => computeTargetRect(region, { workArea, currentRect }))
+}
+
+export function applyCustomLayout(
+  layout: CustomLayoutGeometry,
+  useGap: boolean,
+  gapPx: number
+): Promise<boolean> {
+  return applyComputedRect((workArea, currentRect) =>
+    computeCustomRect(layout, { workArea, currentRect, useGap, gapPx })
+  )
 }
 
 export async function moveToDisplay(direction: 'next' | 'previous'): Promise<boolean> {

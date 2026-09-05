@@ -4,6 +4,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ActionDefinition } from '../../types'
 import { openQuickValueWindow } from '../quickvalue/window'
+import { openCustomLayoutWindow } from '../window/custom-window'
 import { openSettingsWindow } from '../../settings-window'
 import type { ActionSource } from '../base'
 
@@ -60,6 +61,18 @@ export class BuiltinCommandSource implements ActionSource {
       },
       run: () => {
         openQuickValueWindow({ view: 'list' })
+      }
+    },
+    {
+      action: {
+        id: 'cmd:custom-layout-create',
+        title: 'Create Command',
+        subtitle: 'Design a custom window layout',
+        icon: '➕',
+        type: 'command'
+      },
+      run: () => {
+        openCustomLayoutWindow()
       }
     },
     {
