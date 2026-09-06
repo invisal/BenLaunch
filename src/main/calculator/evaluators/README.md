@@ -38,11 +38,14 @@ assuming a `pere-doc` gap is still open.
 
 ## Shared shape
 
-- `Calculation { expression, value, rawValue, tokens?, footnote? }` in
+- `Calculation { expression, value, rawValue, tokens?, footnote?, items? }` in
   [src/shared/types.ts](../../../shared/types.ts); attached to
   `QueryResult.calculation` by `query()` in
   [src/main/actions.ts](../../actions.ts); rendered by
   [CalculatorPanel.tsx](../../../renderer/src/screens/launcher/components/CalculatorPanel.tsx).
+  `items` (label/value pairs, rendered as wrapped chips instead of one line)
+  exists only for `timezone`'s multi-zone country listing so far — every
+  other evaluator leaves it unset.
 - `evaluate()` stays **synchronous**, even where the underlying data or logic
   isn't trivial:
   - `currency` reads an in-memory rate table kept fresh by a background

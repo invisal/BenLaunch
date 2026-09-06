@@ -35,10 +35,18 @@ export function resolveConvert(
   const time = parseTimeOfDay(timeText)
   if (!time) return null
 
-  const srcZone = srcText ? resolvePlace(srcText)?.timezone : localZone
+  // fuzzy: false — this whole shape ("<time> [text] in|to <text>") is already
+  // speculative (it runs on any query that merely looks like it, before
+  // either side is known to be a place), unlike clock.ts's `time in <place>`,
+  // which only fuzzy-matches after the user has explicitly said "time in".
+  // With ~450 zone/country names now searchable (see places.ts), a fuzzy
+  // fallback here would happily "resolve" a 3-letter currency or unit code —
+  // "usd" is a subsequence of "South Sudan", "mph" of "Thimphu" — and hijack
+  // an ordinary currency/unit query.
+  const srcZone = srcText ? resolvePlace(srcText, { fuzzy: false })?.timezone : localZone
   if (!srcZone) return null
 
-  const dest = resolvePlace(destText)
+  const dest = resolvePlace(destText, { fuzzy: false })
   if (!dest) return null
 
   const todaySrc = calendarDate(now, srcZone)

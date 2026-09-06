@@ -79,6 +79,14 @@ export interface Calculation {
   tokens?: CalcToken[]
   /** Small print shown bottom-right of the result — e.g. currency's "Updated 2 days ago". */
   footnote?: string
+  /**
+   * The result as several equally-weighted label/value pairs, rendered as
+   * compact chips instead of one big line — e.g. every zone a multi-zone
+   * country (`time in the united states`) currently spans. `value`/
+   * `rawValue` still carry the single-line/plain-text form for copying;
+   * `items` is display-only and optional — most evaluators never set it.
+   */
+  items?: { label: string; value: string }[]
 }
 
 /** What a query resolves to: the ranked actions, plus an optional inline answer. */

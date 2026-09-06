@@ -5,7 +5,10 @@ import ExpressionTokens from "./ExpressionTokens";
 
 /** Text the user can select and copy, despite the launcher's global `user-select: none`. */
 const SELECTABLE = "cursor-text select-text";
-const VALUE = `${SELECTABLE} overflow-x-auto whitespace-pre scrollbar-none [&::-webkit-scrollbar]:hidden`;
+/** `pre-wrap` keeps deliberate formatting (the multi-zone list's aligned
+ *  `"  ·  "` separators) but wraps onto more lines instead of forcing a
+ *  horizontal scrollbar when a value is too wide for the panel. */
+const VALUE = `${SELECTABLE} whitespace-pre-wrap break-words`;
 
 function Label({ children }: { children: string }) {
   return (
@@ -15,19 +18,61 @@ function Label({ children }: { children: string }) {
   );
 }
 
+/**
+ * A `Calculation.items` result (every zone a multi-zone country spans, one
+ * `{ city, "HH:MM · GMT±N" }` pair each) — a single horizontally-scrolling
+ * row of chips at a smaller size, rather than cramming N cities into the
+ * single-value line at `text-2xl` or wrapping the panel to N/4 lines tall.
+ * Each chip's own background (an additional 5% white layered on the panel's
+ * highlight overlay) reads as a distinct object regardless of whether the
+ * row itself is highlighted; the trailing `GMT±N` (split off `value` here,
+ * purely for styling — the string itself is still one selectable unit)
+ * stays visually secondary to the time.
+ */
+function ResultItems({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div
+      className={`${SELECTABLE} flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden`}
+    >
+      {items.map((item) => {
+        const [time, offset] = item.value.split(" · ");
+        return (
+          <div
+            key={item.label}
+            className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-md bg-item-hover px-2 py-1"
+          >
+            <span className="text-[13px] text-foreground-subtle">{item.label}</span>
+            <span className="text-[13px] font-semibold text-foreground tabular-nums">{time}</span>
+            {offset && <span className="text-[11px] text-foreground-subtle">{offset}</span>}
+          </div>
+        )
+      })}
+    </div>
+  );
+}
+
 interface CalculatorPanelProps extends ComponentPropsWithRef<"div"> {
   calculation: Calculation;
   highlighted: boolean;
 }
 
-/** Locked to the virtualized list's row height for this item (see App.tsx). */
+/**
+ * Starting estimate for the virtualized list's row height (see App.tsx) —
+ * this row's *actual* height is measured after render and can grow past it
+ * (a long `value` wraps onto more than one line), so this is only ever a
+ * first guess, never an enforced cap.
+ */
 export const CALCULATOR_PANEL_HEIGHT = 146;
 
 /**
  * The first row of the result list whenever a query resolves to a `Calculation`.
  * Labelled Expression / Result fields split by a rule; both values are selectable
  * so they can be copied by hand. A `footnote` (currency's "Updated 2 days ago")
- * sits bottom-right of the result.
+ * sits bottom-right of the result. Height is intrinsic to its content, so a
+ * wrapped `value` grows the panel instead of clipping — the one exception is
+ * `items` (see `ResultItems`), which scrolls horizontally instead of wrapping,
+ * to keep a long multi-zone listing from pushing the rest of the results down
+ * the list.
  */
 function CalculatorPanel({
   calculation,
@@ -39,7 +84,7 @@ function CalculatorPanel({
     <div
       {...rest}
       className={cn(
-        "flex h-[146px] cursor-default flex-col justify-center gap-3 rounded-lg px-4 py-3.5",
+        "flex min-h-[146px] cursor-default flex-col justify-center gap-3 rounded-lg px-4 py-3.5",
         highlighted ? "bg-item-selected" : "bg-item-hover",
         className,
       )}
@@ -59,12 +104,16 @@ function CalculatorPanel({
 
       <div>
         <Label>Result</Label>
-        <div className="flex items-end justify-between gap-3">
-          <div className={`${VALUE} text-2xl font-semibold text-foreground`}>
-            {calculation.value}
-          </div>
+        <div className="flex items-start justify-between gap-3">
+          {calculation.items ? (
+            <ResultItems items={calculation.items} />
+          ) : (
+            <div className={`${VALUE} min-w-0 text-2xl font-semibold text-foreground`}>
+              {calculation.value}
+            </div>
+          )}
           {calculation.footnote && (
-            <div className="shrink-0 pb-0.5 text-[11px] text-foreground-subtle">
+            <div className="shrink-0 pt-1 text-[11px] text-foreground-subtle">
               {calculation.footnote}
             </div>
           )}

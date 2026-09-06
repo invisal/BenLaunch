@@ -97,3 +97,12 @@ test('a specific-time conversion query is claimed by timezone', () => {
   assert.ok(calc)
   assert.match(calc.value, /^\d{2}:\d{2} \w{3}( \((?:next|prev) day\))?$/)
 })
+
+test('a multi-zone country lists every zone it spans, not just one', () => {
+  const calc = evaluate('time in united states')
+  assert.ok(calc)
+  // Several "City HH:MM" entries, not the single "HH:MM · GMT±N" shape a
+  // one-place lookup would give.
+  assert.ok(calc.value.split('·').length >= 3)
+  assert.ok(calc.value.includes('New York'))
+})

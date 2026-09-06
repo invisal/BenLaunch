@@ -22,7 +22,14 @@ type Row =
   | { key: string; kind: "calc"; calculation: Calculation }
   | { key: string; kind: "action"; action: LauncherAction };
 
-/** Both row kinds are fixed-height, so one virtualizer can size purely from `kind` — no measureElement/ResizeObserver needed. */
+/**
+ * `SearchItem` rows are fixed-height, so they need no measurement — this is
+ * only ever their exact, final height. A `"calc"` row's `CALCULATOR_PANEL_HEIGHT`
+ * is just the virtualizer's starting estimate: `measureElement` (wired up
+ * below, only for that one row kind) corrects it to the panel's real
+ * rendered height once a `Calculation`'s `value` wraps onto more than one
+ * line — a multi-zone timezone listing, for instance.
+ */
 function rowHeight(row: Row): number {
   return row.kind === "calc" ? CALCULATOR_PANEL_HEIGHT : SEARCH_ITEM_HEIGHT;
 }
@@ -302,6 +309,13 @@ function App() {
                   value={row}
                   index={virtualRow.index}
                   onClick={() => runRow(row)}
+                  // Only the "calc" row can grow taller than its estimate
+                  // (see rowHeight above) — measuring every row would cost a
+                  // ResizeObserver per row for no benefit, since SearchItem
+                  // never deviates from SEARCH_ITEM_HEIGHT.
+                  {...(row.kind === "calc"
+                    ? { ref: virtualizer.measureElement, "data-index": virtualRow.index }
+                    : {})}
                   style={{
                     position: "absolute",
                     top: 0,
