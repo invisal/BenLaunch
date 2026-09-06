@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { javascript } from '@codemirror/lang-javascript'
@@ -23,6 +23,12 @@ type TSModule = typeof TS
 interface CodeEditorProps {
   value: string
   onChange: (value: string) => void
+}
+
+export interface CodeEditorHandle {
+  /** Reformat the buffer in place (Prettier), preserving the cursor. No-op
+   *  while the snippet doesn't parse. */
+  format: () => void
 }
 
 /**
@@ -146,13 +152,22 @@ async function formatInPlace(view: EditorView): Promise<void> {
  * different QuickValue into the editor) are reconciled via a dispatch rather
  * than a rebuild.
  */
-function CodeEditor({ value, onChange }: CodeEditorProps) {
+const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
+  { value, onChange },
+  ref
+) {
   const host = useRef<HTMLDivElement>(null)
   const view = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   const valueRef = useRef(value)
   onChangeRef.current = onChange
   valueRef.current = value
+
+  useImperativeHandle(ref, () => ({
+    format: () => {
+      if (view.current) void formatInPlace(view.current)
+    }
+  }), [])
 
   useEffect(() => {
     let cancelled = false
@@ -176,7 +191,9 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
                 }
               },
               indentWithTab,
-              ...defaultKeymap,
+              // Mod-Enter (CM's `insertBlankLine`) is left free so the footer
+              // menu's Save shortcut reaches it.
+              ...defaultKeymap.filter((b) => b.key !== 'Mod-Enter'),
               ...historyKeymap,
               ...completionKeymap
             ]),
@@ -212,6 +229,13 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
                   border: 'none',
                   color: oneDarkColor.stone
                 },
+                // Reserve room for two digits up front so the gutter (and the
+                // text beside it) doesn't jump when the line count crosses 9→10.
+                // CM's base rule is `box-sizing: border-box; min-width: 20px;
+                // padding: 0 3px 0 5px`, which only leaves ~12px for the number
+                // — not enough for two glyphs at 13px, so the element overflows
+                // and shifts. Widen the floor to fit 2ch plus that padding.
+                '.cm-lineNumbers .cm-gutterElement': { minWidth: 'calc(2ch + 10px)' },
                 '.cm-activeLine': { backgroundColor: 'rgb(255 255 255 / 4%)' },
                 '.cm-activeLineGutter': { backgroundColor: 'rgb(255 255 255 / 4%)' },
                 // Popups stay opaque so text over them is readable.
@@ -252,6 +276,6 @@ function CodeEditor({ value, onChange }: CodeEditorProps) {
   }, [value])
 
   return <div ref={host} className="h-full overflow-hidden rounded" />
-}
+})
 
 export default CodeEditor

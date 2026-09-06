@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "cnfast";
+import { Footer } from "./Footer";
 
 /**
  * A vertical page layout for framed-window screens: a scrolling content region
@@ -40,26 +41,6 @@ function Content({
 }) {
   return (
     <div className={cn("min-h-0 flex-1 overflow-y-auto p-6", className)}>
-      {children}
-    </div>
-  );
-}
-
-/** A bar pinned to the bottom of the layout, below the scrolling `Content`. */
-function Footer({
-  className,
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center gap-3 border-t border-border px-4 py-3",
-        className,
-      )}
-    >
       {children}
     </div>
   );

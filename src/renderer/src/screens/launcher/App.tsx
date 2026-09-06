@@ -7,13 +7,9 @@ import {
 } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { cn } from "cnfast";
-import type {
-  Calculation,
-  LauncherAction,
-} from "../../../../shared/types";
+import type { Calculation, LauncherAction } from "../../../../shared/types";
+import { Footer, type FooterMenuItem } from "@renderer/shared/ui";
 import SearchItem, { SEARCH_ITEM_HEIGHT } from "./components/SearchItem";
-import ActionsMenu, { type MenuActionItem } from "./components/ActionsMenu";
 import CalculatorPanel, {
   CALCULATOR_PANEL_HEIGHT,
 } from "./components/CalculatorPanel";
@@ -138,7 +134,7 @@ function App() {
     dismiss();
   }
 
-  const menuActions = useMemo<MenuActionItem[]>(() => {
+  const menuActions = useMemo<FooterMenuItem[]>(() => {
     const active = highlightedRow ?? rows[0] ?? null;
     if (!active) return [];
     if (active.kind === "calc") {
@@ -216,16 +212,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightedRow, rows, pinned, query]);
 
-  useEffect(() => {
-    function onGlobalKeyDown(e: globalThis.KeyboardEvent): void {
-      if (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        setMenuOpen((open) => !open);
-      }
-    }
-    window.addEventListener("keydown", onGlobalKeyDown);
-    return () => window.removeEventListener("keydown", onGlobalKeyDown);
-  }, []);
+  // ⌘K is bound by `Footer.Menu` itself (it toggles the `menuOpen` we pass it).
 
   // Arrow keys / Enter are handled by Autocomplete; we only add the launcher's
   // own shortcuts on top.
@@ -273,7 +260,9 @@ function App() {
         // no longer rebuild `rows` at all — see the comment above `rows`.)
         if (row && index !== lastHighlightedIndex.current) {
           lastHighlightedIndex.current = index;
-          queueMicrotask(() => virtualizer.scrollToIndex(index, { align: "auto" }));
+          queueMicrotask(() =>
+            virtualizer.scrollToIndex(index, { align: "auto" }),
+          );
         }
       }}
     >
@@ -288,7 +277,10 @@ function App() {
           />
         </div>
 
-        <div ref={scrollRef} className="result-scroll flex-1 overflow-y-auto p-2">
+        <div
+          ref={scrollRef}
+          className="result-scroll flex-1 overflow-y-auto p-2"
+        >
           <Autocomplete.List
             className="relative w-full"
             style={{ height: virtualizer.getTotalSize() }}
@@ -342,36 +334,32 @@ function App() {
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2 text-xs text-foreground-subtle [-webkit-app-region:drag]">
-          <span>
-            {results.length} result{results.length === 1 ? "" : "s"}
-          </span>
-          <span className="flex items-center gap-3">
-            <button
-              type="button"
+        <Footer>
+          <Footer.Left>
+            <Footer.Label>
+              {results.length} result{results.length === 1 ? "" : "s"}
+            </Footer.Label>
+          </Footer.Left>
+          <Footer.Right>
+            <Footer.Button
+              active={pinned}
               onClick={() => void togglePin()}
               title={
                 pinned
                   ? "Unpin (stays open) — Ctrl+P"
                   : "Pin (stay open on focus loss) — Ctrl+P"
               }
-              className={cn(
-                "rounded px-1.5 py-0.5 [-webkit-app-region:no-drag]",
-                pinned
-                  ? "bg-item-selected text-foreground"
-                  : "text-foreground-subtle hover:bg-item-hover",
-              )}
             >
               📌 {pinned ? "Pinned" : "Pin"}
-            </button>
-            <ActionsMenu
+            </Footer.Button>
+            <Footer.Menu
               open={menuOpen}
               onOpenChange={setMenuOpen}
-              actions={menuActions}
+              items={menuActions}
               finalFocus={inputRef}
             />
-          </span>
-        </div>
+          </Footer.Right>
+        </Footer>
       </div>
     </Autocomplete.Root>
   );

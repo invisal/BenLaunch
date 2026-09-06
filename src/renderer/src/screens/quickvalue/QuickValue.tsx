@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import { cn } from "cnfast";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   QuickValueDef,
   QuickValueTestResult,
 } from "../../../../shared/types";
 import { Breadcrumb, Form, Layout, WindowFrame } from "@renderer/shared/ui";
-import CodeEditor from "./CodeEditor";
+import { useShortcut } from "@renderer/lib/use-shortcut";
+import CodeEditor, { type CodeEditorHandle } from "./CodeEditor";
 
 type Route =
   | { name: "list" }
@@ -254,6 +254,11 @@ function MetaForm({
     }
   }
 
+  useShortcut({
+    Escape: onDone,
+    "CommandOrControl+Enter": () => void saveAndClose(),
+  });
+
   if (!loaded) {
     return <p className="px-6 py-8 text-sm text-foreground-subtle">Loading…</p>;
   }
@@ -315,22 +320,24 @@ function MetaForm({
       </Layout.Content>
 
       <Layout.Footer>
-        <button
-          type="button"
-          onClick={onDone}
-          className="shrink-0 text-sm text-foreground-subtle hover:text-foreground"
-        >
-          Cancel
-        </button>
+        <Layout.Footer.Left>
+          <Layout.Footer.Button shortcut="Escape" onClick={onDone}>
+            Cancel
+          </Layout.Footer.Button>
+        </Layout.Footer.Left>
 
-        <button
-          type="button"
-          onClick={() => void saveAndClose()}
-          disabled={busy || !name.trim()}
-          className="ml-auto rounded bg-item-selected px-3 py-1.5 text-sm text-foreground hover:brightness-125 disabled:opacity-50"
-        >
-          {busy ? "Saving…" : "Save"}
-        </button>
+        <Layout.Footer.Right>
+          <Layout.Footer.Button
+            variant="primary"
+            shortcut="CommandOrControl+Enter"
+            loading={busy}
+            loadingLabel="Saving…"
+            disabled={!name.trim()}
+            onClick={() => void saveAndClose()}
+          >
+            Save
+          </Layout.Footer.Button>
+        </Layout.Footer.Right>
       </Layout.Footer>
     </Layout>
   );
@@ -338,8 +345,9 @@ function MetaForm({
 
 /* ------------------------------- code view ------------------------------- */
 
-/** The CodeMirror editor for one QuickValue, plus Test / Save. Metadata
- * (name, exposed) is owned by `MetaForm` and preserved verbatim on save. */
+/** The CodeMirror editor for one QuickValue. Run Test / Format / Save all live
+ * in the footer's actions menu (⌘K). Metadata (name, exposed) is owned by
+ * `MetaForm` and preserved verbatim on save. */
 function CodeView({ id, onBack }: { id: string; onBack: () => void }) {
   const [def, setDef] = useState<QuickValueDef | null>(null);
   const [missing, setMissing] = useState(false);
@@ -348,6 +356,7 @@ function CodeView({ id, onBack }: { id: string; onBack: () => void }) {
     null,
   );
   const [saving, setSaving] = useState(false);
+  const editor = useRef<CodeEditorHandle>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -386,6 +395,11 @@ function CodeView({ id, onBack }: { id: string; onBack: () => void }) {
     }
   }
 
+  useShortcut({
+    "CommandOrControl+S": () => editor.current?.format(),
+    "CommandOrControl+Enter": () => void save(),
+  });
+
   if (missing) {
     return (
       <div className="flex h-full flex-col gap-4 p-6">
@@ -418,37 +432,44 @@ function CodeView({ id, onBack }: { id: string; onBack: () => void }) {
       </WindowFrame.Title>
 
       <Layout.Content className="overflow-hidden p-2">
-        <CodeEditor value={code} onChange={setCode} />
+        <CodeEditor ref={editor} value={code} onChange={setCode} />
       </Layout.Content>
 
       <Layout.Footer>
-        <button
-          type="button"
-          onClick={onBack}
-          className="shrink-0 text-sm text-foreground-subtle hover:text-foreground"
-        >
-          Cancel
-        </button>
+        <Layout.Footer.Left>
+          {/* No shortcut: bare Escape belongs to the editor, and a stray press
+              shouldn't discard an editing session. */}
+          <Layout.Footer.Button onClick={onBack}>
+            Cancel
+          </Layout.Footer.Button>
+        </Layout.Footer.Left>
 
-        <div className="ml-auto flex min-w-0 items-center gap-3">
+        <Layout.Footer.Right>
           <TestResult result={test} />
-          <button
-            type="button"
-            onClick={() => void runTest()}
-            disabled={test === "running"}
-            className="rounded border border-border px-3 py-1.5 text-sm hover:bg-item-hover disabled:opacity-50"
-          >
-            {test === "running" ? "Running…" : "Test"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={saving}
-            className="rounded bg-item-selected px-3 py-1.5 text-sm text-foreground hover:brightness-125 disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
+          <Layout.Footer.Menu
+            items={[
+              {
+                id: "test",
+                label: test === "running" ? "Running…" : "Run Test",
+                disabled: test === "running",
+                onSelect: () => void runTest(),
+              },
+              {
+                id: "format",
+                label: "Format",
+                shortcut: "CommandOrControl+S",
+                onSelect: () => editor.current?.format(),
+              },
+              {
+                id: "save",
+                label: saving ? "Saving…" : "Save",
+                shortcut: "CommandOrControl+Enter",
+                disabled: saving,
+                onSelect: () => void save(),
+              },
+            ]}
+          />
+        </Layout.Footer.Right>
       </Layout.Footer>
     </Layout>
   );
@@ -461,17 +482,14 @@ function TestResult({
 }) {
   if (!result || result === "running") return null;
   return (
-    <span
-      className={cn(
-        "min-w-0 truncate text-sm",
-        result.ok ? "text-foreground" : "text-foreground-subtle",
-      )}
+    <Layout.Footer.Label
+      className={result.ok ? "text-foreground" : undefined}
       title={result.ok ? undefined : result.error}
     >
       {result.ok
         ? `→ ${result.value === null ? "—" : result.value}`
         : `⚠ ${result.error}`}
-    </span>
+    </Layout.Footer.Label>
   );
 }
 

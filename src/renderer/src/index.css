@@ -10,6 +10,11 @@
   /* Fill for text inputs on the framed windows — a step lighter than the
      window so a field reads as a field, not a hole in the panel. */
   --color-input: rgb(255 255 255 / 6%);
+  /* Floating surfaces (menu / dropdown popups). Fully opaque and a touch
+     lifted off the base: every window's own `--color-background` is
+     translucent (acrylic / glass shows through), and a popup portals over
+     the app's own content, so a see-through menu bleeds the rows behind it. */
+  --color-popover: rgb(28 26 24);
 
   /* Calculator expression syntax highlighting — a faint accent on units,
      functions and constants; numbers and operators use the base tokens. */

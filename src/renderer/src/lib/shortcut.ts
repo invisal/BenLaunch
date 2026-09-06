@@ -64,6 +64,73 @@ const OTHER_LABELS: Record<string, string> = {
   right: '→'
 }
 
+/**
+ * Does this keydown event satisfy an Electron accelerator string
+ * (e.g. "CommandOrControl+Enter", "Escape")? Modifiers must match exactly.
+ */
+export function matchesShortcut(
+  accelerator: string,
+  event: KeyboardEvent,
+  mac: boolean = isMac()
+): boolean {
+  let meta = false
+  let ctrl = false
+  let alt = false
+  let shift = false
+  let key: string | null = null
+
+  for (const token of accelerator.split('+').filter(Boolean)) {
+    switch (token.toLowerCase()) {
+      case 'commandorcontrol':
+      case 'cmdorctrl':
+        if (mac) meta = true
+        else ctrl = true
+        break
+      case 'command':
+      case 'cmd':
+      case 'meta':
+      case 'super':
+        meta = true
+        break
+      case 'control':
+      case 'ctrl':
+        ctrl = true
+        break
+      case 'alt':
+      case 'option':
+        alt = true
+        break
+      case 'shift':
+        shift = true
+        break
+      default:
+        key = token.toLowerCase()
+    }
+  }
+
+  if (
+    event.metaKey !== meta ||
+    event.ctrlKey !== ctrl ||
+    event.altKey !== alt ||
+    event.shiftKey !== shift
+  ) {
+    return false
+  }
+  if (!key) return true
+
+  const alias: Record<string, string> = {
+    enter: 'enter',
+    return: 'enter',
+    esc: 'escape',
+    space: ' ',
+    up: 'arrowup',
+    down: 'arrowdown',
+    left: 'arrowleft',
+    right: 'arrowright'
+  }
+  return event.key.toLowerCase() === (alias[key] ?? key)
+}
+
 export function formatShortcut(accelerator: string, mac: boolean = isMac()): string {
   const map = mac ? MAC_SYMBOLS : OTHER_LABELS
   const tokens = accelerator
