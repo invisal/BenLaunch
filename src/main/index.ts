@@ -20,6 +20,7 @@ import {
 } from "./actions";
 import { registerQuickValueIpc } from "./sources/quickvalue/ipc";
 import { registerCustomLayoutIpc } from "./sources/window/custom-ipc";
+import { registerWindowControlsIpc } from "./window-chrome";
 import { centerOnActiveDisplay, createLauncherWindow } from "./window";
 
 // Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
@@ -110,6 +111,7 @@ app.whenReady().then(() => {
 
   registerQuickValueIpc(quickValueStore, quickValueRunner);
   registerCustomLayoutIpc(customLayoutStore, settings);
+  registerWindowControlsIpc();
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
     return query(text);

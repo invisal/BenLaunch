@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { formatShortcut } from '../../lib/shortcut'
+import { formatShortcut } from '@renderer/lib/shortcut'
+import { WindowFrame } from '@renderer/shared/ui'
 
 const TOGGLE_SHORTCUT =
   window.api.platform === 'darwin' ? 'Command+Shift+Space' : 'Alt+Space'
@@ -93,8 +94,8 @@ function GapSizeRow() {
 
 function Settings() {
   return (
-    <div className="h-screen w-screen overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto max-w-2xl px-6 py-8">
+    <WindowFrame title="Settings" contentClassName="overflow-y-auto">
+      <div className="mx-auto w-full max-w-2xl px-6 py-8">
         <h1 className="text-xl font-semibold">Settings</h1>
         <p className="mt-1 text-sm text-foreground-subtle">
           Configure how BenLaunch behaves.
@@ -132,7 +133,7 @@ function Settings() {
           More options coming soon.
         </p>
       </div>
-    </div>
+    </WindowFrame>
   )
 }
 
