@@ -35,6 +35,20 @@ test('a second QuickValue with a colliding name gets a numbered id', () => {
   assert.equal(b.id, 'price-2')
 })
 
+test('save() keeps a trimmed description and drops a blank one', () => {
+  const store = new QuickValueStore({ dir })
+  const withDesc = store.save({
+    name: 'Stars',
+    description: '  repo stars  ',
+    code: '',
+    exposed: false,
+  })
+  assert.equal(withDesc.description, 'repo stars')
+
+  const cleared = store.save({ id: withDesc.id, name: 'Stars', description: '   ', code: '', exposed: false })
+  assert.equal(cleared.description, undefined)
+})
+
 test('save() with an existing id updates in place', () => {
   const store = new QuickValueStore({ dir })
   const created = store.save({ name: 'Weather', code: 'old', exposed: false })

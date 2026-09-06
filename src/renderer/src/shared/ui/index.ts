@@ -3,3 +3,4 @@
 export { WindowFrame } from "./WindowFrame";
 export { Breadcrumb } from "./Breadcrumb";
 export { Layout } from "./Layout";
+export { Form, useField } from "./Form";

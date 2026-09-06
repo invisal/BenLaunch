@@ -29,6 +29,8 @@ export interface QuickValueDef {
   /** Stable slug, derived from `name` on creation; used in the action id `qv:<id>`. */
   id: string;
   name: string;
+  /** Optional free-text note shown in the manager. Empty is stored as absent. */
+  description?: string;
   code: string;
   exposed: boolean;
 }
@@ -37,6 +39,7 @@ export interface QuickValueDef {
 export interface QuickValueDraft {
   id?: string;
   name: string;
+  description?: string;
   code: string;
   exposed: boolean;
 }

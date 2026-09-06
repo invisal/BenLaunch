@@ -4,7 +4,7 @@ import type {
   QuickValueDef,
   QuickValueTestResult,
 } from "../../../../shared/types";
-import { Breadcrumb, Layout, WindowFrame } from "@renderer/shared/ui";
+import { Breadcrumb, Form, Layout, WindowFrame } from "@renderer/shared/ui";
 import CodeEditor from "./CodeEditor";
 
 type Route =
@@ -147,7 +147,7 @@ function ListView({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-foreground">{item.name}</div>
                   <div className="truncate text-xs text-foreground-subtle">
-                    {item.id}
+                    {item.description || item.id}
                   </div>
                 </div>
                 <label className="flex shrink-0 items-center gap-2 text-xs text-foreground-subtle">
@@ -184,10 +184,10 @@ function ListView({
 /* ----------------------------- metadata form ----------------------------- */
 
 /**
- * Name + "expose as command" for a QuickValue — the code lives on its own
- * screen (`CodeView`). Creating persists immediately (with `DEFAULT_CODE`) so
- * the code editor has a real id to save against; editing saves the metadata
- * before handing off to the code editor.
+ * The metadata for a QuickValue — name, description, "expose as command". The
+ * code lives on its own screen (`CodeView`), reached from the "Code" row, which
+ * persists the metadata first (with `DEFAULT_CODE` on create) so the editor has
+ * a real id to save against. "Save" persists and closes without touching code.
  */
 function MetaForm({
   id,
@@ -199,6 +199,7 @@ function MetaForm({
   onEditCode: (id: string) => void;
 }) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [exposed, setExposed] = useState(true);
   const [code, setCode] = useState(DEFAULT_CODE);
   const [loaded, setLoaded] = useState(id === null);
@@ -210,6 +211,7 @@ function MetaForm({
     void window.api.quickValue.get(id).then((def) => {
       if (cancelled || !def) return;
       setName(def.name);
+      setDescription(def.description ?? "");
       setExposed(def.exposed);
       setCode(def.code);
       setLoaded(true);
@@ -224,6 +226,7 @@ function MetaForm({
     const saved = await window.api.quickValue.save({
       id: id ?? undefined,
       name: name.trim(),
+      description: description.trim() || undefined,
       code,
       exposed,
     });
@@ -266,29 +269,49 @@ function MetaForm({
         </Breadcrumb>
       </WindowFrame.Title>
 
-      <Layout.Content className="flex flex-col gap-6">
-        <h2 className="text-base text-foreground">
-          {id === null ? "New QuickValue" : "Edit QuickValue"}
-        </h2>
+      <Layout.Content>
+        <Form>
+          <Form.Field
+            label="Name"
+            description="What you see and type when searching the launcher."
+          >
+            <Form.Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Node stars"
+              autoFocus
+            />
+          </Form.Field>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm text-foreground-subtle">Name</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Node stars"
-            autoFocus
-          />
-        </label>
+          <Form.Field
+            label="Description"
+            description="Optional. A note to yourself — not shown in the launcher."
+          >
+            <Form.TextArea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What this value is, where it comes from"
+            />
+          </Form.Field>
 
-        <label className="flex items-center gap-2 text-sm text-foreground-subtle">
-          <input
-            type="checkbox"
+          <Form.Field
+            label="Code"
+            description="Runs in a background Node process. Opens in the editor."
+          >
+            <Form.Trigger
+              onClick={() => void saveAndEditCode()}
+              disabled={busy || !name.trim()}
+            >
+              TypeScript
+            </Form.Trigger>
+          </Form.Field>
+
+          <Form.Switch
+            label="Expose as a launcher command"
             checked={exposed}
-            onChange={(e) => setExposed(e.target.checked)}
+            onCheckedChange={setExposed}
           />
-          Expose as a launcher command
-        </label>
+        </Form>
       </Layout.Content>
 
       <Layout.Footer>
@@ -300,26 +323,14 @@ function MetaForm({
           Cancel
         </button>
 
-        <div className="ml-auto flex items-center gap-3">
-          {id !== null ? (
-            <button
-              type="button"
-              onClick={() => void saveAndClose()}
-              disabled={busy || !name.trim()}
-              className="rounded border border-border px-3 py-1.5 text-sm hover:bg-item-hover disabled:opacity-50"
-            >
-              {busy ? "Saving…" : "Save"}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => void saveAndEditCode()}
-            disabled={busy || !name.trim()}
-            className="rounded bg-item-selected px-3 py-1.5 text-sm text-foreground hover:brightness-125 disabled:opacity-50"
-          >
-            {id === null ? "Continue to code →" : "Edit code →"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void saveAndClose()}
+          disabled={busy || !name.trim()}
+          className="ml-auto rounded bg-item-selected px-3 py-1.5 text-sm text-foreground hover:brightness-125 disabled:opacity-50"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
       </Layout.Footer>
     </Layout>
   );
