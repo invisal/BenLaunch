@@ -27,6 +27,7 @@ function isQuickValueDef(value: unknown): value is QuickValueDef {
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
+    (candidate.description === undefined || typeof candidate.description === 'string') &&
     typeof candidate.code === 'string' &&
     typeof candidate.exposed === 'boolean'
   )
@@ -94,10 +95,13 @@ export class QuickValueStore {
   save(draft: QuickValueDraft): QuickValueDef {
     this.init()
 
+    const description = draft.description?.trim() || undefined
+
     if (draft.id) {
       const existing = this.items.find((item) => item.id === draft.id)
       if (existing) {
         existing.name = draft.name
+        existing.description = description
         existing.code = draft.code
         existing.exposed = draft.exposed
         this.persist()
@@ -108,6 +112,7 @@ export class QuickValueStore {
     const def: QuickValueDef = {
       id: this.uniqueId(slugify(draft.name)),
       name: draft.name,
+      description,
       code: draft.code,
       exposed: draft.exposed
     }

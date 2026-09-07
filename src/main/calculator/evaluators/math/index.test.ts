@@ -55,6 +55,48 @@ for (const { input, value } of [
   { input: '20 degC to degF', value: '68 degF' },
   { input: '10 cm in mm', value: '100 mm' },
   { input: '1 kg + 2 g', value: '1.002 kg' },
+  // Bare temperature letters.
+  { input: '23C to F', value: '73.4 degF' },
+  { input: '0F to C', value: '-17.777778 degC' },
+  // Word/abbreviation aliases.
+  { input: '180 pounds to kg', value: '81.646627 kg' },
+  { input: '2 tbsp in ml', value: '30 ml' },
+  { input: '100 kmh in mph', value: '62.137119 mi / h' },
+]) {
+  test(`math.evaluate(${JSON.stringify(input)}) -> ${value}`, () => {
+    assert.equal(evaluate(input)?.value, value)
+  })
+}
+
+// "5 in ft" — `in` rewritten to the conversion connector, but a bare `5` has
+// no source unit to convert *from*, so this correctly fails rather than
+// silently reinterpreting it as "5 inches * ft" (an ft² area, which is what
+// happened before this fix).
+test('math.evaluate("5 in ft") -> null (no source unit to convert)', () => {
+  assert.equal(evaluate('5 in ft'), null)
+})
+
+test('math.evaluate("5 m in ft") -> unaffected by the in-fix', () => {
+  assert.equal(evaluate('5 m in ft')?.value, '16.404199 ft')
+})
+
+// --- percentages ---------------------------------------------------------
+
+for (const { input, value } of [
+  { input: '32% of 5', value: '1.6' },
+  { input: '20% of 1499', value: '299.8' },
+  { input: '850 + 8.25%', value: '920.125' },
+  { input: '250 - 10%', value: '225' },
+  { input: '47%', value: '0.47' },
+]) {
+  test(`math.evaluate(${JSON.stringify(input)}) -> ${value}`, () => {
+    assert.equal(evaluate(input)?.value, value)
+  })
+}
+
+for (const { input, value } of [
+  { input: 'what percent is 32 of 200', value: '16%' },
+  { input: 'what percentage of 4 is 1', value: '25%' },
 ]) {
   test(`math.evaluate(${JSON.stringify(input)}) -> ${value}`, () => {
     assert.equal(evaluate(input)?.value, value)

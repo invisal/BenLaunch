@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
   --color-background: rgb(10 9 8 / 97%);
@@ -7,6 +7,14 @@
   --color-foreground: #f5f5f4;
   --color-foreground-subtle: #8a8582;
   --color-border: rgb(255 255 255 / 8%);
+  /* Fill for text inputs on the framed windows — a step lighter than the
+     window so a field reads as a field, not a hole in the panel. */
+  --color-input: rgb(255 255 255 / 6%);
+  /* Floating surfaces (menu / dropdown popups). Fully opaque and a touch
+     lifted off the base: every window's own `--color-background` is
+     translucent (acrylic / glass shows through), and a popup portals over
+     the app's own content, so a see-through menu bleeds the rows behind it. */
+  --color-popover: rgb(28 26 24);
 
   /* Calculator expression syntax highlighting — a faint accent on units,
      functions and constants; numbers and operators use the base tokens. */
@@ -17,8 +25,14 @@
 
 /* On macOS the window is backed by an electron-liquid-glass surface, so let the
    glass show through instead of painting a near-opaque panel over it. */
-:root[data-platform='darwin'] {
+:root[data-platform="darwin"] {
   --color-background: rgb(10 9 8 / 45%);
+}
+
+/* On Windows the launcher sits on an acrylic backdrop (see src/main/window.ts);
+   let a little of the blur read through while keeping text crisp. */
+:root[data-platform="win32"] {
+  --color-background: rgb(10 9 8 / 90%);
 }
 
 html,

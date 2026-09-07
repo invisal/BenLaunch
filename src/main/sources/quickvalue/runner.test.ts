@@ -6,7 +6,6 @@ import { afterEach, beforeEach, test } from 'node:test'
 
 import { QuickValueRunner } from './runner.ts'
 import type { UserCodeResult } from './run-user-code.ts'
-import type { QuickValueUpdate } from '../../../shared/types.ts'
 
 let dir: string
 
@@ -22,27 +21,19 @@ function makeRunner(
   runCode: (code: string, timeoutMs: number) => Promise<UserCodeResult>,
   now: () => number = () => 1000
 ) {
-  const updates: QuickValueUpdate[] = []
-  const runner = new QuickValueRunner({
-    dir,
-    now,
-    runCode,
-    onUpdate: (u) => updates.push(u)
-  })
-  return { runner, updates }
+  const runner = new QuickValueRunner({ dir, now, runCode })
+  return { runner }
 }
 
-test('run() caches the value and emits loading then ready updates', async () => {
-  const { runner, updates } = makeRunner(async () => ({ ok: true, value: 7 }))
+test('run() caches the value and reports isLoading only while in flight', async () => {
+  const { runner } = makeRunner(async () => ({ ok: true, value: 7 }))
 
-  await runner.run('q', 'code')
+  const task = runner.run('q', 'code')
+  assert.equal(runner.isLoading('q'), true)
+  await task
 
   assert.equal(runner.getSubtitle('q'), '7')
   assert.equal(runner.isLoading('q'), false)
-  assert.deepEqual(
-    updates.map((u) => u.isLoading),
-    [true, false]
-  )
 })
 
 test('a failed run keeps the last known value but reports not-loading', async () => {
@@ -97,7 +88,7 @@ test('cached values survive across instances and prune() drops the rest', async 
   await runner.run('keep', 'c')
   await runner.run('drop', 'c')
 
-  const reloaded = new QuickValueRunner({ dir, onUpdate: () => {}, runCode: async () => ({ ok: true, value: 0 }) })
+  const reloaded = new QuickValueRunner({ dir, runCode: async () => ({ ok: true, value: 0 }) })
   assert.equal(reloaded.getSubtitle('keep'), 'x')
   assert.equal(reloaded.getSubtitle('drop'), 'x')
 

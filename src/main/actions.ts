@@ -1,5 +1,5 @@
 import { app } from "electron";
-import type { QueryResult, QuickValueUpdate } from "../shared/types";
+import type { QueryResult, RequestSubtitleOptions } from "../shared/types";
 import type {
   Quicklink,
   QuicklinkCreateResult,
@@ -7,36 +7,31 @@ import type {
 } from "../shared/quicklink";
 import { evaluate } from "./calculator";
 import { matchAction } from "./search";
+import { SettingsStore } from "./settings/store";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { QuicklinkSource } from "./sources/quicklinks/source";
 import { WindowManagementSource } from "./sources/window/source";
+import { CustomLayoutStore } from "./sources/window/custom-store";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
 import { QuickValueRunner } from "./sources/quickvalue/runner";
 import { QuickValueSource } from "./sources/quickvalue/source";
 import { QuickValueStore } from "./sources/quickvalue/store";
 import { Usage } from "./usage/store";
 
-/** Set by `subscribeQuickValueUpdates` once the launcher window exists. */
-let quickValueUpdateListener: ((update: QuickValueUpdate) => void) | null =
-  null;
+/** Persisted user settings (today: the custom-layout gap size). Also read directly by `index.ts` to wire the custom-layout manager's IPC. */
+export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
+/** Persisted custom window layouts ("Create Command"). Also read directly by `index.ts` to wire the manager window's IPC. */
+export const customLayoutStore = new CustomLayoutStore({ dir: app.getPath("userData") });
 /** Persisted QuickValue definitions + the cache of their last computed values. */
 export const quickValueStore = new QuickValueStore({
   dir: app.getPath("userData"),
 });
 export const quickValueRunner = new QuickValueRunner({
   dir: app.getPath("userData"),
-  onUpdate: (update) => quickValueUpdateListener?.(update),
 });
-
-/** Forward exposed-QuickValue value changes to the launcher window. */
-export function subscribeQuickValueUpdates(
-  listener: (update: QuickValueUpdate) => void,
-): void {
-  quickValueUpdateListener = listener;
-}
 
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
@@ -47,7 +42,7 @@ const quicklinkSource = new QuicklinkSource();
 
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
-  new WindowManagementSource(),
+  new WindowManagementSource(settings, customLayoutStore),
   new QuickValueSource(quickValueStore, quickValueRunner),
   quicklinkSource,
   new InstalledAppSource(),
@@ -103,6 +98,8 @@ const usage = new Usage({ dir: app.getPath("userData") });
 /** Warm every source at startup (called from app `whenReady`). */
 export function initActionSources(): void {
   usage.init();
+  settings.init();
+  customLayoutStore.init();
   for (const source of sources) source.init?.();
 }
 
@@ -155,4 +152,14 @@ export async function executeAction(id: string, text: string): Promise<void> {
   await sources.find((source) => source.owns(id))?.execute(id, text);
   // `qv:edit:*` is a UI shortcut (open the editor), not a real action to rank.
   if (!id.startsWith("qv:edit:")) usage.record(id, text);
+}
+
+/** A deferred-subtitle row rendered in the launcher; ask whichever source owns it for a fresh subtitle. */
+export async function requestSubtitle(
+  id: string,
+  opts?: RequestSubtitleOptions,
+): Promise<string | undefined> {
+  return await sources
+    .find((source) => source.owns(id))
+    ?.requestSubtitle?.(id, opts);
 }

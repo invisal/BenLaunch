@@ -5,8 +5,9 @@ import { evaluate } from './index.ts'
 
 /**
  * The whole pipeline: raw query in, `Calculation` (or `null`) out. Exercises
- * shared `normalize` + the evaluator chain (`math`, `currency`) end-to-end.
- * Per-evaluator behaviour is covered in `evaluators/<name>/`.
+ * shared `normalize` + the evaluator chain (`math`, `currency`, `datetime`,
+ * `timezone`) end-to-end. Per-evaluator behaviour is covered in
+ * `evaluators/<name>/`.
  */
 
 const resolves: ReadonlyArray<{ query: string; value: string; expression: string }> = [
@@ -46,6 +47,8 @@ const nullCases: ReadonlyArray<string> = [
   'notepad++',
   'sunny plus warm',
   'what is love',
+  "today's news",
+  'monday.com',
 ]
 
 for (const query of nullCases) {
@@ -67,4 +70,39 @@ test('a currency query is claimed by currency, not math', () => {
   assert.ok(calc)
   assert.match(calc.expression, /^10 USD → EUR/)
   assert.match(calc.value, /^€/)
+})
+
+test('a relative-date query is claimed by datetime', () => {
+  // Real "now" — assert the shape (a weekday/day/month), not a fixed date.
+  const calc = evaluate('tomorrow')
+  assert.ok(calc)
+  assert.match(calc.value, /^\w{3}, \w{3} \d{1,2}(, \d{4})?$/)
+})
+
+test('a countdown query is claimed by datetime', () => {
+  const calc = evaluate('days until 25 Dec')
+  assert.ok(calc)
+  assert.match(calc.value, /^\d+ (days|weeks|months)$/)
+})
+
+test('a "time in place" query is claimed by timezone, last in the chain', () => {
+  const calc = evaluate('time in Tokyo')
+  assert.ok(calc)
+  assert.equal(calc.expression, 'time in Tokyo')
+  assert.match(calc.value, /^\d{2}:\d{2}( \w{3})? · GMT[+-]\d+(:\d{2})?$/)
+})
+
+test('a specific-time conversion query is claimed by timezone', () => {
+  const calc = evaluate('5pm ldn in sf')
+  assert.ok(calc)
+  assert.match(calc.value, /^\d{2}:\d{2} \w{3}( \((?:next|prev) day\))?$/)
+})
+
+test('a multi-zone country lists every zone it spans, not just one', () => {
+  const calc = evaluate('time in united states')
+  assert.ok(calc)
+  // Several "City HH:MM" entries, not the single "HH:MM · GMT±N" shape a
+  // one-place lookup would give.
+  assert.ok(calc.value.split('·').length >= 3)
+  assert.ok(calc.value.includes('New York'))
 })

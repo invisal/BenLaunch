@@ -1,0 +1,177 @@
+/**
+ * Persisted list of user-authored custom window layouts ("Create Command").
+ * Mirrors `quickvalue/store.ts`: deliberately Electron-free (the `node --test`
+ * suite imports it directly, `dir` is injected by `actions.ts`), a single JSON
+ * file written via temp-file + atomic rename, and every filesystem failure
+ * swallowed with a `[window/custom]` prefix so a bad disk never takes the
+ * launcher down.
+ */
+import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import type { AnchorPosition, CustomLayoutDef, CustomLayoutDraft } from '../../../shared/types'
+
+/** Bumped when the persisted shape changes, to invalidate old files. */
+const STORE_VERSION = 1
+
+const ANCHOR_POSITIONS: readonly AnchorPosition[] = [
+  'top-left',
+  'top-center',
+  'top-right',
+  'middle-left',
+  'middle-center',
+  'middle-right',
+  'bottom-left',
+  'bottom-center',
+  'bottom-right'
+]
+
+interface StoreFile {
+  version: number
+  savedAt: number
+  items: CustomLayoutDef[]
+}
+
+function isAnchorPosition(value: unknown): value is AnchorPosition {
+  return typeof value === 'string' && (ANCHOR_POSITIONS as string[]).includes(value)
+}
+
+function isCustomLayoutDef(value: unknown): value is CustomLayoutDef {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<CustomLayoutDef>
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    isAnchorPosition(candidate.position) &&
+    (candidate.widthPercent === null || typeof candidate.widthPercent === 'number') &&
+    (candidate.heightPercent === null || typeof candidate.heightPercent === 'number') &&
+    typeof candidate.offsetXPercent === 'number' &&
+    typeof candidate.offsetYPoints === 'number' &&
+    typeof candidate.useGap === 'boolean'
+  )
+}
+
+function isStoreFile(value: unknown): value is StoreFile {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<StoreFile>
+  if (candidate.version !== STORE_VERSION) return false
+  return Array.isArray(candidate.items) && candidate.items.every(isCustomLayoutDef)
+}
+
+/** `name` → url-safe slug. Empty / all-punctuation names fall back to `layout`. */
+function slugify(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return slug || 'layout'
+}
+
+export class CustomLayoutStore {
+  private readonly dir: string
+  private readonly now: () => number
+
+  private items: CustomLayoutDef[] = []
+  private loaded = false
+
+  constructor(opts: { dir: string; now?: () => number }) {
+    this.dir = opts.dir
+    this.now = opts.now ?? Date.now
+  }
+
+  /** Load `custom-layouts.json` into memory. Corrupt / missing / old version → empty list. */
+  init(): void {
+    if (this.loaded) return
+    this.loaded = true
+    console.log('[window/custom] store file:', this.path())
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(this.path(), 'utf8'))
+      if (isStoreFile(parsed)) this.items = parsed.items
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        console.error('[window/custom] Failed to read store:', error)
+      }
+    }
+  }
+
+  list(): CustomLayoutDef[] {
+    this.init()
+    return this.items.map((item) => ({ ...item }))
+  }
+
+  get(id: string): CustomLayoutDef | undefined {
+    this.init()
+    const found = this.items.find((item) => item.id === id)
+    return found ? { ...found } : undefined
+  }
+
+  /**
+   * Create (no `id`) or update (`id` present) a custom layout and persist.
+   * Returns the saved definition, including the generated id on create.
+   */
+  save(draft: CustomLayoutDraft): CustomLayoutDef {
+    this.init()
+
+    if (draft.id) {
+      const existing = this.items.find((item) => item.id === draft.id)
+      if (existing) {
+        existing.name = draft.name
+        existing.position = draft.position
+        existing.widthPercent = draft.widthPercent
+        existing.heightPercent = draft.heightPercent
+        existing.offsetXPercent = draft.offsetXPercent
+        existing.offsetYPoints = draft.offsetYPoints
+        existing.useGap = draft.useGap
+        this.persist()
+        return { ...existing }
+      }
+    }
+
+    const def: CustomLayoutDef = { ...draft, id: this.uniqueId(slugify(draft.name)) }
+    this.items.push(def)
+    this.persist()
+    return { ...def }
+  }
+
+  remove(id: string): void {
+    this.init()
+    const next = this.items.filter((item) => item.id !== id)
+    if (next.length === this.items.length) return
+    this.items = next
+    this.persist()
+  }
+
+  /** `base`, or `base-2`, `base-3`, … if taken. */
+  private uniqueId(base: string): string {
+    if (!this.items.some((item) => item.id === base)) return base
+    for (let n = 2; ; n++) {
+      const candidate = `${base}-${n}`
+      if (!this.items.some((item) => item.id === candidate)) return candidate
+    }
+  }
+
+  private path(): string {
+    return join(this.dir, 'custom-layouts.json')
+  }
+
+  private persist(): void {
+    const file = this.path()
+    const tmp = `${file}.tmp`
+    const payload: StoreFile = {
+      version: STORE_VERSION,
+      savedAt: this.now(),
+      items: this.items
+    }
+    try {
+      writeFileSync(tmp, JSON.stringify(payload, null, 2))
+      renameSync(tmp, file)
+    } catch (error) {
+      console.error('[window/custom] Failed to write store:', error)
+      try {
+        unlinkSync(tmp)
+      } catch {
+        /* nothing to clean up */
+      }
+    }
+  }
+}

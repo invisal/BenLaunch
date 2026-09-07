@@ -1,4 +1,5 @@
 import { clipboard } from 'electron'
+import type { RequestSubtitleOptions } from '../../../shared/types'
 import type { ActionDefinition } from '../../types'
 import type { ActionSource } from '../base'
 import { openQuickValueWindow } from './window'
@@ -14,6 +15,14 @@ const EDIT_PREFIX = 'qv:edit:'
  * `QuickValueStore`); only the per-item values are async, and `QuickValueRunner`
  * already caches those with stale-then-refresh semantics — so this is a plain
  * `ActionSource`, not a `CachedActionSource`.
+ *
+ * Rows are marked `isDeferredSubtitle`: `provide()` never runs a QuickValue's
+ * code itself (that would mean spawning a worker for every exposed QuickValue
+ * on every keystroke, whether or not the row is ever seen). It only reports
+ * whatever is already cached. The renderer requests a fresh subtitle — via
+ * `requestSubtitle` below, which resolves with the value directly (there is no
+ * separate push channel) — once a row actually renders, which virtualization
+ * keeps limited to visible rows.
  */
 export class QuickValueSource implements ActionSource {
   readonly id = 'qv'
@@ -26,37 +35,35 @@ export class QuickValueSource implements ActionSource {
   init(): void {
     this.store.init()
     this.runner.init()
-    this.warm()
-  }
-
-  /** Called when the launcher is shown; kick a background re-run of stale values. */
-  refresh(): void {
-    this.warm()
   }
 
   provide(): ActionDefinition[] {
-    // Also nudge stale values here so the renderer that just called `query()` is
-    // definitely mounted and listening by the time an update is pushed.
-    this.warm()
+    const exposed = this.store.list().filter((qv) => qv.exposed)
+    // Cheap bookkeeping only — drops cache entries for QuickValues that no
+    // longer exist/are no longer exposed. No code runs here.
+    this.runner.prune(exposed.map((qv) => qv.id))
 
-    return this.store
-      .list()
-      .filter((qv) => qv.exposed)
-      .map((qv) => ({
+    return exposed.map((qv) => {
+      const subtitle = this.runner.getSubtitle(qv.id)
+      return {
         action: {
           id: `qv:${qv.id}`,
           title: qv.name,
-          subtitle: this.runner.getSubtitle(qv.id) || 'QuickValue',
+          subtitle: subtitle || 'QuickValue',
           icon: '⚡',
           type: 'quickvalue' as const,
-          isLoading: this.runner.isLoading(qv.id)
+          isDeferredSubtitle: true,
+          // No cached value yet is just as much "not ready to show" as an
+          // in-flight fetch — both render as a spinner.
+          isLoading: this.runner.isLoading(qv.id) || subtitle === ''
         },
         run: () => {
-          const subtitle = this.runner.getSubtitle(qv.id)
-          if (subtitle) clipboard.writeText(subtitle)
+          const s = this.runner.getSubtitle(qv.id)
+          if (s) clipboard.writeText(s)
           void this.runner.run(qv.id, qv.code)
         }
-      }))
+      }
+    })
   }
 
   owns(actionId: string): boolean {
@@ -72,9 +79,20 @@ export class QuickValueSource implements ActionSource {
     if (qv) await this.runner.run(qv.id, qv.code)
   }
 
-  private warm(): void {
-    const exposed = this.store.list().filter((qv) => qv.exposed)
-    this.runner.prune(exposed.map((qv) => qv.id))
-    for (const qv of exposed) this.runner.refreshIfStale(qv.id, qv.code)
+  async requestSubtitle(actionId: string, opts?: RequestSubtitleOptions): Promise<string | undefined> {
+    const id = actionId.slice('qv:'.length)
+    const qv = this.store.get(id)
+    if (!qv?.exposed) {
+      console.log(`[quickvalue] ${id}: requestSubtitle ignored — not found or not exposed`)
+      return undefined
+    }
+    if (opts?.force) {
+      console.log(`[quickvalue] ${id}: requestSubtitle (forced)`)
+      await this.runner.run(qv.id, qv.code)
+    } else {
+      console.log(`[quickvalue] ${id}: requestSubtitle (row rendered)`)
+      await this.runner.refreshIfStale(qv.id, qv.code)
+    }
+    return this.runner.getSubtitle(qv.id)
   }
 }

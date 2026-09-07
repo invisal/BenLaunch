@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'node:path'
+import { framelessChrome } from './window-chrome'
 
 const WINDOW_WIDTH = 720
 const WINDOW_HEIGHT = 560
@@ -26,8 +27,8 @@ export function openSettingsWindow(): void {
     minHeight: 400,
     title: 'BenLaunch Settings',
     show: false,
-    backgroundColor: '#0a0908',
     autoHideMenuBar: true,
+    ...framelessChrome,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,

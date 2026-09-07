@@ -16,9 +16,8 @@ use windows::core::{Interface, HSTRING};
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{
-  CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDIBits, GetMonitorInfoW,
-  MonitorFromWindow, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP,
-  HGDIOBJ, MONITORINFO, MONITOR_DEFAULTTONEAREST
+  CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDIBits, SelectObject,
+  BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HGDIOBJ
 };
 use windows::Win32::Storage::EnhancedStorage::{PKEY_AppUserModel_ID, PKEY_ItemNameDisplay};
 use windows::Win32::System::Com::{
@@ -33,7 +32,7 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
   DestroyIcon, DrawIconEx, GetForegroundWindow, GetWindowRect, IsIconic, IsZoomed,
   SetForegroundWindow, SetWindowPos, ShowWindow, DI_NORMAL, HICON, SWP_FRAMECHANGED,
-  SWP_NOACTIVATE, SWP_NOZORDER, SW_RESTORE
+  SWP_NOACTIVATE, SWP_NOZORDER, SW_MAXIMIZE, SW_RESTORE
 };
 
 /// COM must be initialized on whatever thread calls into these APIs. napi-rs runs
@@ -373,13 +372,56 @@ unsafe fn invisible_border(hwnd: HWND) -> (i32, i32, i32, i32) {
   )
 }
 
-/// Move/resize `hwnd` to a fraction of the work area (monitor minus taskbar) of the
-/// display it currently sits on. `region` is one of `"left-half"`, `"right-half"`,
-/// `"top-half"`, `"bottom-half"`, `"top-left"`, `"top-right"`, `"bottom-left"`,
-/// `"bottom-right"` or `"maximize"`; any other value is a no-op. Returns whether the
-/// window was repositioned.
+#[napi(object)]
+pub struct WinRect {
+  pub x: i32,
+  pub y: i32,
+  pub width: i32,
+  pub height: i32
+}
+
+/// The window's current visible frame — DWM's extended frame bounds, i.e. the
+/// painted pixels, not the underlying window rect (which can carry several px of
+/// invisible resize border on the left/right/bottom). This is the same
+/// screen-coordinate space Electron's `screen` module reports display work areas
+/// in, so callers (TS `window/layout.ts` via `screen.getDisplayNearestPoint`) can
+/// use it directly with no translation. Returns `null` if `hwnd` is invalid or DWM
+/// can't report its frame (e.g. a custom-framed app).
 #[napi]
-pub fn snap_window(hwnd: i64, region: String) -> bool {
+pub fn get_window_rect(hwnd: i64) -> Option<WinRect> {
+  if hwnd == 0 {
+    return None;
+  }
+  let hwnd = HWND(hwnd as *mut core::ffi::c_void);
+  let mut frame = RECT::default();
+  let ok = unsafe {
+    DwmGetWindowAttribute(
+      hwnd,
+      DWMWA_EXTENDED_FRAME_BOUNDS,
+      &mut frame as *mut RECT as *mut core::ffi::c_void,
+      std::mem::size_of::<RECT>() as u32
+    )
+    .is_ok()
+  };
+  if !ok {
+    return None;
+  }
+  Some(WinRect {
+    x: frame.left,
+    y: frame.top,
+    width: frame.right - frame.left,
+    height: frame.bottom - frame.top
+  })
+}
+
+/// Restores a maximized/minimized window, then moves/resizes it so its *visible*
+/// frame (see `get_window_rect`) exactly matches `rect` — expanding by the
+/// invisible resize border so adjacent tiled windows still sit flush, the way
+/// Windows' own Snap does — and brings it to the foreground. `rect` is expected to
+/// already be a valid target the caller computed (from `window/layout.ts`); this
+/// function does no region math of its own. Returns whether the window was moved.
+#[napi]
+pub fn apply_window_rect(hwnd: i64, rect: WinRect) -> bool {
   if hwnd == 0 {
     return false;
   }
@@ -392,41 +434,16 @@ pub fn snap_window(hwnd: i64, region: String) -> bool {
       let _ = ShowWindow(hwnd, SW_RESTORE);
     }
 
-    let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    let mut info = MONITORINFO {
-      cbSize: std::mem::size_of::<MONITORINFO>() as u32,
-      ..Default::default()
-    };
-    if !GetMonitorInfoW(monitor, &mut info).as_bool() {
-      return false;
-    }
-
-    let RECT { left, top, right, bottom } = info.rcWork;
-    let (width, height) = (right - left, bottom - top);
-    let (half_w, half_h) = (width / 2, height / 2);
-    let (x, y, cx, cy) = match region.as_str() {
-      "left-half" => (left, top, half_w, height),
-      "right-half" => (left + half_w, top, width - half_w, height),
-      "top-half" => (left, top, width, half_h),
-      "bottom-half" => (left, top + half_h, width, height - half_h),
-      "top-left" => (left, top, half_w, half_h),
-      "top-right" => (left + half_w, top, width - half_w, half_h),
-      "bottom-left" => (left, top + half_h, half_w, height - half_h),
-      "bottom-right" => (left + half_w, top + half_h, width - half_w, height - half_h),
-      "maximize" => (left, top, width, height),
-      _ => return false,
-    };
-
     // Expand the window rect by the invisible border so the painted window fills the
     // target region exactly, instead of sitting inset by a few pixels on each side.
     let (bl, bt, br, bb) = invisible_border(hwnd);
     let placed = SetWindowPos(
       hwnd,
       None,
-      x - bl,
-      y - bt,
-      cx + bl + br,
-      cy + bt + bb,
+      rect.x - bl,
+      rect.y - bt,
+      rect.width + bl + br,
+      rect.height + bt + bb,
       SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
     )
     .is_ok();
@@ -437,6 +454,28 @@ pub fn snap_window(hwnd: i64, region: String) -> bool {
       let _ = SetForegroundWindow(hwnd);
     }
     placed
+  }
+}
+
+/// Windows has no equivalent of macOS's Spaces-based fullscreen, so "Toggle
+/// Fullscreen" maps to the closest native analogue: maximize the window (or
+/// restore it, if already maximized). Returns whether the state changed.
+#[napi]
+pub fn toggle_maximize(hwnd: i64) -> bool {
+  if hwnd == 0 {
+    return false;
+  }
+  let hwnd = HWND(hwnd as *mut core::ffi::c_void);
+
+  unsafe {
+    // `ShowWindow`'s BOOL return is whether the window was *previously* visible,
+    // not whether this call succeeded, so it isn't a usable success signal here —
+    // matching the rest of this file, we just issue the call and report success
+    // once we've confirmed `hwnd` was valid.
+    let target = if IsZoomed(hwnd).as_bool() { SW_RESTORE } else { SW_MAXIMIZE };
+    let _ = ShowWindow(hwnd, target);
+    let _ = SetForegroundWindow(hwnd);
+    true
   }
 }
 

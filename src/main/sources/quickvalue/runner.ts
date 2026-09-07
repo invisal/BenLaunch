@@ -11,7 +11,7 @@
 import { spawn } from 'node:child_process'
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { QuickValueTestResult, QuickValueUpdate } from '../../../shared/types'
+import type { QuickValueTestResult } from '../../../shared/types'
 import type { UserCodeResult } from './run-user-code'
 
 /** Bumped when the persisted shape changes, to invalidate old files. */
@@ -60,7 +60,6 @@ function isCacheFile(value: unknown): value is CacheFile {
 
 export class QuickValueRunner {
   private readonly dir: string
-  private readonly onUpdate: (u: QuickValueUpdate) => void
   private readonly runCode: RunCode
   private readonly now: () => number
 
@@ -68,14 +67,8 @@ export class QuickValueRunner {
   private loaded = false
   private readonly inFlight = new Map<string, Promise<void>>()
 
-  constructor(opts: {
-    dir: string
-    onUpdate: (u: QuickValueUpdate) => void
-    runCode?: RunCode
-    now?: () => number
-  }) {
+  constructor(opts: { dir: string; runCode?: RunCode; now?: () => number }) {
     this.dir = opts.dir
-    this.onUpdate = opts.onUpdate
     this.runCode = opts.runCode ?? spawnWorker
     this.now = opts.now ?? Date.now
   }
@@ -109,13 +102,30 @@ export class QuickValueRunner {
     return this.inFlight.has(id)
   }
 
-  /** Re-run `id` unless a run is already in flight or its value is still fresh. */
-  refreshIfStale(id: string, code: string, ttlMs: number = DEFAULT_TTL_MS): void {
+  /**
+   * Re-run `id` unless a run is already in flight or its value is still fresh.
+   * Resolves once settled either way, so a caller can await "is this up to date
+   * now" — a no-op call resolves immediately.
+   */
+  refreshIfStale(id: string, code: string, ttlMs: number = DEFAULT_TTL_MS): Promise<void> {
     this.init()
-    if (this.inFlight.has(id)) return
+    const existing = this.inFlight.get(id)
+    if (existing) {
+      console.log(`[quickvalue] ${id}: skip run — already in flight`)
+      return existing
+    }
     const cached = this.values[id]
-    if (cached && this.now() - cached.fetchedAt < ttlMs) return
-    void this.run(id, code)
+    if (cached) {
+      const age = this.now() - cached.fetchedAt
+      if (age < ttlMs) {
+        console.log(`[quickvalue] ${id}: skip run — cache fresh (age ${age}ms, ttl ${ttlMs}ms)`)
+        return Promise.resolve()
+      }
+      console.log(`[quickvalue] ${id}: cache stale (age ${age}ms, ttl ${ttlMs}ms) — running`)
+    } else {
+      console.log(`[quickvalue] ${id}: no cache — running`)
+    }
+    return this.run(id, code)
   }
 
   /** Force a run now. Single-flight per `id`: concurrent callers share one run. */
@@ -124,14 +134,14 @@ export class QuickValueRunner {
     const existing = this.inFlight.get(id)
     if (existing) return existing
 
-    this.onUpdate({ id, subtitle: this.getSubtitle(id), isLoading: true })
-
+    console.log(`[quickvalue] ${id}: executing code`)
+    const startedAt = this.now()
     const task = this.runCode(code, RUN_TIMEOUT_MS)
       .then((result) => this.store(id, result))
       .catch((error) => this.store(id, { ok: false, error: toMessage(error) }))
       .finally(() => {
         this.inFlight.delete(id)
-        this.onUpdate({ id, subtitle: this.getSubtitle(id), isLoading: false })
+        console.log(`[quickvalue] ${id}: execution finished in ${this.now() - startedAt}ms`)
       })
 
     this.inFlight.set(id, task)

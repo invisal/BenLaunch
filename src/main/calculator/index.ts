@@ -3,6 +3,8 @@ import type { Evaluator } from "./types.ts";
 import { normalize } from "./normalize.ts";
 import { math } from "./evaluators/math/index.ts";
 import { currency } from "./evaluators/currency/index.ts";
+import { datetime } from "./evaluators/datetime/index.ts";
+import { timezone } from "./evaluators/timezone/index.ts";
 
 /**
  * The calculator pipeline.
@@ -17,7 +19,7 @@ import { currency } from "./evaluators/currency/index.ts";
  * specific evaluators are fine on either side of it — but a query nobody claims
  * returns `null` and falls through to the normal action search (`actions.ts`).
  */
-const evaluators: Evaluator[] = [math, currency];
+const evaluators: Evaluator[] = [math, currency, datetime, timezone];
 
 /**
  * Returns a `Calculation` when `query` is something the calculator understands,

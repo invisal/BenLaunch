@@ -1,22 +1,26 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer } from "electron";
 import type {
   OpenWithApp,
   Quicklink,
   QuicklinkCreateResult,
-  QuicklinkDraft
-} from '../shared/quicklink'
+  QuicklinkDraft,
+} from "../shared/quicklink";
 import {
   IPC_CHANNELS,
+  type CustomLayoutDef,
+  type CustomLayoutDraft,
+  type DisplayPreviewInfo,
   type QueryResult,
   type QuickValueDef,
   type QuickValueDraft,
   type QuickValueTestResult,
-  type QuickValueUpdate
-} from '../shared/types'
+  type RequestSubtitleOptions,
+} from "../shared/types";
 
 const api = {
   platform: process.platform,
-  query: (text: string): Promise<QueryResult> => ipcRenderer.invoke(IPC_CHANNELS.query, text),
+  query: (text: string): Promise<QueryResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.query, text),
   execute: (id: string, text: string): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.execute, id, text),
   hide: (): void => ipcRenderer.send(IPC_CHANNELS.hide),
@@ -35,35 +39,65 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkSetHidden, id, hidden),
   openQuicklinkWith: (id: string, text: string, appPath: string): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWith, id, text, appPath),
-  pickQuicklinkPath: (type: 'file' | 'directory'): Promise<string | null> =>
+  pickQuicklinkPath: (type: "file" | "directory"): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkPickPath, type),
   openWithApps: (): Promise<OpenWithApp[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWithApps),
 
+  getAccessibilityStatus: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.accessibilityStatus),
+  requestAccessibility: (): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.requestAccessibility),
+
+  /** Launcher: a deferred-subtitle row rendered (or force-refreshed) — resolves with the fresh subtitle. */
+  requestSubtitle: (
+    actionId: string,
+    opts?: RequestSubtitleOptions,
+  ): Promise<string | undefined> =>
+    ipcRenderer.invoke(IPC_CHANNELS.requestSubtitle, actionId, opts),
+
+  /** Window-chrome controls for the framed windows (Settings, QuickValue), which
+   *  render their own title bar. Each acts on the calling window. */
+  windowControls: {
+    minimize: (): void => ipcRenderer.send(IPC_CHANNELS.windowMinimize),
+    toggleMaximize: (): void => ipcRenderer.send(IPC_CHANNELS.windowToggleMaximize),
+    close: (): void => ipcRenderer.send(IPC_CHANNELS.windowClose),
+  },
+
   /** QuickValue manager window ↔ main. */
   quickValue: {
-    list: (): Promise<QuickValueDef[]> => ipcRenderer.invoke(IPC_CHANNELS.quickValueList),
+    list: (): Promise<QuickValueDef[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.quickValueList),
     get: (id: string): Promise<QuickValueDef | null> =>
       ipcRenderer.invoke(IPC_CHANNELS.quickValueGet, id),
     save: (draft: QuickValueDraft): Promise<QuickValueDef> =>
       ipcRenderer.invoke(IPC_CHANNELS.quickValueSave, draft),
-    delete: (id: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.quickValueDelete, id),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.quickValueDelete, id),
     setExposed: (id: string, exposed: boolean): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.quickValueSetExposed, id, exposed),
     test: (code: string): Promise<QuickValueTestResult> =>
-      ipcRenderer.invoke(IPC_CHANNELS.quickValueTest, code)
+      ipcRenderer.invoke(IPC_CHANNELS.quickValueTest, code),
   },
 
-  /** Launcher: subscribe to exposed-QuickValue value changes. Returns an unsubscribe fn. */
-  onQuickValueUpdate: (callback: (update: QuickValueUpdate) => void): (() => void) => {
-    const listener = (_event: IpcRendererEvent, update: QuickValueUpdate): void => callback(update)
-    ipcRenderer.on(IPC_CHANNELS.quickValueUpdate, listener)
-    return () => {
-      ipcRenderer.removeListener(IPC_CHANNELS.quickValueUpdate, listener)
-    }
-  }
-}
+  /** Create-command manager window ↔ main. */
+  customLayout: {
+    list: (): Promise<CustomLayoutDef[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutList),
+    get: (id: string): Promise<CustomLayoutDef | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutGet, id),
+    save: (draft: CustomLayoutDraft): Promise<CustomLayoutDef> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutSave, draft),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.customLayoutDelete, id),
+  },
+  getGapSize: (): Promise<number> => ipcRenderer.invoke(IPC_CHANNELS.gapSize),
+  setGapSize: (px: number): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.setGapSize, px),
+  getDisplayInfo: (): Promise<DisplayPreviewInfo> =>
+    ipcRenderer.invoke(IPC_CHANNELS.displayInfo),
+};
 
-contextBridge.exposeInMainWorld('api', api)
+contextBridge.exposeInMainWorld("api", api);
 
-export type LauncherApi = typeof api
+export type LauncherApi = typeof api;
