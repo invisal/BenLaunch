@@ -17,16 +17,12 @@ import CalculatorPanel, {
   CALCULATOR_PANEL_HEIGHT,
 } from "./components/CalculatorPanel";
 import CreateQuicklink from "../../components/CreateQuicklink";
+import { buildContextMenu } from "./context-menu/registry";
+import type { ContextMenuContext, Editor } from "./context-menu/types";
 
 type Row =
   | { key: string; kind: "calc"; calculation: Calculation }
   | { key: string; kind: "action"; action: LauncherAction };
-
-/** The launcher form that's open on top of the search view, if any. */
-type Editor =
-  | { mode: "create" }
-  | { mode: "edit"; id: string }
-  | { mode: "duplicate"; id: string };
 
 /**
  * `SearchItem` rows are fixed-height, so they need no measurement — this is
@@ -201,173 +197,21 @@ function App() {
       ];
     }
 
-    const { action } = active;
-
-    const copyName: MenuActionItem = {
-      id: "copy-name",
-      label: "Copy Name",
-      shortcut: "CommandOrControl+C",
-      onSelect: () => void navigator.clipboard.writeText(action.title),
+    // Everything a contributor might need beyond the `LauncherAction` itself —
+    // renderer-only effects, plus the `window.api` calls are reached directly.
+    const ctx: ContextMenuContext = {
+      query,
+      pinned,
+      apps,
+      setQuery,
+      openEditor: setEditor,
+      reload,
+      dismiss,
+      togglePin: () => void togglePin(),
+      forceRefresh: (id) => setForceRefresh({ id, token: Date.now() }),
+      runAction: (action) => runRow({ key: action.id, kind: "action", action }),
     };
-
-    const createQuicklinkItem: MenuActionItem = {
-      id: "create-quicklink",
-      label: "Create Quicklink",
-      onSelect: () => {
-        setMenuOpen(false);
-        setEditor({ mode: "create" });
-      },
-    };
-
-    if (action.type === "quickvalue") {
-      const slug = action.id.slice("qv:".length);
-      return [
-        {
-          id: "copy-value",
-          label: "Copy Value",
-          shortcut: "Enter",
-          onSelect: () => runRow(active),
-        },
-        {
-          id: "refresh",
-          label: "Refresh",
-          onSelect: () => {
-            // `execute` runs it for real (and counts as a usage pick, like any
-            // other run); the force-refresh signal is what makes the row's own
-            // SearchItem visibly pick up the new value right away instead of
-            // waiting for the next query.
-            void window.api.execute(action.id, query);
-            setForceRefresh({ id: action.id, token: Date.now() });
-          },
-        },
-        {
-          id: "edit",
-          label: "Edit QuickValue",
-          onSelect: () => void window.api.execute(`qv:edit:${slug}`, query),
-        },
-        {
-          id: "manage",
-          label: "Manage QuickValues",
-          onSelect: () =>
-            void window.api.execute("cmd:quickvalue-manage", query),
-        },
-      ];
-    }
-
-    const run: MenuActionItem = {
-      id: "run",
-      label: action.type === "quicklink" ? "Open Quicklink" : "Run",
-      shortcut: "Enter",
-      onSelect: () => runRow(active),
-    };
-
-    if (action.type !== "quicklink" || !action.id.startsWith("ql:")) {
-      return [
-        run,
-        copyName,
-        {
-          id: "pin",
-          label: pinned ? "Unpin" : "Pin",
-          shortcut: "CommandOrControl+P",
-          onSelect: () => void togglePin(),
-        },
-        { ...createQuicklinkItem, section: "Quicklink" },
-      ];
-    }
-
-    // Store methods (pin/hide/delete/get/edit) key on the bare slug; `execute`
-    // (used by Open With) keys on the full `ql:` action id.
-    const actionId = action.id;
-    const id = actionId.slice(3);
-    const isPinned = !!action.pinned;
-    const isHidden = !!action.hidden;
-
-    const openWith: MenuActionItem = {
-      id: "open-with",
-      label: "Open With…",
-      submenu: [
-        {
-          id: "ow:__default",
-          label: "Default App",
-          onSelect: () => {
-            void window.api.openQuicklinkWith(actionId, query, "");
-            dismiss();
-          },
-        },
-        ...apps.map((app) => ({
-          id: `ow:${app.path}`,
-          label: app.name,
-          icon: app.icon,
-          onSelect: () => {
-            void window.api.openQuicklinkWith(actionId, query, app.path);
-            dismiss();
-          },
-        })),
-      ],
-    };
-
-    return [
-      run,
-      openWith,
-      {
-        id: "pin",
-        section: "Manage Quicklink",
-        label: isPinned ? "Unpin Quicklink" : "Pin Quicklink",
-        onSelect: async () => {
-          await window.api.setQuicklinkPinned(id, !isPinned);
-          reload();
-        },
-      },
-      {
-        id: "edit",
-        section: "Manage Quicklink",
-        label: "Edit Quicklink",
-        onSelect: () => {
-          setMenuOpen(false);
-          setEditor({ mode: "edit", id });
-        },
-      },
-      {
-        id: "duplicate",
-        section: "Manage Quicklink",
-        label: "Duplicate Quicklink",
-        onSelect: () => {
-          setMenuOpen(false);
-          setEditor({ mode: "duplicate", id });
-        },
-      },
-      {
-        id: "hide",
-        section: "Manage Quicklink",
-        label: isHidden ? "Show in Root Search" : "Hide in Root Search",
-        onSelect: async () => {
-          await window.api.setQuicklinkHidden(id, !isHidden);
-          reload();
-        },
-      },
-      { ...copyName, section: "Copy" },
-      {
-        id: "copy-link",
-        section: "Copy",
-        label: "Copy Link",
-        onSelect: async () => {
-          const ql = await window.api.getQuicklink(id);
-          if (ql) await navigator.clipboard.writeText(ql.link);
-        },
-      },
-      { ...createQuicklinkItem, section: "Quicklink" },
-      {
-        id: "delete",
-        section: "Danger Zone",
-        label: "Delete Quicklink",
-        confirmLabel: `Click again to delete "${action.title}"`,
-        danger: true,
-        onSelect: async () => {
-          await window.api.deleteQuicklink(id);
-          reload();
-        },
-      },
-    ];
+    return buildContextMenu(active.action, ctx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightedRow, rows, pinned, apps, query]);
 

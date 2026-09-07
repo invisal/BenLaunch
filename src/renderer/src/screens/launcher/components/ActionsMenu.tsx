@@ -10,34 +10,9 @@ import {
   type RefObject,
 } from "react";
 import { formatShortcut } from "../../../lib/shortcut";
+import type { MenuActionItem } from "../context-menu/types";
 
-export interface MenuActionItem {
-  id: string;
-  label: string;
-  shortcut?: string;
-  /** Emoji or image URL shown before the label (used by the "Open With" apps). */
-  icon?: string;
-  /** Render in a warning colour (Delete Quicklink). */
-  danger?: boolean;
-  /**
-   * Group heading. A heading is drawn above the first item of each run of items
-   * that share a `section`; items with no `section` get no heading. Keep items
-   * of one section contiguous in the array.
-   */
-  section?: string;
-  /** Leaf action. Omitted when the item only opens a `submenu`. */
-  onSelect?: () => void;
-  /** When present, selecting the item drills into this nested list instead. */
-  submenu?: MenuActionItem[];
-  /**
-   * Destructive leaf action guarded by a second activation: the first
-   * activation just swaps the label to this text (arming it); a second
-   * activation within a few seconds runs `onSelect`. Avoids a real submenu
-   * for a one-item confirm — safer against activation-source edge cases
-   * (mouse vs. keyboard) than drilling into a nested list.
-   */
-  confirmLabel?: string;
-}
+export type { MenuActionItem };
 
 interface ActionsMenuProps {
   open: boolean;
