@@ -11,19 +11,21 @@ trailing `=` / `equals` / `?` are gone before this evaluator runs.
 ## How it works
 
 ```
-input ─▶ normalizeMath ─▶ gate ─▶ evaluate ─▶ format ─▶ tokenize ─▶ Calculation
-         (spoken →         (is it   (mathjs)   (value +   (syntax
-          symbols)          math?)              rawValue)  highlight)
+input ─▶ normalizeMath ─▶ percent/unit rewrites ─▶ gate ─▶ evaluate ─▶ format ─▶ tokenize ─▶ Calculation
+         (spoken →         (X% of Y, in→to,          (is it   (mathjs)   (value +   (syntax
+          symbols)          C/F, word units)          math?)              rawValue)  highlight)
 ```
 
-| Module | Responsibility |
-|---|---|
-| [normalize.ts](normalize.ts) | Spoken operators, `× ÷ − π`, `3x4` → strict `mathjs` syntax |
-| [gate.ts](gate.ts) | `looksLikeMath` (needs a digit or `fn(`) + `isCalculation` (reject bare literals) |
-| [evaluate.ts](evaluate.ts) | The `mathjs` instance; parse + evaluate, meta-functions neutered |
-| [format.ts](format.ts) | `value` (grouped, for display) and `rawValue` (plain, for pasting) |
-| [tokenize.ts](tokenize.ts) | Split the expression into typed `CalcToken`s for the renderer |
-| [index.ts](index.ts) | Wires the above into the `Evaluator` |
+| Module                       | Responsibility                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------- |
+| [normalize.ts](normalize.ts) | Spoken operators, `× ÷ − π`, `3x4` → strict `mathjs` syntax                       |
+| [percent.ts](percent.ts)     | `X% of Y` → `X% * Y`; "what percent is A of B" answered directly                  |
+| [units.ts](units.ts)         | `in`-as-connector fix, bare `C`/`F`, missing word/abbreviation aliases            |
+| [gate.ts](gate.ts)           | `looksLikeMath` (needs a digit or `fn(`) + `isCalculation` (reject bare literals) |
+| [evaluate.ts](evaluate.ts)   | The `mathjs` instance; parse + evaluate, meta-functions neutered                  |
+| [format.ts](format.ts)       | `value` (grouped, for display) and `rawValue` (plain, for pasting)                |
+| [tokenize.ts](tokenize.ts)   | Split the expression into typed `CalcToken`s for the renderer                     |
+| [index.ts](index.ts)         | Wires the above into the `Evaluator`                                              |
 
 `Calculation` (in [src/shared/types.ts](../../../../shared/types.ts)) carries
 `expression` (the math-normalized form), `value`, `rawValue`, and `tokens?`.
@@ -34,90 +36,150 @@ input ─▶ normalizeMath ─▶ gate ─▶ evaluate ─▶ format ─▶ toke
 
 Precedence, parentheses, negatives, decimals, big-number grouping.
 
-| Query | Result |
-|---|---|
-| `60 + 74` | `134` |
-| `2+3*4` | `14` |
-| `(3 + 4) * 2` | `14` |
-| `10 / 4` | `2.5` |
-| `-5 + 8` | `3` |
-| `2 ^ 10` | `1,024` |
-| `2 ^ 3 ^ 2` | `512` (right-associative) |
-| `10 % 3` | `1` |
-| `0.1 + 0.2` | `0.3` (float noise trimmed) |
-| `1000000 * 2` | `2,000,000` |
+| Query         | Result                      |
+| ------------- | --------------------------- |
+| `60 + 74`     | `134`                       |
+| `2+3*4`       | `14`                        |
+| `(3 + 4) * 2` | `14`                        |
+| `10 / 4`      | `2.5`                       |
+| `-5 + 8`      | `3`                         |
+| `2 ^ 10`      | `1,024`                     |
+| `2 ^ 3 ^ 2`   | `512` (right-associative)   |
+| `10 % 3`      | `1`                         |
+| `0.1 + 0.2`   | `0.3` (float noise trimmed) |
+| `1000000 * 2` | `2,000,000`                 |
 
 ### 2. Spoken operators
 
 Rewritten only when the word sits between two operands, so "sunny plus warm"
 still isn't math.
 
-| Word form | Becomes | Example | Result |
-|---|---|---|---|
-| `plus` | `+` | `5 plus 3` | `8` |
-| `minus` | `-` | `10 minus 4` | `6` |
-| `times`, `multiplied by` | `*` | `6 times 7` | `42` |
-| `divided by` | `/` | `100 divided by 4` | `25` |
-| `mod`, `modulo` | `%` | `17 mod 5` | `2` |
-| `power`, `pow`, `to the power of` | `^` | `2 to the power of 8` | `256` |
+| Word form                         | Becomes | Example               | Result |
+| --------------------------------- | ------- | --------------------- | ------ |
+| `plus`                            | `+`     | `5 plus 3`            | `8`    |
+| `minus`                           | `-`     | `10 minus 4`          | `6`    |
+| `times`, `multiplied by`          | `*`     | `6 times 7`           | `42`   |
+| `divided by`                      | `/`     | `100 divided by 4`    | `25`   |
+| `mod`, `modulo`                   | `%`     | `17 mod 5`            | `2`    |
+| `power`, `pow`, `to the power of` | `^`     | `2 to the power of 8` | `256`  |
 
 Case-insensitive (`5 PLUS 3`), chainable (`1 plus 2 plus 3` → `6`).
 
 ### 3. Symbol variants
 
-| Query | Normalized | Result |
-|---|---|---|
-| `12 × 3` | `12 * 3` | `36` |
-| `100 ÷ 4` | `100 / 4` | `25` |
-| `8 − 5` (U+2212, or en/em dash) | `8 - 5` | `3` |
-| `2π` | `2 pi` | *(bare value — not shown, see below)* |
+| Query                           | Normalized | Result                                |
+| ------------------------------- | ---------- | ------------------------------------- |
+| `12 × 3`                        | `12 * 3`   | `36`                                  |
+| `100 ÷ 4`                       | `100 / 4`  | `25`                                  |
+| `8 − 5` (U+2212, or en/em dash) | `8 - 5`    | `3`                                   |
+| `2π`                            | `2 pi`     | _(bare value — not shown, see below)_ |
 
 ### 4. "x" as multiply
 
 Only wedged between two numbers — the `x` in `max(2, 3)` is left alone.
 
-| Query | Normalized | Result |
-|---|---|---|
-| `3 x 4` | `3 * 4` | `12` |
-| `3x4` | `3 * 4` | `12` |
+| Query   | Normalized | Result |
+| ------- | ---------- | ------ |
+| `3 x 4` | `3 * 4`    | `12`   |
+| `3x4`   | `3 * 4`    | `12`   |
 
 ### 5. Question phrasing & trailing punctuation
 
-Handled *upstream* by [calculator/normalize.ts](../../normalize.ts), so the math
+Handled _upstream_ by [calculator/normalize.ts](../../normalize.ts), so the math
 evaluator never sees it — but it's part of the same "type it how you'd say it"
 experience.
 
-| Query | Reaches math as | Result |
-|---|---|---|
-| `what is 7 * 6` | `7 * 6` | `42` |
-| `calculate 100 / 4` | `100 / 4` | `25` |
-| `9 + 10 =` | `9 + 10` | `19` |
-| `5 * 5 equals` | `5 * 5` | `25` |
+| Query               | Reaches math as | Result |
+| ------------------- | --------------- | ------ |
+| `what is 7 * 6`     | `7 * 6`         | `42`   |
+| `calculate 100 / 4` | `100 / 4`       | `25`   |
+| `9 + 10 =`          | `9 + 10`        | `19`   |
+| `5 * 5 equals`      | `5 * 5`         | `25`   |
 
 ### 6. Functions & constants
 
 Anything the bare `mathjs` grammar understands.
 
-| Query | Result |
-|---|---|
-| `sqrt(144)` | `12` |
-| `sin(30 deg)` | `0.5` |
-| `log(1000, 10)` | `3` |
-| `3!` | `6` (factorial) |
-| `2 * pi` | `6.28318530718` |
+| Query           | Result          |
+| --------------- | --------------- |
+| `sqrt(144)`     | `12`            |
+| `sin(30 deg)`   | `0.5`           |
+| `log(1000, 10)` | `3`             |
+| `3!`            | `6` (factorial) |
+| `2 * pi`        | `6.28318530718` |
 
 ### 7. Unit-aware math
 
-`mathjs` keeps units through the operation and converts on `in` / `to`.
+`mathjs` keeps units through the operation and converts on `in` / `to`. Most
+word forms already work out of the box (`inches`, `feet`, `lbs`/`lb`,
+`celsius`, `fahrenheit`, `teaspoon`, `tablespoons`, `mile`, `km/h`, `MB`/`GB`,
+…) — [units.ts](units.ts) only rewrites the handful of gaps confirmed by
+testing directly against the installed `mathjs`.
 
-| Query | Result |
-|---|---|
-| `128 GB to MB` | `128000 MB` |
-| `20 degC to degF` | `68 degF` |
-| `10 cm in mm` | `100 mm` |
-| `1 kg + 2 g` | `1.002 kg` |
+| Query             | Result                            |
+| ----------------- | --------------------------------- |
+| `128 GB to MB`    | `128000 MB`                       |
+| `20 degC to degF` | `68 degF`                         |
+| `10 cm in mm`     | `100 mm`                          |
+| `1 kg + 2 g`      | `1.002 kg`                        |
+| `29 inches to cm` | `73.66 cm` _(already worked)_     |
+| `180 lbs in kg`   | `81.646627 kg` _(already worked)_ |
 
-### 8. Syntax highlighting
+**`in`-as-connector.** `in` is both the conversion connector ("10 ft in m")
+and the inch unit ("5 in" = 5 inches) — `5 in ft` used to silently misparse
+as `5 inches * ft` (an ft² area). Rewritten to `to` only when it's followed by
+nothing but a trailing unit word through end-of-string, so a bare `5 in`
+(nothing after) still means inches.
+
+| Query       | Result                                                                           |
+| ----------- | -------------------------------------------------------------------------------- |
+| `5 in ft`   | `null` — no source unit to convert _from_ (previously a silently-wrong ft² area) |
+| `5 m in ft` | `16.404199 ft` — unambiguous, unaffected                                         |
+
+**Bare temperature letters.** `C`/`F` alone collide with `mathjs`'s
+Coulomb/Farad units, so this only fires for the unambiguous "convert this
+temperature" shape (`<num> [°]C/F to [°]C/F`) — a lone `23 F` elsewhere still
+means Farad.
+
+| Query      | Result            |
+| ---------- | ----------------- |
+| `23C to F` | `73.4 degF`       |
+| `0F to C`  | `-17.777778 degC` |
+
+**Word/abbreviation aliases.** `mathjs` has no built-in alias for these:
+
+| Word form        | Becomes      | Example            | Result             |
+| ---------------- | ------------ | ------------------ | ------------------ |
+| `pounds`/`pound` | `lbs`        | `180 pounds to kg` | `81.646627 kg`     |
+| `tbsp`           | `tablespoon` | `2 tbsp in ml`     | `30 ml`            |
+| `tsp`            | `teaspoon`   | `2 tsp in ml`      | `30 ml`            |
+| `mph`            | `mi/h`       | `100 kmh in mph`   | `62.137119 mi / h` |
+| `kmh`, `kph`     | `km/h`       | `100 kph in mph`   | `62.137119 mi / h` |
+
+### 8. Percentages
+
+`mathjs` (v15+) already gives a trailing `%` the "of the other operand"
+semantics people expect natively — confirmed directly against the installed
+version, no rewriting needed for these:
+
+| Query               | Result                  |
+| ------------------- | ----------------------- |
+| `850 + 8.25%`       | `920.125`               |
+| `250 - 10%`         | `225`                   |
+| `47%`               | `0.47` _(a bare ratio)_ |
+| `1000 * (1 + 7%)^3` | `1225.043`              |
+
+[percent.ts](percent.ts) covers the one real gap — `of` isn't a `mathjs`
+operator — plus a direct answer for "what percent" phrasing:
+
+| Query                       | Result  |
+| --------------------------- | ------- |
+| `32% of 5`                  | `1.6`   |
+| `20% of 1499`               | `299.8` |
+| `what percent is 32 of 200` | `16%`   |
+| `what percentage of 4 is 1` | `25%`   |
+
+### 9. Syntax highlighting
 
 The normalized expression is tokenized ([tokenize.ts](tokenize.ts)) and painted
 per-kind — numbers carry the weight, operators recede, units / functions /
@@ -131,15 +193,15 @@ the string, `tokens` is omitted and the panel shows plain text.
 
 ## Not claimed (returns `null` → next evaluator / action search)
 
-| Query | Why |
-|---|---|
-| `chrome`, `sin`, `pi`, `in` | no digit, no function call |
-| `42`, `1.5`, `-5` | a bare number is not a *calculation* |
-| `2 pi` | implicit multiplication, no operator — a bare value |
-| `7zip`, `1password` | digit then letters — `mathjs` throws on the undefined symbol |
-| `notepad++`, `1 +`, `(1 + 2` | doesn't parse |
-| `1 / 0` | not finite |
-| `import("fs")`, `createUnit("x")` | meta-functions are disabled |
+| Query                             | Why                                                          |
+| --------------------------------- | ------------------------------------------------------------ |
+| `chrome`, `sin`, `pi`, `in`       | no digit, no function call                                   |
+| `42`, `1.5`, `-5`                 | a bare number is not a _calculation_                         |
+| `2 pi`                            | implicit multiplication, no operator — a bare value          |
+| `7zip`, `1password`               | digit then letters — `mathjs` throws on the undefined symbol |
+| `notepad++`, `1 +`, `(1 + 2`      | doesn't parse                                                |
+| `1 / 0`                           | not finite                                                   |
+| `import("fs")`, `createUnit("x")` | meta-functions are disabled                                  |
 
 ## Tests
 

@@ -5,6 +5,8 @@ import { isCalculation, looksLikeMath } from './gate.ts'
 import { tryEvaluate } from './evaluate.ts'
 import { formatResult } from './format.ts'
 import { tokenize } from './tokenize.ts'
+import { formatPercent, parsePercentQuestion, rewritePercentOf } from './percent.ts'
+import { rewriteUnits } from './units.ts'
 
 /**
  * The math evaluator — arithmetic and everything `mathjs` already understands.
@@ -22,8 +24,17 @@ export const math: Evaluator = {
   id: 'math',
 
   evaluate(input: string): Calculation | null {
-    const expression = normalizeMath(input)
-    if (!expression || !looksLikeMath(expression)) return null
+    let expression = normalizeMath(input)
+    if (!expression) return null
+
+    const question = parsePercentQuestion(expression)
+    if (question) {
+      const value = `${formatPercent(question.percent)}%`
+      return { expression, value, rawValue: value }
+    }
+
+    expression = rewriteUnits(rewritePercentOf(expression))
+    if (!looksLikeMath(expression)) return null
 
     const result = tryEvaluate(expression)
     if (!result) return null

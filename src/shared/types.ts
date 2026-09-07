@@ -124,6 +124,7 @@ export interface Calculation {
   /** `expression` split for syntax highlighting; absent when it could not be tokenized. */
   tokens?: CalcToken[];
   /** Small print shown bottom-right of the result — e.g. currency's "Updated 2 days ago". */
+  items?: { label: string; value: string }[];
   footnote?: string;
 }
 
