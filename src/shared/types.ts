@@ -46,31 +46,6 @@ export interface LauncherAction {
   isDeferredSubtitle?: boolean;
 }
 
-/** A user-authored QuickValue definition. Crosses IPC to the manage window. */
-export interface QuickValueDef {
-  /** Stable slug, derived from `name` on creation; used in the action id `qv:<id>`. */
-  id: string;
-  name: string;
-  /** Optional free-text note shown in the manager. Empty is stored as absent. */
-  description?: string;
-  code: string;
-  exposed: boolean;
-}
-
-/** A QuickValue draft on its way in from the editor (no id yet when creating). */
-export interface QuickValueDraft {
-  id?: string;
-  name: string;
-  description?: string;
-  code: string;
-  exposed: boolean;
-}
-
-/** One-shot run result, for the editor's "Test" button. */
-export type QuickValueTestResult =
-  | { ok: true; value: string | number | null }
-  | { ok: false; error: string };
-
 /** Options for `requestSubtitle`. `force` bypasses any staleness cache (e.g. "Refresh"). */
 export interface RequestSubtitleOptions {
   force?: boolean;
@@ -174,14 +149,6 @@ export const IPC_CHANNELS = {
   windowMinimize: "window:minimize",
   windowToggleMaximize: "window:toggle-maximize",
   windowClose: "window:close",
-  quickValueList: "quickvalue:list",
-  quickValueGet: "quickvalue:get",
-  quickValueSave: "quickvalue:save",
-  quickValueDelete: "quickvalue:delete",
-  quickValueSetExposed: "quickvalue:set-exposed",
-  quickValueTest: "quickvalue:test",
-  /** main → launcher window: an exposed QuickValue's value changed. */
-  quickValueUpdate: "quickvalue:update",
   quicklinkCreate: "quicklink:create",
   quicklinkUpdate: "quicklink:update",
   quicklinkDelete: "quicklink:delete",

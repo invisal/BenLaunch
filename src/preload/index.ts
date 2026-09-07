@@ -11,11 +11,9 @@ import {
   type CustomLayoutDraft,
   type DisplayPreviewInfo,
   type QueryResult,
-  type QuickValueDef,
-  type QuickValueDraft,
-  type QuickValueTestResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
+import { quickValueApi } from "@extensions/quickvalue/ipc/preload";
 
 const api = {
   platform: process.platform,
@@ -65,20 +63,7 @@ const api = {
   },
 
   /** QuickValue manager window ↔ main. */
-  quickValue: {
-    list: (): Promise<QuickValueDef[]> =>
-      ipcRenderer.invoke(IPC_CHANNELS.quickValueList),
-    get: (id: string): Promise<QuickValueDef | null> =>
-      ipcRenderer.invoke(IPC_CHANNELS.quickValueGet, id),
-    save: (draft: QuickValueDraft): Promise<QuickValueDef> =>
-      ipcRenderer.invoke(IPC_CHANNELS.quickValueSave, draft),
-    delete: (id: string): Promise<void> =>
-      ipcRenderer.invoke(IPC_CHANNELS.quickValueDelete, id),
-    setExposed: (id: string, exposed: boolean): Promise<void> =>
-      ipcRenderer.invoke(IPC_CHANNELS.quickValueSetExposed, id, exposed),
-    test: (code: string): Promise<QuickValueTestResult> =>
-      ipcRenderer.invoke(IPC_CHANNELS.quickValueTest, code),
-  },
+  quickValue: quickValueApi,
 
   /** Create-command manager window ↔ main. */
   customLayout: {

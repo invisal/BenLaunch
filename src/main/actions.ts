@@ -15,9 +15,9 @@ import { QuicklinkSource } from "./sources/quicklinks/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { CustomLayoutStore } from "./sources/window/custom-store";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
-import { QuickValueRunner } from "./sources/quickvalue/runner";
-import { QuickValueSource } from "./sources/quickvalue/source";
-import { QuickValueStore } from "./sources/quickvalue/store";
+import { QuickValueRunner } from "@extensions/quickvalue/main/runner";
+import { QuickValueSource } from "@extensions/quickvalue/main/source";
+import { QuickValueStore } from "@extensions/quickvalue/main/store";
 import { Usage } from "./usage/store";
 
 /** Persisted user settings (today: the custom-layout gap size). Also read directly by `index.ts` to wire the custom-layout manager's IPC. */

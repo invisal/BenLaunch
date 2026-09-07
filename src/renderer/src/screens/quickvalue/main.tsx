@@ -1,13 +1,4 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import QuickValue from './QuickValue'
-import '../../index.css'
-
-// Lets CSS key off the OS, same as the launcher and settings entries.
-document.documentElement.dataset.platform = window.api.platform
-
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <QuickValue />
-  </React.StrictMode>
-)
+// Vite's renderer `root` is `src/renderer`, so each window's HTML entry can only
+// point at a script *inside* that root. This one-line bridge re-exports the real
+// entry, which lives with the rest of the feature in the QuickValue extension.
+import "@extensions/quickvalue/renderer/main";

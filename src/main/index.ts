@@ -27,7 +27,7 @@ import {
   settings,
   updateQuicklink,
 } from "./actions";
-import { registerQuickValueIpc } from "./sources/quickvalue/ipc";
+import { registerQuickValueIpc } from "@extensions/quickvalue/ipc/handlers";
 import { registerCustomLayoutIpc } from "./sources/window/custom-ipc";
 import { registerWindowControlsIpc } from "./window-chrome";
 import { listOpenWithApps } from "./sources/apps/open-with";

@@ -11,7 +11,7 @@
 import { spawn } from 'node:child_process'
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { QuickValueTestResult } from '../../../shared/types'
+import type { QuickValueTestResult } from '../shared/types'
 import type { UserCodeResult } from './run-user-code'
 
 /** Bumped when the persisted shape changes, to invalidate old files. */

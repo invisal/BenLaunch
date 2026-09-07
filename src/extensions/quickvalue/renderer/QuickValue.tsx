@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type {
-  QuickValueDef,
-  QuickValueTestResult,
-} from "../../../../shared/types";
+import type { QuickValueDef, QuickValueTestResult } from "../shared/types";
 import { Breadcrumb, Form, Layout, WindowFrame } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
 import CodeEditor, { type CodeEditorHandle } from "./CodeEditor";

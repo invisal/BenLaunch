@@ -5,6 +5,18 @@ import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
 
 /**
+ * Shared path aliases. Extensions (`src/extensions/<name>/`) hold code for every
+ * Electron process at once, so they reach into `src/main` / `src/shared` from a
+ * few directories deep — the aliases keep those imports flat. Kept in sync with
+ * `paths` in tsconfig.node.json / tsconfig.web.json.
+ */
+const nodeAlias = {
+  '@main': resolve(__dirname, 'src/main'),
+  '@shared': resolve(__dirname, 'src/shared'),
+  '@extensions': resolve(__dirname, 'src/extensions')
+}
+
+/**
  * Serves `typescript/lib/typescript.js` (used by the QuickValue code editor's
  * language-service integration — see CodeEditor.tsx) as its own same-origin
  * script asset, with its trailing `//# sourceMappingURL=typescript.js.map`
@@ -66,6 +78,7 @@ export default defineConfig({
     plugins: [
       externalizeDepsPlugin({ include: ['@benpocket/win', 'electron-liquid-glass'] })
     ],
+    resolve: { alias: nodeAlias },
     build: {
       rollupOptions: {
         input: {
@@ -77,23 +90,30 @@ export default defineConfig({
           // as `join(__dirname, 'apps-worker.js')` at runtime.
           'apps-worker': resolve(__dirname, 'src/main/native/apps-worker.ts'),
           // Runs a QuickValue's user function out-of-process (same reason as above);
-          // src/main/sources/quickvalue/runner.ts spawns it as `quickvalue-worker.js`
+          // src/extensions/quickvalue/main/runner.ts spawns it as `quickvalue-worker.js`
           // (the input key below sets the output name).
-          'quickvalue-worker': resolve(__dirname, 'src/main/sources/quickvalue/worker.ts')
+          'quickvalue-worker': resolve(__dirname, 'src/extensions/quickvalue/main/worker.ts')
         }
       }
     }
   },
   preload: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    resolve: { alias: nodeAlias }
   },
   renderer: {
     root: 'src/renderer',
     resolve: {
       alias: {
-        '@renderer': resolve(__dirname, 'src/renderer/src')
+        '@renderer': resolve(__dirname, 'src/renderer/src'),
+        '@shared': nodeAlias['@shared'],
+        '@extensions': nodeAlias['@extensions']
       }
     },
+    // The per-window HTML entries live in `src/renderer/` but pull their React
+    // entry from `src/extensions/<name>/renderer/` — allow the dev server to
+    // serve files from the repo root, not just the renderer root.
+    server: { fs: { allow: [resolve(__dirname)] } },
     build: {
       rollupOptions: {
         input: {

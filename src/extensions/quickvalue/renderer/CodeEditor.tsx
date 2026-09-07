@@ -64,7 +64,7 @@ function loadTypescript(): Promise<TSModule> {
 // Relative, not `/`-rooted: electron.vite.config.ts sets the renderer's Vite
 // root to `src/renderer`, so a `/`-prefixed glob would resolve against that
 // instead of the real project root and silently match nothing.
-const TS_LIB_SOURCES = import.meta.glob('../../../../../node_modules/typescript/lib/lib*.d.ts', {
+const TS_LIB_SOURCES = import.meta.glob('../../../../node_modules/typescript/lib/lib*.d.ts', {
   eager: true,
   query: '?raw',
   import: 'default'
@@ -73,7 +73,7 @@ const TS_LIB_SOURCES = import.meta.glob('../../../../../node_modules/typescript/
 const TS_ENTRY_PATH = 'index.ts'
 
 // The sandbox `runUserCode` runs QuickValue snippets in (see
-// src/main/sources/quickvalue/run-user-code.ts): a bare `new Function('module',
+// src/extensions/quickvalue/main/run-user-code.ts): a bare `new Function('module',
 // 'exports', 'require', code)` call, not a real CommonJS loader. These globals
 // are what's actually in scope there — modeled here so the editor's type
 // checking matches reality instead of flagging `module`/`require` as undefined.

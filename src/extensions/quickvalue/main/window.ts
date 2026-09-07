@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'node:path'
-import { framelessChrome } from '../../window-chrome'
+import { framelessChrome } from '@main/window-chrome'
 
 /**
  * The QuickValue manager lives in its own framed BrowserWindow with its own
