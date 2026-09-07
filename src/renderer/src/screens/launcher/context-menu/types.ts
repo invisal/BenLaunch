@@ -1,5 +1,6 @@
 import type { LauncherAction } from "@shared/types";
 import type { OpenWithApp } from "@shared/quicklink";
+import type { Route } from "../router/types";
 
 /**
  * One entry in the Ctrl+K "Actions" menu. Consumed by `ActionsMenu`, produced by
@@ -33,12 +34,6 @@ export interface MenuActionItem {
   confirmLabel?: string;
 }
 
-/** The launcher form open on top of the search view, if any. Owned by `App`. */
-export type Editor =
-  | { mode: "create" }
-  | { mode: "edit"; id: string }
-  | { mode: "duplicate"; id: string };
-
 /**
  * Renderer-local capabilities a contributor can trigger from a menu item's
  * `onSelect`. Everything a contributor needs that isn't already reachable via
@@ -53,7 +48,8 @@ export interface ContextMenuContext {
   /** Installed apps, for the quicklink "Open With…" submenu. */
   apps: OpenWithApp[];
   setQuery(value: string): void;
-  openEditor(editor: Editor): void;
+  /** Push a screen onto the launcher's navigation stack (e.g. the Create Quicklink form). */
+  push(route: Route): void;
   /** Re-run the current query (after pin/hide/delete changes the list). */
   reload(): void;
   /** Close the menu and dismiss the launcher (unless pinned). */

@@ -45,7 +45,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           id: "create-quicklink",
           label: "Create Quicklink",
           section: "Quicklink",
-          onSelect: () => ctx.openEditor({ mode: "create" }),
+          onSelect: () => ctx.push({ name: "quicklink-create", seed: ctx.query }),
         },
       ];
     }
@@ -78,13 +78,13 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           id: "edit",
           section: "Manage Quicklink",
           label: "Edit Quicklink",
-          onSelect: () => ctx.openEditor({ mode: "edit", id }),
+          onSelect: () => ctx.push({ name: "quicklink-edit", id }),
         },
         {
           id: "duplicate",
           section: "Manage Quicklink",
           label: "Duplicate Quicklink",
-          onSelect: () => ctx.openEditor({ mode: "duplicate", id }),
+          onSelect: () => ctx.push({ name: "quicklink-duplicate", id }),
         },
         {
           id: "hide",
@@ -115,7 +115,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           id: "create-quicklink",
           section: "Quicklink",
           label: "Create Quicklink",
-          onSelect: () => ctx.openEditor({ mode: "create" }),
+          onSelect: () => ctx.push({ name: "quicklink-create", seed: ctx.query }),
         },
         {
           id: "delete",
