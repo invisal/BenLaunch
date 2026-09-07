@@ -8,7 +8,7 @@ import {
 } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { OpenWithApp } from "../../../../shared/quicklink";
+import type { LauncherView, OpenWithApp } from "../../../../shared/quicklink";
 import type { Calculation, LauncherAction } from "../../../../shared/types";
 import { Footer } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
@@ -21,6 +21,7 @@ import { buildContextMenu } from "./context-menu/registry";
 import type { ContextMenuContext } from "./context-menu/types";
 import { useLauncherHost } from "./host";
 import { useRouteStack } from "./router/context";
+import type { Route } from "./router/types";
 
 type Row =
   | { key: string; kind: "calc"; calculation: Calculation }
@@ -154,12 +155,17 @@ function LauncherScreen() {
       return;
     }
     const { action } = row;
-    // Some actions open a renderer screen (e.g. the Create Quicklink form)
-    // instead of executing in the main process — push it onto the stack and keep
-    // the launcher window open behind it.
-    if (action.view === "create-quicklink") {
+    // Some actions open a renderer screen (the Create Quicklink form, the
+    // QuickValue manager) instead of executing in the main process — push it
+    // onto the stack and keep the launcher window open behind it.
+    if (action.view) {
       setMenuOpen(false);
-      push({ name: "quicklink-create", seed: query });
+      const route: Record<LauncherView, Route> = {
+        "create-quicklink": { name: "quicklink-create", seed: query },
+        "quickvalue-list": { name: "quickvalue-list" },
+        "quickvalue-create": { name: "quickvalue-create" },
+      };
+      push(route[action.view]);
       return;
     }
     if (action.type === "quickvalue") {

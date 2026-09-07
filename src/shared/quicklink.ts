@@ -47,8 +47,10 @@ export interface QuicklinkDraft {
 /** Result of a create request, sent back to the renderer. */
 export type QuicklinkCreateResult = { ok: true; name: string } | { ok: false; error: string }
 
-/** Renderer views the launcher can switch to when an action is run. */
-export type LauncherView = 'create-quicklink'
+/** Renderer views the launcher can switch to when an action is run — each maps
+ *  to a screen pushed onto the launcher's navigation stack (see the launcher's
+ *  `router/` and `LauncherScreen`'s `runRow`). */
+export type LauncherView = 'create-quicklink' | 'quickvalue-list' | 'quickvalue-create'
 
 /** An app the Create form offers under "Open With". */
 export interface OpenWithApp {

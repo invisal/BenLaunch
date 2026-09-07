@@ -1,4 +1,6 @@
 import { Activity, type FC } from "react";
+import QuickValueListScreen from "@extensions/quickvalue/renderer/QuickValueListScreen";
+import QuickValueMetaScreen from "@extensions/quickvalue/renderer/QuickValueMetaScreen";
 import CreateQuicklink from "../../../components/CreateQuicklink";
 import LauncherScreen from "../LauncherScreen";
 import { useLauncherHost } from "../host";
@@ -29,12 +31,42 @@ function QuicklinkForm({ route }: { route: Route }) {
   );
 }
 
+/**
+ * Adapter for the QuickValue manager screens (list + metadata form), which live
+ * in the extension and know nothing about the router. The list is the root of
+ * the QuickValue sub-stack; the metadata form pops back to it, and coming back
+ * re-mounts the list's Effects so it re-fetches.
+ */
+function QuickValueScreen({ route }: { route: Route }) {
+  const { push, pop } = useRouteStack();
+
+  if (route.name === "quickvalue-list") {
+    return (
+      <QuickValueListScreen
+        onEdit={(id) => push({ name: "quickvalue-edit", id })}
+        onCreate={() => push({ name: "quickvalue-create" })}
+        onExit={pop}
+      />
+    );
+  }
+
+  return (
+    <QuickValueMetaScreen
+      id={route.name === "quickvalue-edit" ? route.id : null}
+      onDone={pop}
+    />
+  );
+}
+
 /** Maps each {@link Route} name to the component that renders it. */
 const SCREENS: Record<RouteName, FC<{ route: Route }>> = {
   launcher: () => <LauncherScreen />,
   "quicklink-create": QuicklinkForm,
   "quicklink-edit": QuicklinkForm,
   "quicklink-duplicate": QuicklinkForm,
+  "quickvalue-list": QuickValueScreen,
+  "quickvalue-create": QuickValueScreen,
+  "quickvalue-edit": QuickValueScreen,
 };
 
 /**

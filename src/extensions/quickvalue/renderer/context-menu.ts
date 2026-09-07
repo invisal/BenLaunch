@@ -43,12 +43,12 @@ export const quickValueContextMenu: ContextMenuContributor = {
         {
           id: "edit",
           label: "Edit QuickValue",
-          onSelect: () => void window.api.execute(`qv:edit:${slug}`, ctx.query),
+          onSelect: () => ctx.push({ name: "quickvalue-edit", id: slug }),
         },
         {
           id: "manage",
           label: "Manage QuickValues",
-          onSelect: () => void window.api.execute("cmd:quickvalue-manage", ctx.query),
+          onSelect: () => ctx.push({ name: "quickvalue-list" }),
         },
       ],
     };

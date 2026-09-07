@@ -6,7 +6,7 @@ import { openQuickValueWindow } from './window'
 import type { QuickValueRunner } from './runner'
 import type { QuickValueStore } from './store'
 
-/** Action id that opens the editor for an existing QuickValue (from the row menu). */
+/** Action id that opens the code editor window for an existing QuickValue. */
 const EDIT_PREFIX = 'qv:edit:'
 
 /**
@@ -72,7 +72,7 @@ export class QuickValueSource implements ActionSource {
 
   async execute(actionId: string): Promise<void> {
     if (actionId.startsWith(EDIT_PREFIX)) {
-      openQuickValueWindow({ view: 'edit', id: actionId.slice(EDIT_PREFIX.length) })
+      openQuickValueWindow({ view: 'code', id: actionId.slice(EDIT_PREFIX.length) })
       return
     }
     const qv = this.store.get(actionId.slice('qv:'.length))

@@ -102,7 +102,9 @@ export class QuickValueStore {
       if (existing) {
         existing.name = draft.name
         existing.description = description
-        existing.code = draft.code
+        // An update that omits `code` leaves the stored code alone (the metadata
+        // screen and the code window save independently — see QuickValueDraft).
+        if (draft.code !== undefined) existing.code = draft.code
         existing.exposed = draft.exposed
         this.persist()
         return { ...existing }
@@ -113,7 +115,7 @@ export class QuickValueStore {
       id: this.uniqueId(slugify(draft.name)),
       name: draft.name,
       description,
-      code: draft.code,
+      code: draft.code ?? '',
       exposed: draft.exposed
     }
     this.items.push(def)

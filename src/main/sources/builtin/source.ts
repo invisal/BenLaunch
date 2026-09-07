@@ -3,7 +3,6 @@ import { exec } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ActionDefinition } from '../../types'
-import { openQuickValueWindow } from '@extensions/quickvalue/main/window'
 import { openCustomLayoutWindow } from '../window/custom-window'
 import { isSupported } from '../../window/control'
 import { openSettingsWindow } from '../../settings-window'
@@ -46,11 +45,10 @@ export class BuiltinCommandSource implements ActionSource {
         title: 'Create QuickValue',
         subtitle: 'Write a new QuickValue snippet',
         icon: '⚡',
-        type: 'command'
+        type: 'command',
+        view: 'quickvalue-create'
       },
-      run: () => {
-        openQuickValueWindow({ view: 'create' })
-      }
+      run: () => {}
     },
     {
       action: {
@@ -58,11 +56,10 @@ export class BuiltinCommandSource implements ActionSource {
         title: 'Manage QuickValue',
         subtitle: 'View, edit and expose your QuickValues',
         icon: '🗂️',
-        type: 'command'
+        type: 'command',
+        view: 'quickvalue-list'
       },
-      run: () => {
-        openQuickValueWindow({ view: 'list' })
-      }
+      run: () => {}
     },
     // A layout designed here can only ever run as a `win:custom:*` command,
     // which `WindowManagementSource` already hides when `isSupported()` is

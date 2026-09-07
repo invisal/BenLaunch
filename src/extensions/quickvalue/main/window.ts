@@ -3,15 +3,15 @@ import { join } from 'node:path'
 import { framelessChrome } from '@main/window-chrome'
 
 /**
- * The QuickValue manager lives in its own framed BrowserWindow with its own
- * renderer entry (`quickvalue.html`) — same pattern as the settings window. It's
- * a singleton; opening it again just navigates the existing window (via the URL
- * hash) and focuses it.
+ * The QuickValue window is the CodeMirror editor for a single QuickValue — the
+ * list and metadata form live in the launcher's navigation stack now. It's a
+ * singleton framed window (same pattern as settings); opening it again just
+ * points it at a different QuickValue (via the URL hash) and focuses it.
  */
-export type QuickValueView =
-  | { view: 'list' }
-  | { view: 'create' }
-  | { view: 'edit'; id: string }
+export interface QuickValueView {
+  view: 'code'
+  id: string
+}
 
 const WINDOW_WIDTH = 860
 const WINDOW_HEIGHT = 640
@@ -19,10 +19,10 @@ const WINDOW_HEIGHT = 640
 let quickValueWindow: BrowserWindow | null = null
 
 function hashFor(target: QuickValueView): string {
-  return target.view === 'edit' ? `edit/${encodeURIComponent(target.id)}` : target.view
+  return encodeURIComponent(target.id)
 }
 
-export function openQuickValueWindow(target: QuickValueView = { view: 'list' }): void {
+export function openQuickValueWindow(target: QuickValueView): void {
   const hash = hashFor(target)
 
   if (quickValueWindow) {

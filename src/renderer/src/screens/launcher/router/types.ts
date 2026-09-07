@@ -11,6 +11,9 @@ export type Route =
   | { name: "launcher" }
   | { name: "quicklink-create"; seed?: string }
   | { name: "quicklink-edit"; id: string }
-  | { name: "quicklink-duplicate"; id: string };
+  | { name: "quicklink-duplicate"; id: string }
+  | { name: "quickvalue-list" }
+  | { name: "quickvalue-create" }
+  | { name: "quickvalue-edit"; id: string };
 
 export type RouteName = Route["name"];

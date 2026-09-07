@@ -20,7 +20,12 @@ export interface QuickValueDraft {
   id?: string;
   name: string;
   description?: string;
-  code: string;
+  /**
+   * Omit on an update to keep the stored code untouched — the metadata screen
+   * (name / description / exposed) and the code window save independently, so
+   * neither should overwrite the other's field. Required in practice on create.
+   */
+  code?: string;
   exposed: boolean;
 }
 
