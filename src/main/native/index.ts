@@ -6,5 +6,6 @@
  * `../window` instead, since it needs its own platform-dispatch layer.
  */
 export { listApplications } from './apps'
+export { listBrowsers } from './browsers'
 export type { AppsWorkerResult, ShortcutAppResult, PackagedAppResult } from './apps-worker'
 export { applyLiquidGlass } from './glass'

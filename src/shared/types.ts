@@ -1,4 +1,10 @@
-export type LauncherActionType = "application" | "command" | "quickvalue";
+import type { LauncherView } from "./quicklink";
+
+export type LauncherActionType =
+  | "application"
+  | "command"
+  | "quicklink"
+  | "quickvalue";
 
 export interface LauncherAction {
   id: string;
@@ -9,6 +15,22 @@ export interface LauncherAction {
   type: LauncherActionType;
   /** Electron accelerator string, e.g. "CommandOrControl+1" */
   shortcut?: string;
+  /**
+   * Short alias that invokes this action when typed as the query's first word
+   * (e.g. "g" for a Google quicklink). Everything after it becomes the argument.
+   */
+  keyword?: string
+  /**
+   * When set, running this action opens a renderer view (e.g. the Create
+   * Quicklink form) instead of executing a handler in the main process.
+   */
+  view?: LauncherView
+  /** Extra terms this action should also match on (e.g. a quicklink's tags). */
+  tags?: string[]
+  /** Quicklink is pinned — sorts above unpinned actions in the root list. */
+  pinned?: boolean
+  /** Quicklink is hidden from the root list (still returned for an explicit search). */
+  hidden?: boolean
   /**
    * The action is resolving a value in the background (e.g. a QuickValue running
    * its async function). The list shows a spinner instead of the subtitle.
@@ -158,6 +180,17 @@ export const IPC_CHANNELS = {
   quickValueDelete: "quickvalue:delete",
   quickValueSetExposed: "quickvalue:set-exposed",
   quickValueTest: "quickvalue:test",
+  /** main → launcher window: an exposed QuickValue's value changed. */
+  quickValueUpdate: "quickvalue:update",
+  quicklinkCreate: "quicklink:create",
+  quicklinkUpdate: "quicklink:update",
+  quicklinkDelete: "quicklink:delete",
+  quicklinkGet: "quicklink:get",
+  quicklinkSetPinned: "quicklink:set-pinned",
+  quicklinkSetHidden: "quicklink:set-hidden",
+  quicklinkOpenWith: "quicklink:open-with",
+  quicklinkPickPath: "quicklink:pick-path",
+  quicklinkOpenWithApps: "quicklink:open-with-apps",
   customLayoutList: "window:custom-layout-list",
   customLayoutGet: "window:custom-layout-get",
   customLayoutSave: "window:custom-layout-save",

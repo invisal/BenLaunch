@@ -6,6 +6,7 @@ import { formatShortcut } from "@renderer/lib/shortcut";
 const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   application: "Application",
   command: "Command",
+  quicklink: "Quicklink",
   quickvalue: "QuickValue",
 };
 
@@ -13,17 +14,29 @@ function isImageIcon(icon: string): boolean {
   return /^(https?:|data:|file:)/.test(icon);
 }
 
-function ItemIcon({ icon }: { icon?: string }) {
+function ItemIcon({ icon, fallback }: { icon?: string; fallback: string }) {
+  const [broken, setBroken] = useState(false);
+
+  const glyph = <span className="text-foreground-subtle">{fallback}</span>;
+
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg">
-      {icon ? (
-        isImageIcon(icon) ? (
-          <img src={icon} alt="" className="h-5 w-5 object-contain" />
+      {!icon ? (
+        glyph
+      ) : isImageIcon(icon) ? (
+        broken ? (
+          glyph
         ) : (
-          <span>{icon}</span>
+          <img
+            src={icon}
+            alt=""
+            loading="lazy"
+            className="h-5 w-5 object-contain"
+            onError={() => setBroken(true)}
+          />
         )
       ) : (
-        <span className="text-foreground-subtle">?</span>
+        <span>{icon}</span>
       )}
     </span>
   );
@@ -60,7 +73,7 @@ function SearchItem({
   forceRefreshToken,
   ...rest
 }: SearchItemProps) {
-  const { id, icon, title, type, shortcut, isDeferredSubtitle } = action;
+  const { id, icon, title, type, shortcut, keyword, isDeferredSubtitle } = action;
 
   // This row owns both its subtitle and loading state once it's deferred —
   // `requestSubtitle` resolves with the fresh value directly (there's no
@@ -116,7 +129,7 @@ function SearchItem({
         className,
       )}
     >
-      <ItemIcon icon={icon} />
+      <ItemIcon icon={icon} fallback={type === "quicklink" ? "🔗" : "?"} />
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="shrink-0 truncate">{title}</span>
         {shortcut && highlighted ? (
@@ -132,6 +145,11 @@ function SearchItem({
         )}
       </div>
 
+      {keyword && (
+        <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
+          {keyword}
+        </kbd>
+      )}
       <span className="shrink-0 rounded px-1.5 py-0.5 text-foreground-subtle">
         {TYPE_LABEL[type]}
       </span>

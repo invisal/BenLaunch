@@ -46,6 +46,57 @@ export function fuzzyMatch(needle: string, haystack: string): MatchResult {
   return { match: true, score: computeScore(n, h, haystack) };
 }
 
+/** Score for an action whose keyword is exactly the query's first word. */
+const KEYWORD_EXACT_SCORE = 100
+/** Score for an action whose keyword the query's first word fuzzy-matches. */
+const KEYWORD_FUZZY_SCORE = 10
+/** Score when a tag equals the whole query — a deliberate "show me everything tagged X". */
+const TAG_EXACT_SCORE = 20
+/** Score when a tag equals one word of a multi-word query. */
+const TAG_WORD_SCORE = 3
+
+/**
+ * Match `query` against an action, considering its title, its optional `keyword`
+ * alias, and its optional `tags`. A keyword lets `"g cats"` surface the "Google"
+ * quicklink even though the title never fuzzy-matches the whole query; an exact
+ * keyword hit is scored well above any fuzzy title match so a deliberately-typed
+ * alias wins. A tag equal to the whole query surfaces everything sharing it
+ * (`"work"` → every quicklink tagged `work`); a tag matching just one word of a
+ * longer query is only a weak nudge.
+ */
+export function matchAction(
+  query: string,
+  action: { title: string; keyword?: string; tags?: string[] },
+): MatchResult {
+  const titleMatch = fuzzyMatch(query, action.title)
+  let best = titleMatch
+
+  const keyword = action.keyword?.trim()
+  if (keyword) {
+    const firstWord = query.trim().split(/\s+/, 1)[0] ?? ""
+    if (fuzzyMatch(firstWord, keyword).match) {
+      const keywordScore =
+        firstWord.toLowerCase() === keyword.toLowerCase()
+          ? KEYWORD_EXACT_SCORE
+          : KEYWORD_FUZZY_SCORE
+      best = { match: true, score: Math.max(best.score, keywordScore) }
+    }
+  }
+
+  if (action.tags?.length) {
+    const normalized = query.trim().toLowerCase()
+    const words = new Set(normalized.split(/\s+/).filter(Boolean))
+    const tags = action.tags.map((tag) => tag.toLowerCase())
+    if (tags.includes(normalized)) {
+      best = { match: true, score: Math.max(best.score, TAG_EXACT_SCORE) }
+    } else if (!best.match && tags.some((tag) => words.has(tag))) {
+      best = { match: true, score: TAG_WORD_SCORE }
+    }
+  }
+
+  return best
+}
+
 /** Is every character of `needle` present in `haystack`, in order? */
 function isSubsequence(needle: string, haystack: string): boolean {
   for (let i = 0, j = 0; i < needle.length; i += 1) {

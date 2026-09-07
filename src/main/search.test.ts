@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { fuzzyMatch } from "./search.ts";
+import { fuzzyMatch, matchAction } from "./search.ts";
 
 /**
  * The scoring model has too many interacting rules (word starts, camelCase
@@ -92,4 +92,66 @@ for (const { query, titles } of rankingCases) {
 
 test("no-match results are fresh objects, not a shared singleton", () => {
   assert.notEqual(fuzzyMatch("zzz", "abc"), fuzzyMatch("zzz", "abc"));
+});
+
+// --- matchAction: title + keyword-alias matching ---------------------------
+
+test("matchAction with no keyword is just a title match", () => {
+  assert.deepEqual(
+    matchAction("code", { title: "Visual Studio Code" }),
+    fuzzyMatch("code", "Visual Studio Code"),
+  );
+});
+
+test("matchAction: an exact keyword as the first word matches with an argument trailing", () => {
+  // "google search" never fuzzy-matches "g cats", but the keyword does.
+  assert.equal(fuzzyMatch("g cats", "Google Search").match, false);
+  const m = matchAction("g cats", { title: "Google Search", keyword: "g" });
+  assert.equal(m.match, true);
+  assert.equal(m.score, 100);
+});
+
+test("matchAction: an exact keyword beats a fuzzy title match on a rival", () => {
+  const quicklink = matchAction("g", { title: "Google Search", keyword: "g" });
+  const app = matchAction("g", { title: "GIMP" });
+  assert.ok(quicklink.score > app.score);
+});
+
+test("matchAction: a non-exact keyword prefix still matches, but ranks lower", () => {
+  const exact = matchAction("gh", { title: "GitHub", keyword: "gh" });
+  const prefix = matchAction("g", { title: "GitHub", keyword: "gh" });
+  assert.equal(exact.score, 100);
+  assert.equal(prefix.score, 10);
+});
+
+test("matchAction: a strong title match is kept when it beats the keyword score", () => {
+  // Exact title match scores Infinity; the keyword's 100 must not lower it.
+  const m = matchAction("code", { title: "Code", keyword: "code" });
+  assert.equal(m.score, Infinity);
+});
+
+test("matchAction: an unrelated query matches neither title nor keyword", () => {
+  assert.equal(
+    matchAction("zzz", { title: "Google Search", keyword: "g" }).match,
+    false,
+  );
+});
+
+test("matchAction: a tag equal to the whole query is a strong match", () => {
+  const m = matchAction("work", { title: "Internal Dashboard", tags: ["work", "ops"] });
+  assert.equal(m.match, true);
+  assert.equal(m.score, 20);
+});
+
+test("matchAction: a tag matching one word of a longer query is only a weak nudge", () => {
+  const m = matchAction("work stuff", { title: "Internal Dashboard", tags: ["work"] });
+  assert.equal(m.match, true);
+  assert.equal(m.score, 3);
+});
+
+test("matchAction: tags don't match a partial word", () => {
+  assert.equal(
+    matchAction("wor", { title: "X", tags: ["work"] }).match,
+    false,
+  );
 });

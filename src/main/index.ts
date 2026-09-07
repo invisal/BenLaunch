@@ -1,26 +1,36 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   globalShortcut,
   ipcMain,
   systemPreferences,
 } from "electron";
+import type { QuicklinkDraft } from "../shared/quicklink";
 import { captureFocusedWindow } from "./window/control";
 import { IPC_CHANNELS, type RequestSubtitleOptions } from "../shared/types";
 import {
+  createQuicklink,
   customLayoutStore,
+  deleteQuicklink,
   executeAction,
+  getQuicklink,
   initActionSources,
+  openQuicklinkWith,
   query,
   quickValueRunner,
   quickValueStore,
   refreshActionSources,
   requestSubtitle,
+  setQuicklinkHidden,
+  setQuicklinkPinned,
   settings,
+  updateQuicklink,
 } from "./actions";
 import { registerQuickValueIpc } from "./sources/quickvalue/ipc";
 import { registerCustomLayoutIpc } from "./sources/window/custom-ipc";
 import { registerWindowControlsIpc } from "./window-chrome";
+import { listOpenWithApps } from "./sources/apps/open-with";
 import { centerOnActiveDisplay, createLauncherWindow } from "./window";
 
 // Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
@@ -57,6 +67,17 @@ if (!app.requestSingleInstanceLock()) {
 
 let launcherWindow: BrowserWindow | null = null;
 let pinned = false;
+/**
+ * Set while a modal picker (the file/folder dialog) is open, so the launcher's
+ * blur-to-hide doesn't fire when the dialog steals focus — otherwise the window
+ * vanishes and the user has to re-open it after choosing a path.
+ */
+let suppressAutoHide = false;
+
+/** Whether the launcher should stay visible on focus loss right now. */
+function keepLauncherOpen(): boolean {
+  return pinned || suppressAutoHide;
+}
 
 /**
  * The launcher's own window handle, so window-management commands never target
@@ -102,7 +123,7 @@ app.on("second-instance", (_event, argv) => {
 });
 
 app.whenReady().then(() => {
-  launcherWindow = createLauncherWindow(() => pinned);
+  launcherWindow = createLauncherWindow(keepLauncherOpen);
   handleCliAction(process.argv);
 
   // Warm every action source now (apps: disk cache, then a background worker run)
@@ -135,6 +156,62 @@ app.whenReady().then(() => {
       requestSubtitle(id, opts),
   );
 
+  ipcMain.handle(IPC_CHANNELS.quicklinkCreate, (_event, draft: QuicklinkDraft) => {
+    return createQuicklink(draft)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkUpdate, (_event, id: string, draft: QuicklinkDraft) => {
+    return updateQuicklink(id, draft)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkGet, (_event, id: string) => getQuicklink(id) ?? null)
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkDelete, (_event, id: string) => {
+    deleteQuicklink(id)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkSetPinned, (_event, id: string, pinned: boolean) => {
+    setQuicklinkPinned(id, pinned)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkSetHidden, (_event, id: string, hidden: boolean) => {
+    setQuicklinkHidden(id, hidden)
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkOpenWith,
+    (_event, id: string, text: string, appPath: string) => {
+      // Mirror the main execute handler: hide first so the launcher vanishes at once.
+      if (!pinned) launcherWindow?.hide()
+      return openQuicklinkWith(id, text, appPath)
+    }
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkPickPath,
+    async (_event, type: 'file' | 'directory'): Promise<string | null> => {
+      const options = {
+        properties: [type === 'directory' ? 'openDirectory' : 'openFile'] as Array<
+          'openDirectory' | 'openFile'
+        >
+      }
+      suppressAutoHide = true
+      try {
+        const result = launcherWindow
+          ? await dialog.showOpenDialog(launcherWindow, options)
+          : await dialog.showOpenDialog(options)
+        return result.canceled ? null : (result.filePaths[0] ?? null)
+      } finally {
+        suppressAutoHide = false
+        // The dialog took focus; hand it back so the form stays interactive and
+        // a later real focus loss hides the launcher as usual.
+        launcherWindow?.focus()
+      }
+    }
+  )
+
+  ipcMain.handle(IPC_CHANNELS.quicklinkOpenWithApps, () => listOpenWithApps())
+
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
     pinned = !pinned;
     return pinned;
@@ -156,7 +233,7 @@ app.whenReady().then(() => {
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      launcherWindow = createLauncherWindow(() => pinned);
+      launcherWindow = createLauncherWindow(keepLauncherOpen);
     }
   });
 });

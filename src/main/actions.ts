@@ -1,11 +1,17 @@
 import { app } from "electron";
 import type { QueryResult, RequestSubtitleOptions } from "../shared/types";
+import type {
+  Quicklink,
+  QuicklinkCreateResult,
+  QuicklinkDraft,
+} from "../shared/quicklink";
 import { evaluate } from "./calculator";
-import { fuzzyMatch } from "./search";
+import { matchAction } from "./search";
 import { SettingsStore } from "./settings/store";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
+import { QuicklinkSource } from "./sources/quicklinks/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { CustomLayoutStore } from "./sources/window/custom-store";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
@@ -32,13 +38,59 @@ export const quickValueRunner = new QuickValueRunner({
  * stable sort below preserves it among equally-scored results (so built-in
  * commands rank ahead of applications on a tie).
  */
+const quicklinkSource = new QuicklinkSource();
+
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   new WindowManagementSource(settings, customLayoutStore),
   new QuickValueSource(quickValueStore, quickValueRunner),
+  quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),
 ];
+
+/** Persist a quicklink from the renderer's Create form. */
+export function createQuicklink(draft: QuicklinkDraft): QuicklinkCreateResult {
+  return quicklinkSource.create(draft);
+}
+
+/** Apply the renderer's Edit form to an existing quicklink. */
+export function updateQuicklink(
+  id: string,
+  draft: QuicklinkDraft,
+): QuicklinkCreateResult {
+  return quicklinkSource.update(id, draft);
+}
+
+/** The quicklink `id`, for the renderer's Edit / Duplicate form. */
+export function getQuicklink(id: string): Quicklink | undefined {
+  return quicklinkSource.get(id);
+}
+
+/** Delete the quicklink `id`. */
+export function deleteQuicklink(id: string): void {
+  quicklinkSource.remove(id);
+}
+
+/** Pin or unpin the quicklink `id`. */
+export function setQuicklinkPinned(id: string, pinned: boolean): void {
+  quicklinkSource.setPinned(id, pinned);
+}
+
+/** Hide the quicklink `id` from the root list, or reveal it. */
+export function setQuicklinkHidden(id: string, hidden: boolean): void {
+  quicklinkSource.setHidden(id, hidden);
+}
+
+/** Open the quicklink `id` now with a specific app ("" = the system default). */
+export async function openQuicklinkWith(
+  id: string,
+  text: string,
+  appPath: string,
+): Promise<void> {
+  await quicklinkSource.execute(id, text, appPath);
+  usage.record(id, text);
+}
 
 /** Personalized ranking signal — records what the user picks, boosts it next time. */
 const usage = new Usage({ dir: app.getPath("userData") });
@@ -64,20 +116,28 @@ export async function query(text: string): Promise<QueryResult> {
 
   const trimmed = text.trim();
   if (!trimmed) {
-    // Order the suggestion list by how recently/often each action has been used;
-    // the stable sort keeps registry order among the (many) unused ones.
+    // The root list: pinned actions first, then by how recently/often each has
+    // been used; the stable sort keeps registry order among the (many) ties.
+    // Actions flagged "Hide in Root Search" are dropped here but still returned
+    // for an explicit query below.
     const scores = usage.scores();
     const result = definitions
       .map((definition) => definition.action)
-      .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0));
+      .filter((action) => !action.hidden)
+      .sort((a, b) => {
+        const pinDelta = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+        if (pinDelta) return pinDelta;
+        return (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0);
+      });
     return { result };
   }
 
   const result = definitions
     .map((definition) => {
-      const match = fuzzyMatch(trimmed, definition.action.title);
-      const score = match.score + usage.boost(definition.action.id, trimmed);
-      return { action: definition.action, matched: match.match, score };
+      const { action } = definition;
+      const match = matchAction(trimmed, action);
+      const score = match.score + usage.boost(action.id, trimmed);
+      return { action, matched: match.match, score };
     })
     .filter((entry) => entry.matched)
     // Best score first; `sort` is stable, so equal scores keep registry order.
@@ -89,7 +149,7 @@ export async function query(text: string): Promise<QueryResult> {
 }
 
 export async function executeAction(id: string, text: string): Promise<void> {
-  await sources.find((source) => source.owns(id))?.execute(id);
+  await sources.find((source) => source.owns(id))?.execute(id, text);
   // `qv:edit:*` is a UI shortcut (open the editor), not a real action to rank.
   if (!id.startsWith("qv:edit:")) usage.record(id, text);
 }

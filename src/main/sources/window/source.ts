@@ -69,7 +69,7 @@ export class WindowManagementSource implements ActionSource {
     return actionId.startsWith(`${this.id}:`);
   }
 
-  async execute(actionId: string): Promise<void> {
+  async execute(actionId: string, _query: string): Promise<void> {
     if (actionId.startsWith(CUSTOM_LAYOUT_PREFIX)) {
       const def = this.customLayoutStore.get(actionId.slice(CUSTOM_LAYOUT_PREFIX.length));
       if (def) void applyCustomLayout(toGeometry(def), def.useGap, this.settings.getGapSize());

@@ -5,7 +5,7 @@ import { applyLiquidGlass } from './native'
 const WINDOW_WIDTH = 640
 const WINDOW_HEIGHT = 420
 
-export function createLauncherWindow(isPinned: () => boolean): BrowserWindow {
+export function createLauncherWindow(keepOpen: () => boolean): BrowserWindow {
   const win = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
@@ -39,7 +39,7 @@ export function createLauncherWindow(isPinned: () => boolean): BrowserWindow {
   }
 
   win.on('blur', () => {
-    if (!isPinned()) {
+    if (!keepOpen()) {
       win.hide()
     }
   })
