@@ -82,7 +82,7 @@ export interface CustomLayoutDraft {
   useGap: boolean;
 }
 
-/** A saved custom layout. Crosses IPC to the manage window and into search as `win:custom:<id>`. */
+/** A saved custom layout. Crosses IPC to the manager screens and into search as `win:custom:<id>`. */
 export interface CustomLayoutDef extends CustomLayoutDraft {
   id: string;
 }

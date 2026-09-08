@@ -4,7 +4,7 @@ import { toRect } from '../../window/electron-screen'
 import type { SettingsStore } from '../../settings/store'
 import type { CustomLayoutStore } from './custom-store'
 
-/** Wires the custom-layout manager window's CRUD calls, plus the shared gap-size and display-preview reads. */
+/** Wires the launcher's custom-layout screens' CRUD calls, plus the shared gap-size and display-preview reads. */
 export function registerCustomLayoutIpc(store: CustomLayoutStore, settings: SettingsStore): void {
   ipcMain.handle(IPC_CHANNELS.customLayoutList, () => store.list())
   ipcMain.handle(IPC_CHANNELS.customLayoutGet, (_event, id: string) => store.get(id) ?? null)

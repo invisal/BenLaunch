@@ -1,6 +1,7 @@
 import type { SettingsStore } from "../../settings/store";
 import type { ActionDefinition } from "../../types";
 import type { CustomLayoutDef } from "../../../shared/types";
+import { anchorOrigin, AUTO_PREVIEW_FRACTION } from "../../../shared/anchor";
 import {
   applyCustomLayout,
   applyRegion,
@@ -80,7 +81,7 @@ export class WindowManagementSource implements ActionSource {
       ?.run();
   }
 
-  /** Each saved custom layout, as a searchable `win:custom:<id>` command. Read fresh every call — the manage window can add/edit/remove them at any time. */
+  /** Each saved custom layout, as a searchable `win:custom:<id>` command. Read fresh every call — the manager screens can add/edit/remove them at any time. */
   private customLayoutDefinitions(): ActionDefinition[] {
     return this.customLayoutStore.list().map((def) => ({
       action: {
@@ -334,15 +335,11 @@ function snapIcon(id: SnapRegion): string {
  * (`null`) sizing has no real window to measure here, so it previews as 60%.
  */
 function customLayoutIcon(def: CustomLayoutDef): string {
-  const w = (def.widthPercent != null ? def.widthPercent / 100 : 0.6) * ICON_INNER.width;
-  const h = (def.heightPercent != null ? def.heightPercent / 100 : 0.6) * ICON_INNER.height;
-  const [vAnchor, hAnchor] = def.position.split("-") as [
-    "top" | "middle" | "bottom",
-    "left" | "center" | "right",
-  ];
-  const x =
-    hAnchor === "left" ? 0 : hAnchor === "right" ? ICON_INNER.width - w : (ICON_INNER.width - w) / 2;
-  const y =
-    vAnchor === "top" ? 0 : vAnchor === "bottom" ? ICON_INNER.height - h : (ICON_INNER.height - h) / 2;
-  return iconSvg([ICON_INNER.x + x, ICON_INNER.y + y, w, h]);
+  const w =
+    (def.widthPercent != null ? def.widthPercent / 100 : AUTO_PREVIEW_FRACTION) * ICON_INNER.width;
+  const h =
+    (def.heightPercent != null ? def.heightPercent / 100 : AUTO_PREVIEW_FRACTION) *
+    ICON_INNER.height;
+  const origin = anchorOrigin(def.position, { width: w, height: h }, ICON_INNER);
+  return iconSvg([ICON_INNER.x + origin.x, ICON_INNER.y + origin.y, w, h]);
 }

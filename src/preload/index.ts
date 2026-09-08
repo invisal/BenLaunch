@@ -65,7 +65,7 @@ const api = {
   /** QuickValue manager window ↔ main. */
   quickValue: quickValueApi,
 
-  /** Create-command manager window ↔ main. */
+  /** Custom window layouts ↔ main. */
   customLayout: {
     list: (): Promise<CustomLayoutDef[]> =>
       ipcRenderer.invoke(IPC_CHANNELS.customLayoutList),

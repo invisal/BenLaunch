@@ -164,6 +164,8 @@ function LauncherScreen() {
         "create-quicklink": { name: "quicklink-create", seed: query },
         "quickvalue-list": { name: "quickvalue-list" },
         "quickvalue-create": { name: "quickvalue-create" },
+        "custom-layout-list": { name: "custom-layout-list" },
+        "custom-layout-create": { name: "custom-layout-create" },
       };
       push(route[action.view]);
       return;
