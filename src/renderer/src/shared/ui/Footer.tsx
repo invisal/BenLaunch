@@ -272,6 +272,12 @@ function Menu({
   const open = openProp ?? uncontrolledOpen;
   const [search, setSearch] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // The popup is portalled into this element rather than `document.body`, so it
+  // stays inside the owning screen's subtree. When an `onSelect` navigates and
+  // React parks that screen in a hidden `<Activity>`, the `display:none` covers
+  // the popup too — otherwise Base UI defers its unmount to a closing
+  // transition that never fires offscreen, and it lingers over the new screen.
+  const portalRef = useRef<HTMLDivElement>(null);
 
   const setOpen = (next: boolean) => {
     if (openProp === undefined) setUncontrolledOpen(next);
@@ -285,8 +291,8 @@ function Menu({
 
   const choose = (item: FooterMenuItem) => {
     if (item.disabled) return;
-    item.onSelect();
     setOpen(false);
+    item.onSelect();
   };
 
   // The menu owns the ⌘K toggle whether controlled or not (setOpen routes to
@@ -313,7 +319,9 @@ function Menu({
         <span className="min-w-0 truncate">{label}</span>
         <Kbd accelerator={shortcut} />
       </Autocomplete.Trigger>
-      <Autocomplete.Portal>
+      {/* Zero-size, out-of-flow host for the portal (see `portalRef`). */}
+      <div ref={portalRef} className="fixed" />
+      <Autocomplete.Portal container={portalRef}>
         <Autocomplete.Positioner side="top" align="end" sideOffset={8}>
           <Autocomplete.Popup
             finalFocus={finalFocus ?? triggerRef}

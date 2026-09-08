@@ -4,7 +4,7 @@
 export { WindowFrame } from "./WindowFrame";
 export { Breadcrumb } from "./Breadcrumb";
 export { Layout } from "./Layout";
-export { List, LIST_ITEM_HEIGHT } from "./List";
+export { ListScreen, LIST_SCREEN_ITEM_HEIGHT } from "./ListScreen";
 export { Footer } from "./Footer";
 export type { ButtonProps, FooterMenuItem, FooterMenuProps } from "./Footer";
 export { Form, useField } from "./Form";
