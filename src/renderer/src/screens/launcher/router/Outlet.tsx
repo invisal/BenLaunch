@@ -1,6 +1,8 @@
 import { Activity, type FC } from "react";
 import QuickValueListScreen from "@extensions/quickvalue/renderer/QuickValueListScreen";
 import QuickValueMetaScreen from "@extensions/quickvalue/renderer/QuickValueMetaScreen";
+import CustomLayoutFormScreen from "../../customlayout/CustomLayoutFormScreen";
+import CustomLayoutListScreen from "../../customlayout/CustomLayoutListScreen";
 import CreateQuicklink from "../../../components/CreateQuicklink";
 import LauncherScreen from "../LauncherScreen";
 import { useLauncherHost } from "../host";
@@ -58,6 +60,51 @@ function QuickValueScreen({ route }: { route: Route }) {
   );
 }
 
+/**
+ * Adapter for the custom window-layout screens (manager list + the designer),
+ * which live in `screens/customlayout` and know nothing about the router.
+ *
+ * Applying is the one action here that has to reach past the stack: the layout
+ * runs against the window that was focused before the launcher opened, so the
+ * launcher has to get out of the way afterwards. `useRouteStack` has no
+ * `dismiss`, hence `reset()` + `hide()` by hand.
+ */
+function CustomLayoutScreen({ route }: { route: Route }) {
+  const { push, pop, reset } = useRouteStack();
+  const { setQuery, reload } = useLauncherHost();
+
+  if (route.name === "custom-layout-list") {
+    return (
+      <CustomLayoutListScreen
+        onCreate={() => push({ name: "custom-layout-create" })}
+        onEdit={(id) => push({ name: "custom-layout-edit", id })}
+        onDuplicate={(id) => push({ name: "custom-layout-duplicate", id })}
+        onApply={(id) => {
+          void window.api.execute(`win:custom:${id}`, "");
+          reset();
+          window.api.hide();
+        }}
+        onExit={pop}
+      />
+    );
+  }
+
+  return (
+    <CustomLayoutFormScreen
+      editId={route.name === "custom-layout-edit" ? route.id : undefined}
+      duplicateId={
+        route.name === "custom-layout-duplicate" ? route.id : undefined
+      }
+      onCancel={pop}
+      onSaved={(name) => {
+        pop();
+        setQuery(name);
+        reload();
+      }}
+    />
+  );
+}
+
 /** Maps each {@link Route} name to the component that renders it. */
 const SCREENS: Record<RouteName, FC<{ route: Route }>> = {
   launcher: () => <LauncherScreen />,
@@ -67,6 +114,10 @@ const SCREENS: Record<RouteName, FC<{ route: Route }>> = {
   "quickvalue-list": QuickValueScreen,
   "quickvalue-create": QuickValueScreen,
   "quickvalue-edit": QuickValueScreen,
+  "custom-layout-list": CustomLayoutScreen,
+  "custom-layout-create": CustomLayoutScreen,
+  "custom-layout-edit": CustomLayoutScreen,
+  "custom-layout-duplicate": CustomLayoutScreen,
 };
 
 /**

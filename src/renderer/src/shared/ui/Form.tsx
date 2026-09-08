@@ -31,34 +31,46 @@ import { cn } from "cnfast";
  * when you want Enter-to-submit (and a `type="submit"` button); it fires after
  * `preventDefault()`. `labelWidth` (default 128) and `controlWidth` (default
  * 340) size the two columns, in px.
+ *
+ * `variant="stacked"` drops the three-track row entirely and puts each label
+ * *above* a full-width control, for a form that has to live in a narrow column
+ * — the Create Command sidebar, which is ~224px wide and can't fit the centered
+ * layout's 128 + 340 + 128 minimum. Same fields, same controls, same tokens.
  */
+
+type FormVariant = "centered" | "stacked";
 
 interface FormLayout {
   labelWidth: number;
   controlWidth: number;
+  variant: FormVariant;
 }
 
 const FormContext = createContext<FormLayout>({
   labelWidth: 128,
   controlWidth: 340,
+  variant: "centered",
 });
 
 function FormRoot({
   onSubmit,
   labelWidth = 128,
   controlWidth = 340,
+  variant = "centered",
   className,
   children,
   ...rest
 }: ComponentPropsWithoutRef<"form"> & {
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
-  /** Width of the right-aligned label column, in px. */
+  /** Width of the right-aligned label column, in px. Ignored when stacked. */
   labelWidth?: number;
-  /** Max width of the centered control column, in px. */
+  /** Max width of the centered control column, in px. Ignored when stacked. */
   controlWidth?: number;
+  /** `"stacked"` puts labels above full-width controls, for narrow columns. */
+  variant?: FormVariant;
 }) {
   return (
-    <FormContext.Provider value={{ labelWidth, controlWidth }}>
+    <FormContext.Provider value={{ labelWidth, controlWidth, variant }}>
       <form
         {...rest}
         onSubmit={
@@ -68,7 +80,11 @@ function FormRoot({
             onSubmit(event);
           })
         }
-        className={cn("flex w-full flex-col gap-4 mt-6", className)}
+        className={cn(
+          "flex w-full flex-col",
+          variant === "stacked" ? "gap-2.5" : "gap-4 mt-6",
+          className,
+        )}
       >
         {children}
       </form>
@@ -79,7 +95,11 @@ function FormRoot({
 /** The centered three-track row shared by `Field`, `Switch` and `Actions`:
  * `[label] [control] [spacer]`, the spacer mirroring the label column so the
  * control column sits in the middle of the window. `left` is the label cell's
- * contents — a `<label>` element for `Field`, nothing for the rest. */
+ * contents — a `<label>` element for `Field`, nothing for the rest.
+ *
+ * Under `variant="stacked"` it collapses to label-above-control instead. Only
+ * `Field` passes `left`; `Switch` and `Actions` pass nothing and must render no
+ * label line at all (not an empty one), hence the guard. */
 function Row({
   left,
   children,
@@ -89,7 +109,21 @@ function Row({
   children: ReactNode;
   className?: string;
 }) {
-  const { labelWidth, controlWidth } = useContext(FormContext);
+  const { labelWidth, controlWidth, variant } = useContext(FormContext);
+
+  if (variant === "stacked") {
+    return (
+      <div className={cn("flex w-full min-w-0 flex-col gap-1", className)}>
+        {left ? (
+          <div className="text-xs font-medium tracking-wide text-foreground-subtle">
+            {left}
+          </div>
+        ) : null}
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex justify-center gap-4", className)}>
       <div
@@ -269,28 +303,81 @@ const Trigger = forwardRef<
 
 /* -------------------------------- switch -------------------------------- */
 
-/** An on/off toggle with its label alongside (label on the right), sitting in
- * the centered control column like the fields above it. Built on Base UI's
- * Switch; props pass through to `Switch.Root` (`checked`, `onCheckedChange`,
- * `disabled`, `name`, …). */
+/** An on/off toggle with its label alongside, sitting in the centered control
+ * column like the fields above it. Built on Base UI's Switch; props pass
+ * through to `Switch.Root` (`checked`, `onCheckedChange`, `disabled`, `name`,
+ * …).
+ *
+ * Centered forms read `[toggle] Label`, like a checkbox. Stacked ones read
+ * `Label … [toggle]` across the full width, in the same `text-xs` as the field
+ * labels above it — in a narrow column that lines the labels up and puts the
+ * control on the edge you scan for it. */
+/** Track / thumb geometry per size. The thumb's travel is the track's inner
+ *  width minus the thumb, so these three have to move together. */
+const SWITCH_SIZE = {
+  sm: {
+    root: "h-4 w-7",
+    thumb: "h-3 w-3 data-[checked]:translate-x-3",
+  },
+  md: {
+    root: "h-5 w-9",
+    thumb: "h-4 w-4 data-[checked]:translate-x-4",
+  },
+} as const;
+
 function FormSwitch({
   label,
+  size = "md",
   className,
   ...rest
-}: Omit<ComponentPropsWithoutRef<typeof Switch.Root>, "className"> & {
+}: Omit<ComponentPropsWithoutRef<typeof Switch.Root>, "className" | "size"> & {
   label: ReactNode;
+  /** Track size. `sm` for dense columns; `md` (default) elsewhere. */
+  size?: keyof typeof SWITCH_SIZE;
   className?: string;
 }) {
+  const { variant } = useContext(FormContext);
+  const stacked = variant === "stacked";
+  const dims = SWITCH_SIZE[size];
+
+  const toggle = (
+    <Switch.Root
+      {...rest}
+      className={cn(
+        "relative shrink-0 rounded-full bg-input p-0.5 outline-none transition-colors focus-visible:border focus-visible:border-foreground-subtle data-[checked]:bg-foreground",
+        dims.root,
+      )}
+    >
+      <Switch.Thumb
+        className={cn(
+          "block rounded-full bg-foreground shadow transition-transform data-[checked]:bg-background",
+          dims.thumb,
+        )}
+      />
+    </Switch.Root>
+  );
+
   return (
     <Row className={className}>
-      <label className="flex items-center gap-2.5 py-1 text-sm text-foreground-subtle">
-        <Switch.Root
-          {...rest}
-          className="relative h-5 w-9 shrink-0 rounded-full bg-input p-0.5 outline-none transition-colors focus-visible:border focus-visible:border-foreground-subtle data-[checked]:bg-foreground"
-        >
-          <Switch.Thumb className="block h-4 w-4 rounded-full bg-foreground shadow transition-transform data-[checked]:translate-x-4 data-[checked]:bg-background" />
-        </Switch.Root>
-        {label}
+      <label
+        className={cn(
+          "flex items-center py-1 text-foreground-subtle",
+          stacked
+            ? "justify-between gap-2 text-xs font-medium tracking-wide"
+            : "gap-2.5 text-sm",
+        )}
+      >
+        {stacked ? (
+          <>
+            {label}
+            {toggle}
+          </>
+        ) : (
+          <>
+            {toggle}
+            {label}
+          </>
+        )}
       </label>
     </Row>
   );

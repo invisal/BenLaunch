@@ -3,7 +3,6 @@ import { exec } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { ActionDefinition } from '../../types'
-import { openCustomLayoutWindow } from '../window/custom-window'
 import { isSupported } from '../../window/control'
 import { openSettingsWindow } from '../../settings-window'
 import type { ActionSource } from '../base'
@@ -73,11 +72,21 @@ export class BuiltinCommandSource implements ActionSource {
               title: 'Create Command',
               subtitle: 'Design a custom window layout',
               icon: '➕',
-              type: 'command' as const
+              type: 'command' as const,
+              view: 'custom-layout-create' as const
             },
-            run: () => {
-              openCustomLayoutWindow()
-            }
+            run: () => {}
+          },
+          {
+            action: {
+              id: 'cmd:custom-layout-manage',
+              title: 'Manage Commands',
+              subtitle: 'View, edit and delete your custom window layouts',
+              icon: '🗂️',
+              type: 'command' as const,
+              view: 'custom-layout-list' as const
+            },
+            run: () => {}
           }
         ]
       : []),

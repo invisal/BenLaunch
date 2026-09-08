@@ -5,6 +5,8 @@
  * window's current rect from whatever platform API they have, then hand the numbers
  * here to get back a target rect.
  */
+import type { AnchorPosition } from '../../shared/types'
+import { anchorOrigin } from '../../shared/anchor.ts'
 
 export interface Rect {
   x: number
@@ -287,17 +289,13 @@ export function computeEdgeMove(
   return round({ x, y, width, height })
 }
 
-/** Where a custom layout's rect anchors within the work area — see `computeCustomRect`. */
-export type AnchorPosition =
-  | 'top-left'
-  | 'top-center'
-  | 'top-right'
-  | 'middle-left'
-  | 'middle-center'
-  | 'middle-right'
-  | 'bottom-left'
-  | 'bottom-center'
-  | 'bottom-right'
+/**
+ * Where a custom layout's rect anchors within the work area — see
+ * `computeCustomRect`. Re-exported from `shared/types` rather than redeclared,
+ * so the persisted `CustomLayoutDef.position` and the geometry below can never
+ * drift apart.
+ */
+export type { AnchorPosition }
 
 /** A user-authored custom layout's geometry — the pure-math half of `CustomLayoutDef`. */
 export interface CustomLayoutGeometry {
@@ -353,26 +351,11 @@ export function computeCustomRect(
       ? layout.heightFraction * workArea.height
       : clampSize(currentRect?.height ?? workArea.height * DEFAULT_CENTER_FRACTION, workArea.height)
 
-  const [vAnchor, hAnchor] = layout.position.split('-') as [
-    'top' | 'middle' | 'bottom',
-    'left' | 'center' | 'right'
-  ]
-  const x =
-    hAnchor === 'left'
-      ? workArea.x
-      : hAnchor === 'right'
-        ? workArea.x + workArea.width - width
-        : workArea.x + (workArea.width - width) / 2
-  const y =
-    vAnchor === 'top'
-      ? workArea.y
-      : vAnchor === 'bottom'
-        ? workArea.y + workArea.height - height
-        : workArea.y + (workArea.height - height) / 2
+  const origin = anchorOrigin(layout.position, { width, height }, workArea)
 
   const rect: Rect = {
-    x: x + layout.offsetXFraction * workArea.width,
-    y: y + layout.offsetYPoints,
+    x: workArea.x + origin.x + layout.offsetXFraction * workArea.width,
+    y: workArea.y + origin.y + layout.offsetYPoints,
     width,
     height
   }

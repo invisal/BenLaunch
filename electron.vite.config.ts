@@ -119,8 +119,7 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           settings: resolve(__dirname, 'src/renderer/settings.html'),
-          quickvalue: resolve(__dirname, 'src/renderer/quickvalue.html'),
-          'custom-layout': resolve(__dirname, 'src/renderer/custom-layout.html')
+          quickvalue: resolve(__dirname, 'src/renderer/quickvalue.html')
         }
       }
     },
