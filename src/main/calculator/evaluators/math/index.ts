@@ -27,6 +27,10 @@ export const math: Evaluator = {
     let expression = normalizeMath(input)
     if (!expression) return null
 
+    // `2026-01-15 + 3` is date arithmetic (→ `datetime`), not the literal
+    // `2026 - 1 - 15 + 3`. An ISO date followed by `+`/`-` is never a sum.
+    if (/\d{4}-\d{2}-\d{2}\s*[-+]/.test(expression)) return null
+
     const question = parsePercentQuestion(expression)
     if (question) {
       const value = `${formatPercent(question.percent)}%`

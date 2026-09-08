@@ -83,6 +83,52 @@ test('<place> time — exact/alias only', () => {
   assert.equal(resolveClock('Tokyoo time', NOW, UTC), null)
 })
 
+test('a relative offset shifts the clock — either side of the place', () => {
+  // NOW is 15 Jun 12:00 UTC → Tokyo 21:00; +6h lands on the 16th there.
+  const lead = resolveClock('time in 6 hours in Tokyo', NOW, UTC)
+  assert.equal(lead?.value, '03:00 Tue · GMT+9')
+  assert.equal(lead?.expression, 'time in 6 hours in Tokyo')
+
+  const trail = resolveClock('time in Tokyo in 6 hours', NOW, UTC)
+  assert.equal(trail?.value, '03:00 Tue · GMT+9')
+  assert.equal(trail?.expression, 'time in Tokyo in 6 hours')
+
+  assert.equal(resolveClock('time in 90 min in London', NOW, UTC)?.value, '14:30 · GMT+1')
+  assert.equal(resolveClock('time in an hour in Berlin', NOW, UTC)?.value, '15:00 · GMT+2')
+})
+
+test('a relative offset can point at the past with "ago"', () => {
+  assert.equal(resolveClock('time in Tokyo 3 hours ago', NOW, UTC)?.value, '18:00 · GMT+9')
+})
+
+test('an arithmetic offset ("+ 6 hours") on the place also shifts the clock', () => {
+  // NOW is 15 Jun 12:00 UTC → Tokyo 21:00; +6h lands on the 16th there.
+  assert.equal(resolveClock('time in Tokyo + 6 hours', NOW, UTC)?.value, '03:00 Tue · GMT+9')
+  assert.equal(resolveClock('time in Tokyo + 6 hour', NOW, UTC)?.value, '03:00 Tue · GMT+9')
+  assert.equal(resolveClock('time in Tokyo - 2h', NOW, UTC)?.value, '19:00 · GMT+9')
+  assert.equal(resolveClock('time in London + 90 min', NOW, UTC)?.value, '14:30 · GMT+1')
+  // bare number ⇒ hours
+  assert.equal(resolveClock('time in Tokyo + 6', NOW, UTC)?.value, '03:00 Tue · GMT+9')
+  assert.equal(resolveClock('time in Tokyo + 6', NOW, UTC)?.expression, 'time in Tokyo + 6')
+})
+
+test('"time in N hours" with no place — the viewer\'s own clock, then', () => {
+  // NOW is 15 Jun 12:00 UTC, viewer baseline UTC.
+  assert.deepEqual({ ...resolveClock('time in 4 hours', NOW, UTC) }, {
+    expression: 'time in 4 hours',
+    value: '16:00',
+    rawValue: '16:00',
+  })
+  // rolls past midnight → weekday appended, still no GMT label (it's local)
+  assert.equal(resolveClock('time in 20 hours', NOW, UTC)?.value, '08:00 Tue')
+})
+
+test('a bare number with no unit is not treated as an offset', () => {
+  // "5" isn't a recognized offset, so this stays an ordinary (failing) place
+  // lookup rather than silently shifting the clock.
+  assert.equal(resolveClock('time in 5 in Tokyo', NOW, UTC), null)
+})
+
 test('appends the weekday when the day differs from the local one', () => {
   // NOW is 15 Jun 12:00 UTC, so Tokyo (+9) is still the 15th, but
   // Auckland (+12, no DST in the southern winter) has rolled into the 16th.

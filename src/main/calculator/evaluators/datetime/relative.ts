@@ -1,6 +1,6 @@
 import * as chrono from 'chrono-node'
 import type { Calculation } from '../../../../shared/types'
-import { formatDate } from './format.ts'
+import { formatDate, formatDateTime } from './format.ts'
 import { firstDayOfPeriod, lastDayOfPeriod, shiftPeriod, type Period } from './period.ts'
 
 /** `in N business days` — `chrono` has no concept of business days. */
@@ -61,6 +61,11 @@ export function resolveRelative(input: string, now: Date): Calculation | null {
   if (!fullSpan) return null
 
   const date = result.start.date()
-  const { value, rawValue } = formatDate(date, now)
+  // A phrase that carries a time-of-day ("now + 90 min", "in 3 hours",
+  // "tomorrow at 5pm") resolves to an exact moment — show it to the minute
+  // rather than collapsing to a bare calendar day.
+  const { value, rawValue } = result.start.isCertain('hour')
+    ? formatDateTime(date, now)
+    : formatDate(date, now)
   return { expression: input, value, rawValue }
 }

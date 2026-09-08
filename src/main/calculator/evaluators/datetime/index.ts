@@ -1,6 +1,7 @@
 import type { Calculation } from '../../../../shared/types'
 import type { Evaluator } from '../../types.ts'
 import { looksLikeDate } from './gate.ts'
+import { resolveArithmetic } from './arithmetic.ts'
 import { resolveCountdown } from './countdown.ts'
 import { resolveDifference } from './difference.ts'
 import { resolveRelative } from './relative.ts'
@@ -13,6 +14,7 @@ import { resolveRelative } from './relative.ts'
  *     "in 10 business days", "first day of next month"
  *   - countdowns — "days until 25 Dec", "weeks left in the quarter"
  *   - differences — "days between 1 Jan and 1 Apr", "1990-05-01 to today"
+ *   - arithmetic — "August 5 + 5", "3:45pm + 90 min", "2026-01-15 + 3 weeks"
  *
  * `looksLikeDate` is a cheap keyword gate (the evaluator runs on every
  * keystroke) — only plausible candidates reach `chrono`. Beyond that, each
@@ -26,7 +28,12 @@ function run(now: () => Date, input: string): Calculation | null {
   if (!looksLikeDate(input)) return null
   const at = now()
 
-  return resolveCountdown(input, at) ?? resolveDifference(input, at) ?? resolveRelative(input, at)
+  return (
+    resolveCountdown(input, at) ??
+    resolveDifference(input, at) ??
+    resolveArithmetic(input, at) ??
+    resolveRelative(input, at)
+  )
 }
 
 export const datetime: Evaluator = {

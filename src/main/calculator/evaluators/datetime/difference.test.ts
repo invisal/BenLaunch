@@ -38,6 +38,13 @@ test('bare "A to B" form', () => {
   assert.equal(calc.value, '436 months')
 })
 
+test('sub-day span is shown to the minute, not rounded to "1 day"', () => {
+  // NOW is 10:00. "9AM" is behind us, so it re-resolves forward to tomorrow.
+  assert.equal(resolveDifference('now until 9AM', NOW)?.value, '23 hours')
+  assert.equal(resolveDifference('now until 10:30AM', NOW)?.value, '30 minutes')
+  assert.equal(resolveDifference('now to 6PM', NOW)?.value, '8 hours')
+})
+
 for (const input of [
   '5 to 10', // neither side is a date
   '9 to 5', // ditto
