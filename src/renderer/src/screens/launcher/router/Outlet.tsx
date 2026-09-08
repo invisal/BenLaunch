@@ -1,6 +1,6 @@
 import { Activity, type FC } from "react";
-import QuickValueListScreen from "@extensions/quickvalue/renderer/QuickValueListScreen";
-import QuickValueMetaScreen from "@extensions/quickvalue/renderer/QuickValueMetaScreen";
+import QuickValueListScreen from "@extensions/quickvalue/renderer/ListScreen";
+import QuickValueMetaScreen from "@extensions/quickvalue/renderer/MetaScreen";
 import CustomLayoutFormScreen from "../../customlayout/CustomLayoutFormScreen";
 import CustomLayoutListScreen from "../../customlayout/CustomLayoutListScreen";
 import CreateQuicklink from "../../../components/CreateQuicklink";

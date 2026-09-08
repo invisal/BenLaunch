@@ -8,7 +8,7 @@ import CodeEditor, { type CodeEditorHandle } from "./CodeEditor";
  * The CodeMirror editor for one QuickValue, living in its own framed window
  * (the launcher's `user-select: none` would make the editor's contenteditable
  * impossible to type into — see the renderer-user-select-scope note). Metadata
- * (name, description, exposed) is owned by the launcher's `QuickValueMetaScreen`
+ * (name, description, exposed) is owned by the launcher's `MetaScreen`
  * and preserved verbatim on save (the store keeps existing `code` untouched when
  * a draft omits it, and vice-versa).
  *

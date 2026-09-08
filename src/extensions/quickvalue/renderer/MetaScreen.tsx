@@ -14,7 +14,7 @@ import { DEFAULT_CODE } from "../shared/default-code";
  * existing code when a draft omits it — so saving here can't clobber an edit
  * made in the code window.
  */
-function QuickValueMetaScreen({
+function MetaScreen({
   id,
   onDone,
 }: {
@@ -179,4 +179,4 @@ function QuickValueMetaScreen({
   );
 }
 
-export default QuickValueMetaScreen;
+export default MetaScreen;

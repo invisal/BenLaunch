@@ -14,7 +14,7 @@ import { PositionGlyph } from "./PositionGlyph";
 
 /**
  * The custom-layout manager, as a screen pushed onto the launcher's navigation
- * stack — the counterpart to `QuickValueListScreen`, and built the same way: it
+ * stack — the counterpart to the QuickValue `ListScreen`, and built the same way: it
  * borrows the launcher's *look* (`List.*`) and its keyboard-nav approach (Base
  * UI Autocomplete in `mode="none"`), not its behaviour. The list is small, so
  * it isn't virtualized.

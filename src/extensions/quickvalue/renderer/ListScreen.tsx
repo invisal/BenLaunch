@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { ListScreen } from "@renderer/shared/ui";
+import { ListScreen as ListScreenBase } from "@renderer/shared/ui";
 import type { FooterMenuItem } from "@renderer/shared/ui";
 import type { QuickValueDef } from "../shared/types";
 
 /**
  * The QuickValue manager list, as a screen pushed onto the launcher's navigation
- * stack. Built on the shared `ListScreen` — it only supplies the data, the row
- * markup, and the ⌘K menu; the Autocomplete wiring, query state, highlight
- * tracking and Escape handling all live in `ListScreen`.
+ * stack. Built on the shared `ListScreen` from `@renderer/shared/ui` (imported
+ * here as `ListScreenBase`) — it only supplies the data, the row markup, and the
+ * ⌘K menu; the Autocomplete wiring, query state, highlight tracking and Escape
+ * handling all live in the shared component.
  *
  * A management list: rows show name + description, Enter / click opens the
  * metadata screen, and per-row management actions live in the ⌘K menu. Live
  * values are the job of the `qv:*` rows in the launcher's own search, not here.
  */
-function QuickValueListScreen({
+function ListScreen({
   onEdit,
   onCreate,
   onExit,
@@ -86,13 +87,13 @@ function QuickValueListScreen({
   };
 
   return (
-    <ListScreen
+    <ListScreenBase
       data={items}
       getId={(qv) => qv.id}
       getSearchText={(qv) => `${qv.name} ${qv.description ?? ""}`}
       placeholder="Search QuickValues..."
       renderItem={(qv, { highlighted }) => (
-        <ListScreen.Item
+        <ListScreenBase.Item
           highlighted={highlighted}
           icon="⚡"
           title={qv.name}
@@ -109,4 +110,4 @@ function QuickValueListScreen({
   );
 }
 
-export default QuickValueListScreen;
+export default ListScreen;
