@@ -1,8 +1,9 @@
 # `currency` evaluator
 
 Live fiat currency conversion — `10 usd in gbp`, `45 jpy to inr`, `$50 in eur`.
-In the [pipeline](../../index.ts) as `const evaluators = [math, currency]`;
-`math` in front is harmless (its parser throws on `usd` and returns `null`).
+Second in the [pipeline](../../index.ts) — `const evaluators = [math, currency,
+datetime, timezone]`; `math` in front is harmless (its parser throws on `usd`
+and returns `null`).
 
 ## How it works
 
@@ -11,13 +12,13 @@ input ─▶ parse ─▶ convert (rates from the source) ─▶ formatMoney ─
          (find a currency query)   (base-relative table)   (Intl currency)
 ```
 
-| Module | Responsibility |
-|---|---|
-| [parse.ts](parse.ts) | `"1.2k dollars in yen"` → `{ amount: 1200, from: 'USD', to: 'JPY' }` |
+| Module                         | Responsibility                                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| [parse.ts](parse.ts)           | `"1.2k dollars in yen"` → `{ amount: 1200, from: 'USD', to: 'JPY' }`                                     |
 | [currencies.ts](currencies.ts) | `CURRENCIES` (all 166 codes → names) + `resolveCurrency(token, known)` — code / symbol / name → ISO code |
-| [convert.ts](convert.ts) | `amount · rate[to] / rate[from]` |
-| [format.ts](format.ts) | `Intl.NumberFormat` currency style — symbol + per-currency decimals |
-| [index.ts](index.ts) | `const currency` (reads `currentRates()`) + `createCurrencyEvaluator(provider)` for tests |
+| [convert.ts](convert.ts)       | `amount · rate[to] / rate[from]`                                                                         |
+| [format.ts](format.ts)         | `Intl.NumberFormat` currency style — symbol + per-currency decimals                                      |
+| [index.ts](index.ts)           | `const currency` (reads `currentRates()`) + `createCurrencyEvaluator(provider)` for tests                |
 
 The rate numbers come from the
 [`exchange-rate` source](../../../sources/calculator/exchange-rate/) — a normal
@@ -36,27 +37,30 @@ that the panel shows bottom-right of the value (`updatedLabel()` in
 
 ## Supported use cases
 
-| Query | Result |
-|---|---|
-| `10 usd in gbp` | `£7.42` |
-| `45 jpy to inr` | `₹26.84` |
-| `500 gbp to thb` | `฿22,389.12` |
-| `$50 in eur` | `€43.17` |
-| `€100 to usd` | `$115.83` |
-| `10 dollars in euros` | `€8.64` |
-| `5 pounds to yen` | `¥955` |
-| `1,000 usd in eur` | `€863.71` |
-| `1.2k dollars in yen` | `¥190,907` |
-| `2m cad to usd` | `$1,436,600.00` |
-| `convert 100 eur to usd` | `$115.83` (the `convert` lead-in is stripped upstream) |
-| `usd in eur` | `€0.86` — the rate for 1, when no amount is given |
+Every shape is `<amount?> <from> in|to <to>`. The figures below are
+illustrative — they move with each rate refresh.
 
-**Amounts:** plain, `1,000` grouped, or `k` / `m` / `b` shorthand.
-**Currencies:** ISO code (`usd`), symbol (`$ £ € ¥ ₹ ₩ ₽ ₺ ฿ ₫ ₱ ₪ ₦ ₴ …`), full
-name (`swedish krona`, `west african cfa franc`), or nickname (`bucks`, `quid`,
-`peso`, `baht`). All 166 currencies — the list with names is
-[`CURRENCIES`](currencies.ts). Conversion is gated on the source's live set of
-codes, so it always matches what a rate exists for.
+| Query                    | Shape shown                                       |
+| ------------------------ | ------------------------------------------------ |
+| `10 usd in gbp`          | code → code                                       |
+| `45 jpy to inr`          | `in` / `to` are interchangeable                   |
+| `$50 in eur`             | leading **symbol** as the source                  |
+| `€100 to usd`            | any of `$ £ € ¥ ₹ ₩ ₽ ₺ ฿ ₫ ₱ ₪ ₦ ₴ …`           |
+| `10 dollars in euros`    | full currency **name** (plural or singular)       |
+| `5 pounds to yen`        | **nickname** — `bucks`, `quid`, `peso`, `baht`, … |
+| `500 gbp to thb`         | result grouped + per-currency decimals (`Intl`)   |
+| `1,000 usd in eur`       | grouped input                                     |
+| `1.2k dollars in yen`    | `k` / `m` / `b` magnitude shorthand               |
+| `2m cad to usd`          | ditto                                             |
+| `-5 usd in eur`          | negative amounts pass through                     |
+| `convert 100 eur to usd` | `convert` / `what is` lead-in stripped upstream   |
+| `usd in eur`             | **no amount** ⇒ the rate for 1                    |
+
+**Amounts:** plain, `1,000` grouped, `k` / `m` / `b` shorthand, optional
+leading `-`. **Currencies:** ISO code (`usd`), symbol, full name (`swedish
+krona`, `west african cfa franc`), or nickname. All 166 currencies — the list
+with names is [`CURRENCIES`](currencies.ts). Conversion is gated on the
+source's live set of codes, so it always matches what a rate exists for.
 
 ## Not claimed (returns `null` → math / action search)
 

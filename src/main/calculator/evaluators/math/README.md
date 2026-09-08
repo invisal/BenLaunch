@@ -1,8 +1,9 @@
 # `math` evaluator
 
 Arithmetic and everything [`mathjs`](https://mathjs.org) already understands.
-First (and, for now, only) evaluator in the calculator pipeline
-([../../index.ts](../../index.ts)).
+First evaluator in the calculator pipeline
+([../../index.ts](../../index.ts)) — `const evaluators = [math, currency,
+datetime, timezone]`.
 
 Input arrives already framed by the shared
 [calculator/normalize.ts](../../normalize.ts) — the "what is …" lead-in and any
@@ -193,15 +194,16 @@ the string, `tokens` is omitted and the panel shows plain text.
 
 ## Not claimed (returns `null` → next evaluator / action search)
 
-| Query                             | Why                                                          |
-| --------------------------------- | ------------------------------------------------------------ |
-| `chrome`, `sin`, `pi`, `in`       | no digit, no function call                                   |
-| `42`, `1.5`, `-5`                 | a bare number is not a _calculation_                         |
-| `2 pi`                            | implicit multiplication, no operator — a bare value          |
-| `7zip`, `1password`               | digit then letters — `mathjs` throws on the undefined symbol |
-| `notepad++`, `1 +`, `(1 + 2`      | doesn't parse                                                |
-| `1 / 0`                           | not finite                                                   |
-| `import("fs")`, `createUnit("x")` | meta-functions are disabled                                  |
+| Query                              | Why                                                                                                     |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `chrome`, `sin`, `pi`, `in`        | no digit, no function call                                                                              |
+| `42`, `1.5`, `-5`                  | a bare number is not a _calculation_                                                                    |
+| `2 pi`                             | implicit multiplication, no operator — a bare value                                                     |
+| `7zip`, `1password`                | digit then letters — `mathjs` throws on the undefined symbol                                            |
+| `notepad++`, `1 +`, `(1 + 2`       | doesn't parse                                                                                           |
+| `1 / 0`                            | not finite                                                                                              |
+| `import("fs")`, `createUnit("x")`  | meta-functions are disabled                                                                             |
+| `2026-01-15 + 3`, `2026-03-01 - 5` | an ISO date + `+`/`-` is date arithmetic — handed to `datetime` rather than read as `2026 - 1 - 15 + 3` |
 
 ## Tests
 
