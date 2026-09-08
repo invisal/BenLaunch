@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { allDisplays, centerOf, currentDisplay, toRect, workAreaFor } from './electron-screen'
+import { allDisplays, currentDisplay, workAreaFor } from './electron-screen'
 import {
   computeCustomRect,
   computeEdgeMove,
@@ -103,7 +103,7 @@ export async function moveToDisplay(direction: 'next' | 'previous'): Promise<boo
   const target = pickAdjacentDisplay(allDisplays(), display.id, direction)
   if (!target) return false
 
-  const rect = mapRectToDisplay(current, toRect(display.workArea), target.workArea)
+  const rect = mapRectToDisplay(current, workAreaFor(current), target.workArea)
   saveForRestore(String(capturedHandle), current)
   return win.applyWindowRect(capturedHandle, rect)
 }
