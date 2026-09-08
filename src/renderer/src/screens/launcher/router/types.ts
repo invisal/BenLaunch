@@ -14,6 +14,10 @@ export type Route =
   | { name: "quicklink-duplicate"; id: string }
   | { name: "quickvalue-list" }
   | { name: "quickvalue-create" }
-  | { name: "quickvalue-edit"; id: string };
+  | { name: "quickvalue-edit"; id: string }
+  | { name: "custom-layout-list" }
+  | { name: "custom-layout-create" }
+  | { name: "custom-layout-edit"; id: string }
+  | { name: "custom-layout-duplicate"; id: string };
 
 export type RouteName = Route["name"];

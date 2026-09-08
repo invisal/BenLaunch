@@ -10,6 +10,10 @@ const { evaluate } = createDatetimeEvaluator(() => NOW)
 
 for (const { input, value } of [
   { input: 'tomorrow', value: 'Sun, Sep 6' },
+  { input: 'now + 90 min', value: 'Sat, Sep 5, 11:30 AM' },
+  { input: '3:45pm + 5', value: '8:45 PM' },
+  { input: 'August 5 + 5', value: 'Mon, Aug 10' },
+  { input: 'August 5 minus 3', value: 'Sun, Aug 2' },
   { input: 'days until 25 Dec', value: '111 days' },
   { input: 'days between 1 Jan and 1 Apr', value: '90 days' },
 ]) {

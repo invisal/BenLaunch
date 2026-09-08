@@ -19,8 +19,10 @@ const BARE_TO = /^(.+?)\s+(?:to|until)\s+(.+)$/i
  * each side, which can put two dates that are meant to sit in the same
  * "season" a year apart (`1 Jan` → next year, `1 Apr` → this year). If the
  * naive parse comes out backwards, re-resolve the right side relative to the
- * left side instead of `now` — this is what makes `between 1 Jan and 1 Apr`
- * land 90 days apart instead of 455.
+ * left side (and forward in time) instead of `now` — this is what makes
+ * `between 1 Jan and 1 Apr` land 90 days apart instead of 455, and
+ * `now until 9AM` (late at night) point at *tomorrow* 9AM rather than this
+ * morning's.
  */
 function parseBothSides(leftText: string, rightText: string, now: Date): [Date, Date] | null {
   const left = chrono.parseDate(leftText, now, {})
@@ -30,7 +32,7 @@ function parseBothSides(leftText: string, rightText: string, now: Date): [Date, 
   if (!right) return null
 
   if (right.getTime() < left.getTime()) {
-    const rechained = chrono.parseDate(rightText, left, {})
+    const rechained = chrono.parseDate(rightText, left, { forwardDate: true })
     if (rechained && rechained.getTime() >= left.getTime()) right = rechained
   }
 

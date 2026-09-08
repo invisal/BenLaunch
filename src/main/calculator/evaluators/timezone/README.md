@@ -110,7 +110,7 @@ Guardrails: the fuzzy fallback requires 3+ characters (a 2-letter needle like
 `ft`/`kg` is a subsequence of countless city names) and `convert.ts` disables
 it entirely for its source/destination lookups — full reasoning above.
 
-### 2. Current time in a place ([clock.ts](clock.ts))
+### 2. Current time in a place — and time there ± an offset ([clock.ts](clock.ts))
 
 | Query                       | Result          |
 | --------------------------- | --------------- |
@@ -120,8 +120,31 @@ it entirely for its source/destination lookups — full reasoning above.
 | `Tokyo time`                | `21:00 · GMT+9` |
 
 The weekday is appended only when the target's calendar date differs from the
-viewer's own — e.g. `time in Auckland` shows `03:00 Tue · GMT+12` when it's
-still Monday locally.
+viewer's own — e.g. with a UTC viewer at noon Monday, `time in Auckland`
+shows `00:00 Tue · GMT+12` (already the next day there).
+
+**A relative offset** may be attached to the query, for the wall-clock time
+in the place at a moment other than now — the offset can lead the place,
+trail it, use an arithmetic `+`/`-` operator, or say `… ago`:
+
+| Query                       | Result                                                        |
+| --------------------------- | ------------------------------------------------------------- |
+| `time in 6 hours in Tokyo`  | Tokyo's clock 6 hours from now (offset **leads** the place)   |
+| `time in Tokyo in 6 hours`  | same — offset **trails** the place                            |
+| `time in Tokyo + 6 hours`   | same — an arithmetic `+` / `-` operator                       |
+| `time in Tokyo - 2h`        | 2 hours ago in Tokyo                                          |
+| `time in Tokyo + 6`         | bare number after `+`/`-` ⇒ hours                             |
+| `time in Tokyo 3 hours ago` | `18:00 · GMT+9` — trailing `… ago`                            |
+| `time in 90 min in London`  | `14:30 · GMT+1`                                               |
+| `time in 4 hours`           | `16:00` — **no place** ⇒ the viewer's own clock, no GMT label |
+| `time in 20 hours`          | `08:00 Tue` — a midnight crossing appends the weekday         |
+
+The offset grammar is deliberately small: `parseOffsetMs` / `splitOffset`
+cover the prose forms (`<n> minutes|hours|days`, `min` / `hrs` / `a` / `an`,
+trailing `… ago`); `splitArithmeticOffset` covers the `<place> ± <n> [unit]`
+operator form (units `m`/`min`, `h`/`hr`, `d`/`day`, `w`/`week`; bare number ⇒
+hours). Anything neither recognizes leaves the plain `time in <place>` path
+untouched.
 
 The trailing-`time` shape (`Tokyo time`) resolves the place by **exact/alias
 match only** — no fuzzy fallback — since this phrasing is common enough in

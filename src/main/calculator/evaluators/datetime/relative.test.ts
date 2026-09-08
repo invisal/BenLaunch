@@ -17,6 +17,16 @@ for (const { input, rawValue } of [
   })
 }
 
+test('phrases that carry a time-of-day resolve to an exact minute', () => {
+  // NOW is 10:00 on Sat 5 Sep 2026.
+  assert.deepEqual(
+    { ...resolveRelative('now + 90 min', NOW) },
+    { expression: 'now + 90 min', value: 'Sat, Sep 5, 11:30 AM', rawValue: '2026-09-05 11:30' },
+  )
+  assert.equal(resolveRelative('in 3 hours', NOW)?.rawValue, '2026-09-05 13:00')
+  assert.equal(resolveRelative('90 minutes from now', NOW)?.rawValue, '2026-09-05 11:30')
+})
+
 test('"last <weekday>" resolves to the past despite the forwardDate default', () => {
   // Bare "friday" defaults forwardDate:true (next occurrence), but an
   // explicit "last" must never be pushed into the future.

@@ -10,6 +10,8 @@ const { evaluate } = createTimezoneEvaluator(() => NOW, () => 'UTC')
 
 for (const { input, value } of [
   { input: 'time in Tokyo', value: '21:00 · GMT+9' },
+  { input: 'time in 6 hours in Tokyo', value: '03:00 Tue · GMT+9' },
+  { input: 'time in Tokyo + 6 hours', value: '03:00 Tue · GMT+9' },
   { input: '5pm ldn in sf', value: '09:00 Mon' },
 ]) {
   test(`timezone.evaluate(${JSON.stringify(input)}) -> ${value}`, () => {
