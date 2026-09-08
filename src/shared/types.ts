@@ -87,7 +87,7 @@ export interface CustomLayoutDef extends CustomLayoutDraft {
   id: string;
 }
 
-/** The primary display's work-area size + a human label, for the create-command preview to scale against. */
+/** The work-area size + platform label of the display the launcher is on, for the create-command preview to scale against. */
 export interface DisplayPreviewInfo {
   width: number;
   height: number;
@@ -162,7 +162,7 @@ export const IPC_CHANNELS = {
   customLayoutGet: "window:custom-layout-get",
   customLayoutSave: "window:custom-layout-save",
   customLayoutDelete: "window:custom-layout-delete",
-  /** The primary display's work-area size, for the create-command preview to scale against. */
+  /** Work-area size + label of the display the *calling window* is on, for the create-command preview to scale against. */
   displayInfo: "window:display-info",
   gapSize: "window:gap-size",
   setGapSize: "window:set-gap-size",
