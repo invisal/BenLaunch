@@ -16,6 +16,12 @@ for (const { input, value } of [
   { input: 'August 5 minus 3', value: 'Sun, Aug 2' },
   { input: 'days until 25 Dec', value: '111 days' },
   { input: 'days between 1 Jan and 1 Apr', value: '90 days' },
+  { input: 'in 3 hours', value: 'Sat, Sep 5, 1:00 PM' },
+  { input: 'first day of 2029', value: 'Mon, Jan 1, 2029' },
+  { input: 'last day of 2029', value: 'Mon, Dec 31, 2029' },
+  { input: '1988-12-08 to today in days', value: '13785 days' },
+  { input: 'day of 2026-12-25', value: 'Friday, Dec 25' },
+  { input: 'what day is 25 Dec 2026', value: 'Friday, Dec 25' },
 ]) {
   test(`datetime.evaluate(${JSON.stringify(input)}) -> ${value}`, () => {
     assert.equal(evaluate(input)?.value, value)

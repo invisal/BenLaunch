@@ -5,16 +5,19 @@ import { resolveArithmetic } from './arithmetic.ts'
 import { resolveCountdown } from './countdown.ts'
 import { resolveDifference } from './difference.ts'
 import { resolveRelative } from './relative.ts'
+import { resolveWeekday } from './weekday.ts'
 
 /**
  * The datetime evaluator — relative dates, countdowns, and date differences,
  * via `chrono-node`.
  *
  *   - relative dates — "tomorrow", "35 days ago", "monday in 3 weeks",
- *     "in 10 business days", "first day of next month"
+ *     "in 10 business days", "first day of next month", "first day of 2029"
  *   - countdowns — "days until 25 Dec", "weeks left in the quarter"
- *   - differences — "days between 1 Jan and 1 Apr", "1990-05-01 to today"
+ *   - differences — "days between 1 Jan and 1 Apr", "1990-05-01 to today",
+ *     "1988-12-08 to today in days"
  *   - arithmetic — "August 5 + 5", "3:45pm + 90 min", "2026-01-15 + 3 weeks"
+ *   - weekday — "what day is 2026-12-25", "day of 25 Dec", a bare "2026-12-25"
  *
  * `looksLikeDate` is a cheap keyword gate (the evaluator runs on every
  * keystroke) — only plausible candidates reach `chrono`. Beyond that, each
@@ -32,6 +35,7 @@ function run(now: () => Date, input: string): Calculation | null {
     resolveCountdown(input, at) ??
     resolveDifference(input, at) ??
     resolveArithmetic(input, at) ??
+    resolveWeekday(input, at) ??
     resolveRelative(input, at)
   )
 }

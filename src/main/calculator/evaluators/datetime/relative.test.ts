@@ -43,6 +43,12 @@ test('ordinal period boundaries — chrono mishandles these on its own', () => {
   assert.equal(resolveRelative('first day of the year', NOW)?.rawValue, '2026-01-01')
 })
 
+test('first/last day of an explicit year or month', () => {
+  assert.equal(resolveRelative('first day of 2029', NOW)?.rawValue, '2029-01-01')
+  assert.equal(resolveRelative('last day of 2029', NOW)?.rawValue, '2029-12-31')
+  assert.equal(resolveRelative('last day of february 2028', NOW)?.rawValue, '2028-02-29') // leap year
+})
+
 test('rejects a query that merely contains a date-ish word', () => {
   // Partial chrono matches ("today" inside "today's news", "monday" inside
   // "monday.com") must not hijack an ordinary search query.

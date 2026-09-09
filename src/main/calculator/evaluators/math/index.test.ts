@@ -138,6 +138,9 @@ for (const input of [
   '1 / 0',
   'notepad++',
   'sunny plus warm',
+  'in 3 hours', // leading "in" + number ⇒ datetime, not `3 in hours`
+  'in 45 minutes',
+  '2026-12-25', // a bare ISO date is a date (→ datetime), not `2026 - 12 - 25`
 ]) {
   test(`math.evaluate(${JSON.stringify(input)}) -> null`, () => {
     assert.equal(evaluate(input), null)

@@ -28,8 +28,15 @@ export const math: Evaluator = {
     if (!expression) return null
 
     // `2026-01-15 + 3` is date arithmetic (→ `datetime`), not the literal
-    // `2026 - 1 - 15 + 3`. An ISO date followed by `+`/`-` is never a sum.
+    // `2026 - 1 - 15 + 3`. An ISO date followed by `+`/`-` — or standing alone
+    // (`2026-12-25`, "what day is it?") — is never a sum.
     if (/\d{4}-\d{2}-\d{2}\s*[-+]/.test(expression)) return null
+    if (/^\s*\d{4}-\d{2}-\d{2}\s*$/.test(expression)) return null
+
+    // A leading `in`/`at` + number is a relative-time phrase for `datetime`
+    // ("in 3 hours", "in 10 days") — `mathjs` would read `in` as the inch unit
+    // and yield a nonsense `3 in hours`.
+    if (/^\s*(?:in|at)\s+\d/i.test(expression)) return null
 
     const question = parsePercentQuestion(expression)
     if (question) {
