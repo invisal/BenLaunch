@@ -109,6 +109,22 @@ Anything the bare `mathjs` grammar understands.
 | `3!`            | `6` (factorial) |
 | `2 * pi`        | `6.28318530718` |
 
+Spoken forms `mathjs` can't parse are rewritten in [normalize.ts](normalize.ts):
+`square root of` / `sqrt of` / `√` → `sqrt(…)`, `cube root of` → `cbrt(…)`,
+`factorial of` → `factorial(…)`. The operand is the token that follows (a
+number, constant, parenthesised group, or nested call); an optional leading
+`the` is absorbed.
+
+| Query                    | Normalized     | Result |
+| ------------------------ | -------------- | ------ |
+| `square root of 625`     | `sqrt(625)`    | `25`   |
+| `√625`                   | `sqrt(625)`    | `25`   |
+| `cube root of 27`        | `cbrt(27)`     | `3`    |
+| `factorial of 5`         | `factorial(5)` | `120`  |
+| `square root of 16 + 9`  | `sqrt(16) + 9` | `13`   |
+| `5 squared` / `5 square` | `(5)^2`        | `25`   |
+| `2 cubed` / `2 cube`     | `(2)^3`        | `8`    |
+
 ### 7. Unit-aware math
 
 `mathjs` keeps units through the operation and converts on `in` / `to`. Most
