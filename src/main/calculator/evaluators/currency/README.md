@@ -1,81 +1,97 @@
-# `currency` evaluator
+# `currency` evaluator — UAT
 
-Live fiat currency conversion — `10 usd in gbp`, `45 jpy to inr`, `$50 in eur`.
-Second in the [pipeline](../../index.ts) — `const evaluators = [math, currency,
-datetime, timezone]`; `math` in front is harmless (its parser throws on `usd`
-and returns `null`).
+Manual acceptance test. Type each **Input**; the panel shows the conversion
+(**Parsed as**) on the left, the converted amount on the right, and a
+bottom-right footnote saying how fresh the rates are.
 
-## How it works
+Live results track the exchange-rate feed and move between refreshes. The
+**Result** column uses a fixed demo table — **USD 1 · EUR 0.80 · GBP 0.75 · JPY
+150** — so it is checkable; against live rates only the number changes, not the
+shape. Every row is covered by a test under [`evaluators/currency/`](.).
 
-```
-input ─▶ parse ─▶ convert (rates from the source) ─▶ formatMoney ─▶ Calculation
-         (find a currency query)   (base-relative table)   (Intl currency)
-```
+---
 
-| Module                         | Responsibility                                                                                           |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| [parse.ts](parse.ts)           | `"1.2k dollars in yen"` → `{ amount: 1200, from: 'USD', to: 'JPY' }`                                     |
-| [currencies.ts](currencies.ts) | `CURRENCIES` (all 166 codes → names) + `resolveCurrency(token, known)` — code / symbol / name → ISO code |
-| [convert.ts](convert.ts)       | `amount · rate[to] / rate[from]`                                                                         |
-| [format.ts](format.ts)         | `Intl.NumberFormat` currency style — symbol + per-currency decimals                                      |
-| [index.ts](index.ts)           | `const currency` (reads `currentRates()`) + `createCurrencyEvaluator(provider)` for tests                |
+## 1. Recognised input shapes
 
-The rate numbers come from the
-[`exchange-rate` source](../../../sources/calculator/exchange-rate/) — a normal
-`ActionSource` (in the `sources` array in `actions.ts`) that contributes no
-actions and just keeps a shared rate table fresh. The evaluator imports
-`currentRates()` from its `store.ts` and depends on a narrow `RateProvider`
-interface (`rates()` / `updatedAgeMs()`) so tests can inject a fake.
+| #    | Input                    | Parsed as        | Result (demo table) | ✓   |
+| ---- | ------------------------ | ---------------- | ------------------- | --- |
+| 1.1  | `10 usd in gbp`          | `10 USD → GBP`   | `£7.50`             |     |
+| 1.2  | `45 jpy to eur`          | `45 JPY → EUR`   | `€0.24`             |     |
+| 1.3  | `$50 in eur`             | `50 USD → EUR`   | `€40.00`            |     |
+| 1.4  | `€100 to usd`            | `100 EUR → USD`  | `$125.00`           |     |
+| 1.5  | `10 dollars in euros`    | `10 USD → EUR`   | `€8.00`             |     |
+| 1.6  | `5 pounds to yen`        | `5 GBP → JPY`    | `¥1,000`            |     |
+| 1.7  | `1,000 usd in eur`       | `1,000 USD → EUR`| `€800.00`           |     |
+| 1.8  | `1.2k dollars in yen`    | `1,200 USD → JPY`| `¥180,000`          |     |
+| 1.9  | `$1.5k in eur`           | `1,500 USD → EUR`| `€1,200.00`         |     |
+| 1.10 | `usd in eur`             | `1 USD → EUR`    | `€0.80` (no amount ⇒ rate for 1) |  |
+| 1.11 | `10 usd to eur.`         | `10 USD → EUR`   | `€8.00` (trailing dot tolerated) |  |
+| 1.12 | `-5 usd in eur`          | `-5 USD → EUR`   | `-€4.00`            |     |
 
-**It is synchronous.** The evaluator reads whatever the store currently holds;
-fetching happens in the background (the base `CachedActionSource` refreshes on
-every launcher show, throttled to 6 h). Before the first fetch the bundled seed
-is used. Every result carries a `footnote` — `"Updated just now"` /
-`"Updated 4 minutes ago"` / `"Updated yesterday"` / `"Updated 3 days ago"` —
-that the panel shows bottom-right of the value (`updatedLabel()` in
-[format.ts](format.ts), measured from the last successful fetch).
+`in` and `to` are interchangeable everywhere.
 
-## Supported use cases
+## 2. Amount forms
 
-Every shape is `<amount?> <from> in|to <to>`. The figures below are
-illustrative — they move with each rate refresh.
+| #   | Input                 | Amount parsed | ✓   |
+| --- | --------------------- | ------------- | --- |
+| 2.1 | `500 gbp to thb`      | `500`         |     |
+| 2.2 | `1,000 usd in eur`    | `1000` (grouped input) |  |
+| 2.3 | `1.2k dollars in yen` | `1200` (`k` shorthand) |  |
+| 2.4 | `2m cad to usd`       | `2,000,000` (`m` shorthand) |  |
+| 2.5 | `-5 usd in eur`       | `-5` (leading minus) |  |
+| 2.6 | *(no amount)* `usd in eur` | `1` |  |
 
-| Query                    | Shape shown                                       |
-| ------------------------ | ------------------------------------------------ |
-| `10 usd in gbp`          | code → code                                       |
-| `45 jpy to inr`          | `in` / `to` are interchangeable                   |
-| `$50 in eur`             | leading **symbol** as the source                  |
-| `€100 to usd`            | any of `$ £ € ¥ ₹ ₩ ₽ ₺ ฿ ₫ ₱ ₪ ₦ ₴ …`           |
-| `10 dollars in euros`    | full currency **name** (plural or singular)       |
-| `5 pounds to yen`        | **nickname** — `bucks`, `quid`, `peso`, `baht`, … |
-| `500 gbp to thb`         | result grouped + per-currency decimals (`Intl`)   |
-| `1,000 usd in eur`       | grouped input                                     |
-| `1.2k dollars in yen`    | `k` / `m` / `b` magnitude shorthand               |
-| `2m cad to usd`          | ditto                                             |
-| `-5 usd in eur`          | negative amounts pass through                     |
-| `convert 100 eur to usd` | `convert` / `what is` lead-in stripped upstream   |
-| `usd in eur`             | **no amount** ⇒ the rate for 1                    |
+## 3. Currency-token forms
 
-**Amounts:** plain, `1,000` grouped, `k` / `m` / `b` shorthand, optional
-leading `-`. **Currencies:** ISO code (`usd`), symbol, full name (`swedish
-krona`, `west african cfa franc`), or nickname. All 166 currencies — the list
-with names is [`CURRENCIES`](currencies.ts). Conversion is gated on the
-source's live set of codes, so it always matches what a rate exists for.
+Codes starting with `k` / `m` / `b` must **not** lose their first letter to the
+magnitude shorthand.
 
-## Not claimed (returns `null` → math / action search)
+| #   | Input               | From → To  | ✓   |
+| --- | ------------------- | ---------- | --- |
+| 3.1 | ISO code — `10 usd in gbp`         | USD → GBP |  |
+| 3.2 | symbol — `$50 in eur`, `€100 to usd` | USD / EUR |  |
+| 3.3 | full name — `10 dollars in euros`, `swedish krona`, `west african cfa franc` | resolves to code |  |
+| 3.4 | nickname — `5 pounds to yen`, `bucks`, `quid`, `peso`, `baht` | curated default |  |
+| 3.5 | `5000 khr to usd`   | KHR → USD (not `k` + `hr`) |  |
+| 3.6 | `2000 mxn to usd`   | MXN → USD |  |
+| 3.7 | `100 bnd in eur`    | BND → EUR |  |
+| 3.8 | `2m khr in usd`     | KHR → USD, amount `2,000,000` (real `m` suffix still works) |  |
 
-`5 + 5`, `128 GB to MB`, `10 m to ft`, `10 in eur` (no source currency),
-`10 usd` (no target), `10 xyz in usd` (unknown code), plain words.
+All 166 ISO currencies resolve — the table with names is
+[`CURRENCIES`](currencies.ts). Ambiguous names/symbols take a curated default:
+`peso` → MXN, `franc` → CHF, `krona` → SEK, `$` → USD, `₦` → NGN, `฿` → THB.
+Conversion is gated on the feed's live set of codes.
 
-No crypto — see the `cryptocurrency-conversion` research doc (a second price
-feed added to the `exchange-rate` source).
+## 4. Rate-freshness footnote
 
-## Tests
+Bottom-right of the value. Coarsens as the last successful fetch ages:
 
-`parse`, `convert`, `format` are pure and table-tested; `index.test.ts` drives
-`createCurrencyEvaluator` with a fake `RateProvider`. The rate plumbing is tested
-under
-[`sources/calculator/exchange-rate/`](../../../sources/calculator/exchange-rate/).
+| Age since last fetch | Footnote              | ✓   |
+| -------------------- | --------------------- | --- |
+| < 45 s               | `Updated just now`    |     |
+| 1 min                | `Updated 1 minute ago`|     |
+| 4 min                | `Updated 4 minutes ago`|    |
+| ~3 h                 | `Updated 3 hours ago` |     |
+| ~1 day               | `Updated yesterday`   |     |
+| 5 days               | `Updated 5 days ago`  |     |
+| ~40 days             | `Updated 1 month ago` |     |
+| feed never loaded    | `Rates unavailable`   |     |
+
+## 5. Not claimed — nothing shown, query falls through
+
+| #   | Input                | Why                                  | ✓   |
+| --- | -------------------- | ------------------------------------ | --- |
+| 5.1 | `5 + 5`              | plain math                           |     |
+| 5.2 | `128 GB to MB`, `10 m to ft` | not currencies (→ `math` units) |  |
+| 5.3 | `5 min to timespan`  | not a currency                       |     |
+| 5.4 | `10 in eur`          | no source currency                   |     |
+| 5.5 | `10 usd`             | no target currency                   |     |
+| 5.6 | `10 xyz in usd`      | unknown code                         |     |
+| 5.7 | `left half`, `chrome`, `` (empty) | not a currency query    |     |
+
+No crypto — see the `cryptocurrency-conversion` research doc.
+
+---
 
 ```bash
 node --test "src/main/calculator/evaluators/currency/**/*.test.ts"
