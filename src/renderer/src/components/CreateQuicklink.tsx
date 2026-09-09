@@ -310,7 +310,7 @@ function CreateQuicklink({
                 </Menu.Trigger>
                 <Menu.Portal>
                   <Menu.Positioner side="top" align="end" sideOffset={6}>
-                    <Menu.Popup className="w-60 rounded-md border border-border bg-background p-1 text-sm text-foreground shadow-lg outline-none">
+                    <Menu.Popup className="w-60 rounded-md border border-border bg-popover p-1 text-sm text-foreground shadow-lg outline-none">
                       {DYNAMIC_PLACEHOLDERS.map((p) => (
                         <Menu.Item
                           key={p.token}
@@ -332,7 +332,7 @@ function CreateQuicklink({
                 </Menu.Trigger>
                 <Menu.Portal>
                   <Menu.Positioner side="top" align="end" sideOffset={6}>
-                    <Menu.Popup className="w-44 rounded-md border border-border bg-background p-1 text-sm text-foreground shadow-lg outline-none">
+                    <Menu.Popup className="w-44 rounded-md border border-border bg-popover p-1 text-sm text-foreground shadow-lg outline-none">
                       <Menu.Item
                         onClick={() => void pickPath("file")}
                         className="cursor-default rounded px-2 py-1.5 outline-none data-[highlighted]:bg-item-selected"
@@ -385,7 +385,7 @@ function CreateQuicklink({
               </Popover.Trigger>
               <Popover.Portal>
                 <Popover.Positioner side="bottom" align="end" sideOffset={6}>
-                  <Popover.Popup className="w-64 rounded-md border border-border bg-background p-2 text-sm text-foreground shadow-lg outline-none">
+                  <Popover.Popup className="w-64 rounded-md border border-border bg-popover p-2 text-sm text-foreground shadow-lg outline-none">
                     <div className="flex flex-col gap-2">
                       <input
                         value={state.icon}

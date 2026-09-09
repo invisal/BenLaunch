@@ -136,10 +136,15 @@ export class QuicklinkSource implements ActionSource {
       clipboard: needsClipboard ? await clipboard.readText() : undefined
     })
 
-    // "Open With" a specific app: hand it the target as an argument.
+    // "Open With" a specific app: hand it the target as an argument. On macOS
+    // `openWith` is a `.app` bundle (a directory) — not directly executable —
+    // so it has to be launched via `open -a`, unlike Windows' `.exe` path.
     const openWith = openWithOverride === undefined ? link.openWith : openWithOverride
     if (openWith && existsSync(openWith)) {
-      execFile(openWith, [target.replace(/^file:\/\//i, '')], (error) => {
+      const arg = target.replace(/^file:\/\//i, '')
+      const [cmd, args] =
+        process.platform === 'darwin' ? ['open', ['-a', openWith, arg]] : [openWith, [arg]]
+      execFile(cmd, args, (error) => {
         if (error) console.error(`[quicklinks] Failed to open ${target} with ${openWith}:`, error)
       })
       return
