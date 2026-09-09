@@ -38,6 +38,14 @@ test('bare "A to B" form', () => {
   assert.equal(calc.value, '436 months')
 })
 
+test('a trailing "in <unit>" forces the result unit', () => {
+  assert.equal(resolveDifference('1988-12-08 to today in days', NOW)?.value, '13785 days')
+  assert.equal(resolveDifference('1988-12-08 to today in day', NOW)?.value, '13785 days')
+  assert.equal(resolveDifference('1988-12-08 to today in weeks', NOW)?.value, '1969 weeks')
+  // a leading unit still wins over a trailing one
+  assert.equal(resolveDifference('days between 1 Jan and 1 Apr in weeks', NOW)?.value, '90 days')
+})
+
 test('sub-day span is shown to the minute, not rounded to "1 day"', () => {
   // NOW is 10:00. "9AM" is behind us, so it re-resolves forward to tomorrow.
   assert.equal(resolveDifference('now until 9AM', NOW)?.value, '23 hours')

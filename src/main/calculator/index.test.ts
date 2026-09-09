@@ -21,6 +21,8 @@ const resolves: ReadonlyArray<{ query: string; value: string; expression: string
   { query: '2 + 2?', value: '4', expression: '2 + 2' },
   { query: '5 plus 3', value: '8', expression: '5 + 3' },
   { query: 'what is 6 times 7', value: '42', expression: '6 * 7' },
+  { query: 'square root of 625', value: '25', expression: 'sqrt(625)' },
+  { query: 'what is the square root of 625', value: '25', expression: 'sqrt(625)' },
   { query: '128 GB to MB', value: '128000 MB', expression: '128 GB to MB' },
 ]
 
@@ -83,6 +85,19 @@ test('a countdown query is claimed by datetime', () => {
   const calc = evaluate('days until 25 Dec')
   assert.ok(calc)
   assert.match(calc.value, /^\d+ (days|weeks|months)$/)
+})
+
+test('a "what day is <date>" query is claimed by datetime, not math', () => {
+  // Bare `2026-12-25` would otherwise be read by math as `2026 - 12 - 25`.
+  const calc = evaluate('what day is 2026-12-25')
+  assert.ok(calc)
+  assert.match(calc.value, /^(Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day, Dec 25/)
+})
+
+test('a bare ISO date resolves to its calendar day, not a subtraction', () => {
+  const calc = evaluate('2026-12-25')
+  assert.ok(calc)
+  assert.match(calc.value, /Dec 25/)
 })
 
 test('a "time in place" query is claimed by timezone, last in the chain', () => {

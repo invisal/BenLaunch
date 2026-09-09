@@ -35,6 +35,12 @@ const valueCases: ReadonlyArray<{ input: string; value: string; expression?: str
   { input: '2 to the power of 8', value: '256', expression: '2 ^ 8' },
   { input: '17 mod 5', value: '2', expression: '17 % 5' },
   { input: '3 x 4', value: '12', expression: '3 * 4' },
+  { input: 'square root of 625', value: '25', expression: 'sqrt(625)' },
+  { input: '√625', value: '25', expression: 'sqrt(625)' },
+  { input: 'cube root of 27', value: '3', expression: 'cbrt(27)' },
+  { input: 'factorial of 5', value: '120', expression: 'factorial(5)' },
+  { input: '5 squared', value: '25', expression: '(5)^2' },
+  { input: '2 cubed', value: '8', expression: '(2)^3' },
   { input: '12 × 3', value: '36', expression: '12 * 3' },
   { input: '100 ÷ 4', value: '25', expression: '100 / 4' },
 ]
@@ -132,6 +138,9 @@ for (const input of [
   '1 / 0',
   'notepad++',
   'sunny plus warm',
+  'in 3 hours', // leading "in" + number ⇒ datetime, not `3 in hours`
+  'in 45 minutes',
+  '2026-12-25', // a bare ISO date is a date (→ datetime), not `2026 - 12 - 25`
 ]) {
   test(`math.evaluate(${JSON.stringify(input)}) -> null`, () => {
     assert.equal(evaluate(input), null)

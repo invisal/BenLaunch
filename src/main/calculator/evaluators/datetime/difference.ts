@@ -5,6 +5,11 @@ import { formatDuration, normalizeDurationUnit } from './format.ts'
 /** `(days|weeks|...)? between A and B` — "days between 1 Jan and 15 Mar". */
 const BETWEEN = /^(?:(days?|weeks?|months?|years?)\s+)?between\s+(.+?)\s+and\s+(.+)$/i
 
+/** A trailing `in <unit>` the user appends to force the result's unit —
+ *  "1988-12-08 to today in days". Stripped before the shape match, then fed in
+ *  as the explicit unit. */
+const TRAILING_UNIT = /\s+in\s+(days?|weeks?|months?|hours?)\s*$/i
+
 /** Bare `A to|until B` — "1990-05-01 to today". Only claimed when *both*
  *  sides independently parse as dates (see `parseBothSides` below), which is
  *  what keeps this from colliding with `math`'s `10 ft to m` or `currency`'s
@@ -49,20 +54,24 @@ function build(input: string, unit: string | undefined, left: Date, right: Date)
 }
 
 export function resolveDifference(input: string, now: Date): Calculation | null {
-  const between = input.match(BETWEEN)
+  const tail = input.match(TRAILING_UNIT)
+  const trailingUnit = tail?.[1]
+  const shape = tail ? input.slice(0, tail.index) : input
+
+  const between = shape.match(BETWEEN)
   if (between) {
     const [, unit, leftText, rightText] = between
     const parsed = parseBothSides(leftText, rightText, now)
     if (!parsed) return null
-    return build(input, unit, ...parsed)
+    return build(input, unit ?? trailingUnit, ...parsed)
   }
 
-  const bare = input.match(BARE_TO)
+  const bare = shape.match(BARE_TO)
   if (bare) {
     const [, leftText, rightText] = bare
     const parsed = parseBothSides(leftText, rightText, now)
     if (!parsed) return null
-    return build(input, undefined, ...parsed)
+    return build(input, trailingUnit, ...parsed)
   }
 
   return null

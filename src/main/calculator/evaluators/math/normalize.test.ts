@@ -32,6 +32,28 @@ const cases: ReadonlyArray<{ raw: string; expected: string }> = [
   { raw: '8 − 5', expected: '8 - 5' }, // U+2212
   { raw: '2π', expected: '2 pi' },
 
+  // Spoken function forms → mathjs syntax.
+  { raw: 'square root of 625', expected: 'sqrt(625)' },
+  { raw: 'sqrt of 16', expected: 'sqrt(16)' },
+  { raw: 'the square root of 2', expected: 'sqrt(2)' },
+  { raw: 'square root of 1,000', expected: 'sqrt(1000)' },
+  { raw: '√625', expected: 'sqrt(625)' },
+  { raw: '√(16 + 9)', expected: 'sqrt(16 + 9)' },
+  { raw: 'cube root of 27', expected: 'cbrt(27)' },
+  { raw: 'factorial of 5', expected: 'factorial(5)' },
+  { raw: 'square root of 16 plus 9', expected: 'sqrt(16) + 9' },
+  { raw: 'sqrt(625)', expected: 'sqrt(625)' }, // already valid — untouched
+
+  // Postfix "squared" / "cubed".
+  { raw: '5 squared', expected: '(5)^2' },
+  { raw: '2 cubed', expected: '(2)^3' },
+  { raw: '5 square', expected: '(5)^2' }, // trailing "d" optional
+  { raw: '2 cube', expected: '(2)^3' },
+  { raw: '5 square feet', expected: '5 square feet' }, // unit phrase — left alone
+  { raw: '(2 + 3) squared', expected: '(2 + 3)^2' },
+  { raw: 'pi squared', expected: '(pi)^2' },
+  { raw: '5 squared plus 1', expected: '(5)^2 + 1' },
+
   // Non-math text passes through (the gate rejects it later).
   { raw: 'sunny plus warm', expected: 'sunny + warm' },
   { raw: 'notepad++', expected: 'notepad++' },

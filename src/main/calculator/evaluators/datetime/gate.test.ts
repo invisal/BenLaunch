@@ -20,6 +20,9 @@ for (const input of [
   'August 5 minus 3', // the "plus"/"minus" word, not just the symbol
   '9:00 + 8h',
   '2026-01-15 + 2w',
+  '2026-12-25', // a bare ISO date
+  'weekday of 2026-12-25',
+  'day of 2026-12-25',
 ]) {
   test(`looksLikeDate(${JSON.stringify(input)}) -> true`, () => {
     assert.equal(looksLikeDate(input), true)

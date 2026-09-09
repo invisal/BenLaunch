@@ -10,6 +10,9 @@ const BUSINESS_DAYS = /^in\s+(\d+)\s+business\s+days?$/i
 const DAY_OF_PERIOD =
   /^(first|last)\s+day\s+of\s+(?:(this|next|last)\s+|the\s+)?(month|year|quarter|week)$/i
 
+/** `first|last day of <year>` (`2029`) or `<month name>` (`March`, `Mar 2029`). */
+const DAY_OF_DATE = /^(first|last)\s+day\s+of\s+(.+)$/i
+
 const PERIOD_SHIFT: Record<string, number> = { next: 1, last: -1, this: 0 }
 
 function addBusinessDays(now: Date, count: number): Date {
@@ -50,6 +53,26 @@ export function resolveRelative(input: string, now: Date): Calculation | null {
     const date = which === 'first' ? firstDayOfPeriod(period, ref) : lastDayOfPeriod(period, ref)
     const { value, rawValue } = formatDate(date, now)
     return { expression: input, value, rawValue }
+  }
+
+  const dateMatch = input.match(DAY_OF_DATE)
+  if (dateMatch) {
+    const [, which, rest] = dateMatch
+    const year = rest.trim().match(/^\d{4}$/)
+    // A bare year ⇒ the year's boundary; otherwise let `chrono` resolve the
+    // phrase (`March`, `Mar 2029`, `next month`) and take that month's boundary.
+    const anchor = year
+      ? new Date(Number(year[0]), which === 'first' ? 0 : 11, which === 'first' ? 1 : 31)
+      : chrono.parseDate(rest, now, {})
+    if (anchor) {
+      const date = year
+        ? anchor
+        : which === 'first'
+          ? new Date(anchor.getFullYear(), anchor.getMonth(), 1)
+          : new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0)
+      const { value, rawValue } = formatDate(date, now)
+      return { expression: input, value, rawValue }
+    }
   }
 
   const forwardDate = !/\blast\b/i.test(input)
