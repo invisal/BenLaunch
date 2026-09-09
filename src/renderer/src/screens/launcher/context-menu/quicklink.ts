@@ -32,7 +32,7 @@ function openWithItems(
 
 /**
  * Owns the Ctrl+K menu for quicklink rows (`ql:*`), and adds a single "Create
- * Quicklink" item to every other kind of row except QuickValues (whose menu is
+ * Quicklink" item to every other kind of row except Widgets (whose menu is
  * only about the value, not about making links).
  */
 export const quicklinkContextMenu: ContextMenuContributor = {
@@ -41,7 +41,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
     const isQuicklink = action.type === "quicklink" && action.id.startsWith("ql:");
 
     if (!isQuicklink) {
-      if (action.type === "quickvalue") return null;
+      if (action.type === "widget") return null;
       return [
         {
           id: "create-quicklink",

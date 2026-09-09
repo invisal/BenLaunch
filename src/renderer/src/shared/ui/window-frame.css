@@ -1,4 +1,4 @@
-/* Framed windows (Settings, QuickValue) render on a translucent backing —
+/* Framed windows (Settings, Widget) render on a translucent backing —
    acrylic on Windows, `under-window` vibrancy on macOS (see
    src/main/window-chrome.ts). The window itself, plus html/body/#root, are
    transparent (index.css); this paints the one semi-opaque panel over the

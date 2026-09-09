@@ -4,12 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, test } from 'node:test'
 
-import { QuickValueStore } from './store.ts'
+import { WidgetStore } from './store.ts'
 
 let dir: string
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'quickvalue-'))
+  dir = mkdtempSync(join(tmpdir(), 'widget-'))
 })
 
 afterEach(() => {
@@ -17,7 +17,7 @@ afterEach(() => {
 })
 
 test('save() creates a slug id from the name and returns the stored def', () => {
-  const store = new QuickValueStore({ dir })
+  const store = new WidgetStore({ dir })
   const saved = store.save({ name: 'Node Stars!', code: 'x', exposed: true })
 
   assert.equal(saved.id, 'node-stars')
@@ -26,8 +26,8 @@ test('save() creates a slug id from the name and returns the stored def', () => 
   assert.deepEqual(store.list(), [saved])
 })
 
-test('a second QuickValue with a colliding name gets a numbered id', () => {
-  const store = new QuickValueStore({ dir })
+test('a second Widget with a colliding name gets a numbered id', () => {
+  const store = new WidgetStore({ dir })
   const a = store.save({ name: 'Price', code: '', exposed: false })
   const b = store.save({ name: 'Price', code: '', exposed: false })
 
@@ -36,7 +36,7 @@ test('a second QuickValue with a colliding name gets a numbered id', () => {
 })
 
 test('save() keeps a trimmed description and drops a blank one', () => {
-  const store = new QuickValueStore({ dir })
+  const store = new WidgetStore({ dir })
   const withDesc = store.save({
     name: 'Stars',
     description: '  repo stars  ',
@@ -50,7 +50,7 @@ test('save() keeps a trimmed description and drops a blank one', () => {
 })
 
 test('save() with an existing id updates in place', () => {
-  const store = new QuickValueStore({ dir })
+  const store = new WidgetStore({ dir })
   const created = store.save({ name: 'Weather', code: 'old', exposed: false })
   const updated = store.save({ id: created.id, name: 'Weather Now', code: 'new', exposed: true })
 
@@ -61,33 +61,33 @@ test('save() with an existing id updates in place', () => {
 })
 
 test('setExposed and remove persist', () => {
-  const store = new QuickValueStore({ dir })
-  const qv = store.save({ name: 'Q', code: '', exposed: false })
+  const store = new WidgetStore({ dir })
+  const widget = store.save({ name: 'Q', code: '', exposed: false })
 
-  store.setExposed(qv.id, true)
-  assert.equal(new QuickValueStore({ dir }).get(qv.id)?.exposed, true)
+  store.setExposed(widget.id, true)
+  assert.equal(new WidgetStore({ dir }).get(widget.id)?.exposed, true)
 
-  store.remove(qv.id)
-  assert.deepEqual(new QuickValueStore({ dir }).list(), [])
+  store.remove(widget.id)
+  assert.deepEqual(new WidgetStore({ dir }).list(), [])
 })
 
 test('a second instance on the same dir sees the first instance writes', () => {
-  const first = new QuickValueStore({ dir })
+  const first = new WidgetStore({ dir })
   first.save({ name: 'Shared', code: 's', exposed: true })
 
-  const second = new QuickValueStore({ dir })
+  const second = new WidgetStore({ dir })
   assert.equal(second.list()[0]?.name, 'Shared')
 })
 
 test('missing, corrupt, and wrong-version files all yield an empty list', () => {
-  assert.deepEqual(new QuickValueStore({ dir }).list(), [])
+  assert.deepEqual(new WidgetStore({ dir }).list(), [])
 
-  writeFileSync(join(dir, 'quickvalues.json'), '{ not json')
-  assert.deepEqual(new QuickValueStore({ dir }).list(), [])
+  writeFileSync(join(dir, 'widgets.json'), '{ not json')
+  assert.deepEqual(new WidgetStore({ dir }).list(), [])
 
   writeFileSync(
-    join(dir, 'quickvalues.json'),
+    join(dir, 'widgets.json'),
     JSON.stringify({ version: 999, savedAt: 0, items: [] })
   )
-  assert.deepEqual(new QuickValueStore({ dir }).list(), [])
+  assert.deepEqual(new WidgetStore({ dir }).list(), [])
 })

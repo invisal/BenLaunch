@@ -1,17 +1,17 @@
 /**
- * Runs exposed QuickValues and caches their last value on disk, so the launcher
+ * Runs exposed Widgets and caches their last value on disk, so the launcher
  * can show a value the instant it opens and refresh it in the background —
  * mirroring the app-list stale-then-refresh behaviour.
  *
- * The value cache (`quickvalue-values.json`) uses the same atomic temp-write +
+ * The value cache (`widget-values.json`) uses the same atomic temp-write +
  * rename as `usage/store.ts`. The actual code execution happens in `./worker.ts`
- * (bundled as `quickvalue-worker.js`), spawned per run; `runCode` is injectable
+ * (bundled as `widget-worker.js`), spawned per run; `runCode` is injectable
  * so the `node --test` suite can drive the runner without a build.
  */
 import { spawn } from 'node:child_process'
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { QuickValueTestResult } from '../shared/types'
+import type { WidgetTestResult } from '../shared/types'
 import type { UserCodeResult } from './run-user-code'
 
 /** Bumped when the persisted shape changes, to invalidate old files. */
@@ -58,7 +58,7 @@ function isCacheFile(value: unknown): value is CacheFile {
   return Object.values(c.values).every(isCachedValue)
 }
 
-export class QuickValueRunner {
+export class WidgetRunner {
   private readonly dir: string
   private readonly runCode: RunCode
   private readonly now: () => number
@@ -76,13 +76,13 @@ export class QuickValueRunner {
   init(): void {
     if (this.loaded) return
     this.loaded = true
-    console.log('[quickvalue] value cache:', this.path())
+    console.log('[widget] value cache:', this.path())
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path(), 'utf8'))
       if (isCacheFile(parsed)) this.values = parsed.values
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('[quickvalue] Failed to read value cache:', error)
+        console.error('[widget] Failed to read value cache:', error)
       }
     }
   }
@@ -111,19 +111,19 @@ export class QuickValueRunner {
     this.init()
     const existing = this.inFlight.get(id)
     if (existing) {
-      console.log(`[quickvalue] ${id}: skip run — already in flight`)
+      console.log(`[widget] ${id}: skip run — already in flight`)
       return existing
     }
     const cached = this.values[id]
     if (cached) {
       const age = this.now() - cached.fetchedAt
       if (age < ttlMs) {
-        console.log(`[quickvalue] ${id}: skip run — cache fresh (age ${age}ms, ttl ${ttlMs}ms)`)
+        console.log(`[widget] ${id}: skip run — cache fresh (age ${age}ms, ttl ${ttlMs}ms)`)
         return Promise.resolve()
       }
-      console.log(`[quickvalue] ${id}: cache stale (age ${age}ms, ttl ${ttlMs}ms) — running`)
+      console.log(`[widget] ${id}: cache stale (age ${age}ms, ttl ${ttlMs}ms) — running`)
     } else {
-      console.log(`[quickvalue] ${id}: no cache — running`)
+      console.log(`[widget] ${id}: no cache — running`)
     }
     return this.run(id, code)
   }
@@ -134,14 +134,14 @@ export class QuickValueRunner {
     const existing = this.inFlight.get(id)
     if (existing) return existing
 
-    console.log(`[quickvalue] ${id}: executing code`)
+    console.log(`[widget] ${id}: executing code`)
     const startedAt = this.now()
     const task = this.runCode(code, RUN_TIMEOUT_MS)
       .then((result) => this.store(id, result))
       .catch((error) => this.store(id, { ok: false, error: toMessage(error) }))
       .finally(() => {
         this.inFlight.delete(id)
-        console.log(`[quickvalue] ${id}: execution finished in ${this.now() - startedAt}ms`)
+        console.log(`[widget] ${id}: execution finished in ${this.now() - startedAt}ms`)
       })
 
     this.inFlight.set(id, task)
@@ -149,7 +149,7 @@ export class QuickValueRunner {
   }
 
   /** One-shot run with no caching, for the editor's "Test" button. */
-  async runOnce(code: string): Promise<QuickValueTestResult> {
+  async runOnce(code: string): Promise<WidgetTestResult> {
     try {
       const result = await this.runCode(code, RUN_TIMEOUT_MS)
       return result.ok ? { ok: true, value: result.value } : { ok: false, error: result.error }
@@ -158,7 +158,7 @@ export class QuickValueRunner {
     }
   }
 
-  /** Drop cached values whose QuickValue no longer exists / is no longer exposed. */
+  /** Drop cached values whose Widget no longer exists / is no longer exposed. */
   prune(keepIds: Iterable<string>): void {
     this.init()
     const keep = new Set(keepIds)
@@ -188,7 +188,7 @@ export class QuickValueRunner {
   }
 
   private path(): string {
-    return join(this.dir, 'quickvalue-values.json')
+    return join(this.dir, 'widget-values.json')
   }
 
   private persist(): void {
@@ -199,7 +199,7 @@ export class QuickValueRunner {
       writeFileSync(tmp, JSON.stringify(payload))
       renameSync(tmp, file)
     } catch (error) {
-      console.error('[quickvalue] Failed to write value cache:', error)
+      console.error('[widget] Failed to write value cache:', error)
       try {
         unlinkSync(tmp)
       } catch {
@@ -221,7 +221,7 @@ function toMessage(error: unknown): string {
 /** Default `runCode`: spawn the worker, pipe the code in, parse its JSON out. */
 function spawnWorker(code: string, timeoutMs: number): Promise<UserCodeResult> {
   return new Promise((resolve) => {
-    const workerPath = join(__dirname, 'quickvalue-worker.js')
+    const workerPath = join(__dirname, 'widget-worker.js')
     const child = spawn(process.execPath, [workerPath], {
       env: {
         ...process.env,
@@ -248,7 +248,7 @@ function spawnWorker(code: string, timeoutMs: number): Promise<UserCodeResult> {
 
     const killTimer = setTimeout(() => {
       child.kill('SIGKILL')
-      finish({ ok: false, error: `QuickValue worker killed after ${HARD_KILL_MS}ms` })
+      finish({ ok: false, error: `Widget worker killed after ${HARD_KILL_MS}ms` })
     }, HARD_KILL_MS)
 
     child.stdout.on('data', (chunk) => (stdout += chunk))
@@ -258,7 +258,7 @@ function spawnWorker(code: string, timeoutMs: number): Promise<UserCodeResult> {
       try {
         finish(JSON.parse(stdout) as UserCodeResult)
       } catch {
-        finish({ ok: false, error: stderr.trim() || 'QuickValue worker produced no output' })
+        finish({ ok: false, error: stderr.trim() || 'Widget worker produced no output' })
       }
     })
 

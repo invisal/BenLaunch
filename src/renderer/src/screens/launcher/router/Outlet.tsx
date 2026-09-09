@@ -1,6 +1,6 @@
 import { Activity, type FC } from "react";
-import QuickValueListScreen from "@extensions/quickvalue/renderer/ListScreen";
-import QuickValueMetaScreen from "@extensions/quickvalue/renderer/MetaScreen";
+import WidgetListScreen from "@extensions/widget/renderer/ListScreen";
+import WidgetMetaScreen from "@extensions/widget/renderer/MetaScreen";
 import CustomLayoutFormScreen from "../../customlayout/CustomLayoutFormScreen";
 import CustomLayoutListScreen from "../../customlayout/CustomLayoutListScreen";
 import CreateQuicklink from "../../../components/CreateQuicklink";
@@ -34,27 +34,27 @@ function QuicklinkForm({ route }: { route: Route }) {
 }
 
 /**
- * Adapter for the QuickValue manager screens (list + metadata form), which live
+ * Adapter for the Widget manager screens (list + metadata form), which live
  * in the extension and know nothing about the router. The list is the root of
- * the QuickValue sub-stack; the metadata form pops back to it, and coming back
+ * the Widget sub-stack; the metadata form pops back to it, and coming back
  * re-mounts the list's Effects so it re-fetches.
  */
-function QuickValueScreen({ route }: { route: Route }) {
+function WidgetScreen({ route }: { route: Route }) {
   const { push, pop } = useRouteStack();
 
-  if (route.name === "quickvalue-list") {
+  if (route.name === "widget-list") {
     return (
-      <QuickValueListScreen
-        onEdit={(id) => push({ name: "quickvalue-edit", id })}
-        onCreate={() => push({ name: "quickvalue-create" })}
+      <WidgetListScreen
+        onEdit={(id) => push({ name: "widget-edit", id })}
+        onCreate={() => push({ name: "widget-create" })}
         onExit={pop}
       />
     );
   }
 
   return (
-    <QuickValueMetaScreen
-      id={route.name === "quickvalue-edit" ? route.id : null}
+    <WidgetMetaScreen
+      id={route.name === "widget-edit" ? route.id : null}
       onDone={pop}
     />
   );
@@ -111,9 +111,9 @@ const SCREENS: Record<RouteName, FC<{ route: Route }>> = {
   "quicklink-create": QuicklinkForm,
   "quicklink-edit": QuicklinkForm,
   "quicklink-duplicate": QuicklinkForm,
-  "quickvalue-list": QuickValueScreen,
-  "quickvalue-create": QuickValueScreen,
-  "quickvalue-edit": QuickValueScreen,
+  "widget-list": WidgetScreen,
+  "widget-create": WidgetScreen,
+  "widget-edit": WidgetScreen,
   "custom-layout-list": CustomLayoutScreen,
   "custom-layout-create": CustomLayoutScreen,
   "custom-layout-edit": CustomLayoutScreen,

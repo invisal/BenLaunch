@@ -1,16 +1,16 @@
 /**
- * Persisted list of user-authored QuickValue definitions (name + code + whether
+ * Persisted list of user-authored Widget definitions (name + code + whether
  * it's exposed as a launcher command). The values those functions produce are
  * *not* here — that's the runner's cache (see `runner.ts`).
  *
  * Mirrors `usage/store.ts`: deliberately Electron-free (the `node --test` suite
  * imports it directly, `dir` is injected by `actions.ts`), a single JSON file
  * written via temp-file + atomic rename, and every filesystem failure swallowed
- * with a `[quickvalue]` prefix so a bad disk never takes the launcher down.
+ * with a `[widget]` prefix so a bad disk never takes the launcher down.
  */
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { QuickValueDef, QuickValueDraft } from '../shared/types'
+import type { WidgetDef, WidgetDraft } from '../shared/types'
 
 /** Bumped when the persisted shape changes, to invalidate old files. */
 const CACHE_VERSION = 1
@@ -18,12 +18,12 @@ const CACHE_VERSION = 1
 interface StoreFile {
   version: number
   savedAt: number
-  items: QuickValueDef[]
+  items: WidgetDef[]
 }
 
-function isQuickValueDef(value: unknown): value is QuickValueDef {
+function isWidgetDef(value: unknown): value is WidgetDef {
   if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<QuickValueDef>
+  const candidate = value as Partial<WidgetDef>
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
@@ -37,24 +37,24 @@ function isStoreFile(value: unknown): value is StoreFile {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<StoreFile>
   if (candidate.version !== CACHE_VERSION) return false
-  return Array.isArray(candidate.items) && candidate.items.every(isQuickValueDef)
+  return Array.isArray(candidate.items) && candidate.items.every(isWidgetDef)
 }
 
-/** `name` → url-safe slug. Empty / all-punctuation names fall back to `quickvalue`. */
+/** `name` → url-safe slug. Empty / all-punctuation names fall back to `widget`. */
 function slugify(name: string): string {
   const slug = name
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  return slug || 'quickvalue'
+  return slug || 'widget'
 }
 
-export class QuickValueStore {
+export class WidgetStore {
   private readonly dir: string
   private readonly now: () => number
 
-  private items: QuickValueDef[] = []
+  private items: WidgetDef[] = []
   private loaded = false
 
   constructor(opts: { dir: string; now?: () => number }) {
@@ -62,37 +62,37 @@ export class QuickValueStore {
     this.now = opts.now ?? Date.now
   }
 
-  /** Load `quickvalues.json` into memory. Corrupt / missing / old version → empty list. */
+  /** Load `widgets.json` into memory. Corrupt / missing / old version → empty list. */
   init(): void {
     if (this.loaded) return
     this.loaded = true
-    console.log('[quickvalue] store file:', this.path())
+    console.log('[widget] store file:', this.path())
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path(), 'utf8'))
       if (isStoreFile(parsed)) this.items = parsed.items
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('[quickvalue] Failed to read store:', error)
+        console.error('[widget] Failed to read store:', error)
       }
     }
   }
 
-  list(): QuickValueDef[] {
+  list(): WidgetDef[] {
     this.init()
     return this.items.map((item) => ({ ...item }))
   }
 
-  get(id: string): QuickValueDef | undefined {
+  get(id: string): WidgetDef | undefined {
     this.init()
     const found = this.items.find((item) => item.id === id)
     return found ? { ...found } : undefined
   }
 
   /**
-   * Create (no `id`) or update (`id` present) a QuickValue and persist. Returns
+   * Create (no `id`) or update (`id` present) a Widget and persist. Returns
    * the saved definition, including the generated id on create.
    */
-  save(draft: QuickValueDraft): QuickValueDef {
+  save(draft: WidgetDraft): WidgetDef {
     this.init()
 
     const description = draft.description?.trim() || undefined
@@ -103,7 +103,7 @@ export class QuickValueStore {
         existing.name = draft.name
         existing.description = description
         // An update that omits `code` leaves the stored code alone (the metadata
-        // screen and the code window save independently — see QuickValueDraft).
+        // screen and the code window save independently — see WidgetDraft).
         if (draft.code !== undefined) existing.code = draft.code
         existing.exposed = draft.exposed
         this.persist()
@@ -111,7 +111,7 @@ export class QuickValueStore {
       }
     }
 
-    const def: QuickValueDef = {
+    const def: WidgetDef = {
       id: this.uniqueId(slugify(draft.name)),
       name: draft.name,
       description,
@@ -149,7 +149,7 @@ export class QuickValueStore {
   }
 
   private path(): string {
-    return join(this.dir, 'quickvalues.json')
+    return join(this.dir, 'widgets.json')
   }
 
   private persist(): void {
@@ -164,7 +164,7 @@ export class QuickValueStore {
       writeFileSync(tmp, JSON.stringify(payload, null, 2))
       renameSync(tmp, file)
     } catch (error) {
-      console.error('[quickvalue] Failed to write store:', error)
+      console.error('[widget] Failed to write store:', error)
       try {
         unlinkSync(tmp)
       } catch {

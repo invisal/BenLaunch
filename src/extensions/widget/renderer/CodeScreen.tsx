@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Breadcrumb, Layout, WindowFrame } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
-import type { QuickValueDef, QuickValueTestResult } from "../shared/types";
+import type { WidgetDef, WidgetTestResult } from "../shared/types";
 import CodeEditor, { type CodeEditorHandle } from "./CodeEditor";
 
 /**
- * The CodeMirror editor for one QuickValue, living in its own framed window
+ * The CodeMirror editor for one Widget, living in its own framed window
  * (the launcher's `user-select: none` would make the editor's contenteditable
  * impossible to type into — see the renderer-user-select-scope note). Metadata
  * (name, description, exposed) is owned by the launcher's `MetaScreen`
@@ -15,10 +15,10 @@ import CodeEditor, { type CodeEditorHandle } from "./CodeEditor";
  * Run Test / Format / Save all live in the footer's actions menu (⌘K).
  */
 function CodeScreen({ id }: { id: string }) {
-  const [def, setDef] = useState<QuickValueDef | null>(null);
+  const [def, setDef] = useState<WidgetDef | null>(null);
   const [missing, setMissing] = useState(false);
   const [code, setCode] = useState("");
-  const [test, setTest] = useState<QuickValueTestResult | "running" | null>(
+  const [test, setTest] = useState<WidgetTestResult | "running" | null>(
     null,
   );
   const [saving, setSaving] = useState(false);
@@ -26,7 +26,7 @@ function CodeScreen({ id }: { id: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    void window.api.quickValue.get(id).then((loaded) => {
+    void window.api.widget.get(id).then((loaded) => {
       if (cancelled) return;
       if (!loaded) {
         setMissing(true);
@@ -42,14 +42,14 @@ function CodeScreen({ id }: { id: string }) {
 
   async function runTest(): Promise<void> {
     setTest("running");
-    setTest(await window.api.quickValue.test(code));
+    setTest(await window.api.widget.test(code));
   }
 
   async function save(): Promise<void> {
     if (!def || saving) return;
     setSaving(true);
     try {
-      await window.api.quickValue.save({
+      await window.api.widget.save({
         id: def.id,
         name: def.name,
         description: def.description,
@@ -71,7 +71,7 @@ function CodeScreen({ id }: { id: string }) {
     return (
       <div className="flex h-full flex-col gap-4 p-6">
         <p className="text-sm text-foreground-subtle">
-          This QuickValue no longer exists.
+          This Widget no longer exists.
         </p>
         <button
           type="button"
@@ -144,7 +144,7 @@ function CodeScreen({ id }: { id: string }) {
 function TestResult({
   result,
 }: {
-  result: QuickValueTestResult | "running" | null;
+  result: WidgetTestResult | "running" | null;
 }) {
   if (!result || result === "running") return null;
   return (

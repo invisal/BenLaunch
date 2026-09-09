@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, test } from 'node:test'
 
-import { QuickValueRunner } from './runner.ts'
+import { WidgetRunner } from './runner.ts'
 import type { UserCodeResult } from './run-user-code.ts'
 
 let dir: string
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'quickvalue-runner-'))
+  dir = mkdtempSync(join(tmpdir(), 'widget-runner-'))
 })
 
 afterEach(() => {
@@ -21,7 +21,7 @@ function makeRunner(
   runCode: (code: string, timeoutMs: number) => Promise<UserCodeResult>,
   now: () => number = () => 1000
 ) {
-  const runner = new QuickValueRunner({ dir, now, runCode })
+  const runner = new WidgetRunner({ dir, now, runCode })
   return { runner }
 }
 
@@ -88,7 +88,7 @@ test('cached values survive across instances and prune() drops the rest', async 
   await runner.run('keep', 'c')
   await runner.run('drop', 'c')
 
-  const reloaded = new QuickValueRunner({ dir, runCode: async () => ({ ok: true, value: 0 }) })
+  const reloaded = new WidgetRunner({ dir, runCode: async () => ({ ok: true, value: 0 }) })
   assert.equal(reloaded.getSubtitle('keep'), 'x')
   assert.equal(reloaded.getSubtitle('drop'), 'x')
 

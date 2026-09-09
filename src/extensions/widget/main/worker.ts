@@ -1,11 +1,11 @@
 /**
- * Runs one QuickValue's user function out-of-process, spawned by `runner.ts` via
+ * Runs one Widget's user function out-of-process, spawned by `runner.ts` via
  * `ELECTRON_RUN_AS_NODE` — never inside Electron's browser process, so a slow
  * `fetch(...)` or a runaway loop can't freeze window paint / IPC. Mirrors
  * `native/apps-worker.ts`: read input, write one JSON blob to stdout, exit.
  *
- * Bundled as its own electron.vite `main` entry (key `quickvalue-worker`, so the
- * output is `quickvalue-worker.js` next to `index.js`); `runner.ts` spawns it.
+ * Bundled as its own electron.vite `main` entry (key `widget-worker`, so the
+ * output is `widget-worker.js` next to `index.js`); `runner.ts` spawns it.
  *
  *   stdin  : { "code": string, "timeoutMs"?: number }
  *   stdout : { "ok": true, "value": string|number|null } | { "ok": false, "error": string }
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     if (typeof parsed.code === 'string') code = parsed.code
     if (typeof parsed.timeoutMs === 'number') timeoutMs = parsed.timeoutMs
   } catch {
-    emit({ ok: false, error: 'QuickValue worker received invalid input' })
+    emit({ ok: false, error: 'Widget worker received invalid input' })
     return
   }
 

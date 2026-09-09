@@ -12,9 +12,9 @@ export type Route =
   | { name: "quicklink-create"; seed?: string }
   | { name: "quicklink-edit"; id: string }
   | { name: "quicklink-duplicate"; id: string }
-  | { name: "quickvalue-list" }
-  | { name: "quickvalue-create" }
-  | { name: "quickvalue-edit"; id: string }
+  | { name: "widget-list" }
+  | { name: "widget-create" }
+  | { name: "widget-edit"; id: string }
   | { name: "custom-layout-list" }
   | { name: "custom-layout-create" }
   | { name: "custom-layout-edit"; id: string }

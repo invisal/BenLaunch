@@ -15,9 +15,9 @@ import { QuicklinkSource } from "./sources/quicklinks/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { CustomLayoutStore } from "./sources/window/custom-store";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
-import { QuickValueRunner } from "@extensions/quickvalue/main/runner";
-import { QuickValueSource } from "@extensions/quickvalue/main/source";
-import { QuickValueStore } from "@extensions/quickvalue/main/store";
+import { WidgetRunner } from "@extensions/widget/main/runner";
+import { WidgetSource } from "@extensions/widget/main/source";
+import { WidgetStore } from "@extensions/widget/main/store";
 import { Usage } from "./usage/store";
 
 /** Persisted user settings (today: the custom-layout gap size). Also read directly by `index.ts` to wire the custom-layout manager's IPC. */
@@ -25,11 +25,11 @@ export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
 /** Persisted custom window layouts ("Create Command"). Also read directly by `index.ts` to wire the manager window's IPC. */
 export const customLayoutStore = new CustomLayoutStore({ dir: app.getPath("userData") });
-/** Persisted QuickValue definitions + the cache of their last computed values. */
-export const quickValueStore = new QuickValueStore({
+/** Persisted Widget definitions + the cache of their last computed values. */
+export const widgetStore = new WidgetStore({
   dir: app.getPath("userData"),
 });
-export const quickValueRunner = new QuickValueRunner({
+export const widgetRunner = new WidgetRunner({
   dir: app.getPath("userData"),
 });
 
@@ -43,7 +43,7 @@ const quicklinkSource = new QuicklinkSource();
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   new WindowManagementSource(settings, customLayoutStore),
-  new QuickValueSource(quickValueStore, quickValueRunner),
+  new WidgetSource(widgetStore, widgetRunner),
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),
@@ -150,8 +150,8 @@ export async function query(text: string): Promise<QueryResult> {
 
 export async function executeAction(id: string, text: string): Promise<void> {
   await sources.find((source) => source.owns(id))?.execute(id, text);
-  // `qv:edit:*` is a UI shortcut (open the editor), not a real action to rank.
-  if (!id.startsWith("qv:edit:")) usage.record(id, text);
+  // `widget:edit:*` is a UI shortcut (open the editor), not a real action to rank.
+  if (!id.startsWith("widget:edit:")) usage.record(id, text);
 }
 
 /** A deferred-subtitle row rendered in the launcher; ask whichever source owns it for a fresh subtitle. */

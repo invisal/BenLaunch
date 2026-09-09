@@ -13,7 +13,7 @@ import { cn } from "cnfast";
 import "./window-frame.css";
 
 /**
- * The chrome for a framed window (Settings, QuickValue). The OS title bar is
+ * The chrome for a framed window (Settings, Widget). The OS title bar is
  * hidden (see `src/main/window-chrome.ts`), so this draws our own: a draggable
  * bar with the title and, on Windows/Linux, the min/max/close buttons. macOS
  * keeps its native traffic lights, which sit over the left of the bar.

@@ -7,7 +7,7 @@ const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   application: "Application",
   command: "Command",
   quicklink: "Quicklink",
-  quickvalue: "QuickValue",
+  widget: "Widget",
 };
 
 function isImageIcon(icon: string): boolean {
@@ -98,7 +98,7 @@ function SearchItem({
 
   // Virtualization mounts this component only for rows currently on screen (plus
   // overscan), so this naturally fires just for rows the user can actually see —
-  // never for the rest of an exposed-QuickValue list scrolled out of view. The
+  // never for the rest of an exposed-Widget list scrolled out of view. The
   // main process caches/dedupes (TTL + single-flight), so re-requesting on every
   // mount is cheap. Re-fires with `force: true` when `forceRefreshToken` changes
   // (App.tsx sets it for exactly one row at a time, e.g. the row menu's "Refresh").

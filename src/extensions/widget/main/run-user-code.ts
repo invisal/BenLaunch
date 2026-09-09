@@ -1,11 +1,11 @@
 /**
- * Runs a QuickValue's user-authored code and normalizes what it returns.
+ * Runs a Widget's user-authored code and normalizes what it returns.
  *
  * Kept as a standalone, Electron-free module so both the out-of-process worker
  * (`./worker.ts`) and the `node --test` suite can use it. It is
  * NOT a security sandbox — the code runs with full Node access, on purpose (see
  * the plan's "Known tradeoff"). The process boundary and the timeout are what
- * keep a slow or runaway QuickValue from hurting the launcher.
+ * keep a slow or runaway Widget from hurting the launcher.
  *
  * Snippets are authored in TypeScript. We strip the types with Node's built-in
  * `stripTypeScriptTypes` before eval — `mode: 'strip'` only removes annotations
@@ -27,7 +27,7 @@ export type UserCodeResult = UserCodeOk | UserCodeErr
 export const DEFAULT_TIMEOUT_MS = 10_000
 
 const CONTRACT_HINT =
-  'QuickValue code must export a function, e.g. `module.exports = async (): Promise<{ value: string }> => ({ value })`'
+  'Widget code must export a function, e.g. `module.exports = async (): Promise<{ value: string }> => ({ value })`'
 
 export async function runUserCode(
   code: string,
@@ -66,7 +66,7 @@ function resolveExport(exported: unknown): (() => unknown) | null {
 
 function normalize(returned: unknown): UserCodeResult {
   if (!returned || typeof returned !== 'object' || !('value' in returned)) {
-    return { ok: false, error: 'QuickValue function must return an object like { value: string | number | null }' }
+    return { ok: false, error: 'Widget function must return an object like { value: string | number | null }' }
   }
   const value = (returned as { value: unknown }).value
   if (value === null || typeof value === 'string' || typeof value === 'number') {
@@ -74,13 +74,13 @@ function normalize(returned: unknown): UserCodeResult {
   }
   return {
     ok: false,
-    error: `QuickValue "value" must be a string, number, or null (got ${value === undefined ? 'undefined' : typeof value})`
+    error: `Widget "value" must be a string, number, or null (got ${value === undefined ? 'undefined' : typeof value})`
   }
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`QuickValue timed out after ${ms}ms`)), ms)
+    const timer = setTimeout(() => reject(new Error(`Widget timed out after ${ms}ms`)), ms)
     promise.then(
       (v) => {
         clearTimeout(timer)

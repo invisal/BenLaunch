@@ -2,7 +2,7 @@ import { BrowserWindow, ipcMain, type BrowserWindowConstructorOptions } from 'el
 import { IPC_CHANNELS } from '../shared/types'
 
 /**
- * Constructor options shared by the framed windows (Settings, QuickValue), which
+ * Constructor options shared by the framed windows (Settings, Widget), which
  * hide the OS title bar and draw their own via `renderer/src/shared/ui/WindowFrame`.
  *
  * They also get a translucent backing so the desktop shows through, the same

@@ -13,7 +13,7 @@ import {
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
-import { quickValueApi } from "@extensions/quickvalue/ipc/preload";
+import { widgetApi } from "@extensions/widget/ipc/preload";
 
 const api = {
   platform: process.platform,
@@ -54,7 +54,7 @@ const api = {
   ): Promise<string | undefined> =>
     ipcRenderer.invoke(IPC_CHANNELS.requestSubtitle, actionId, opts),
 
-  /** Window-chrome controls for the framed windows (Settings, QuickValue), which
+  /** Window-chrome controls for the framed windows (Settings, Widget), which
    *  render their own title bar. Each acts on the calling window. */
   windowControls: {
     minimize: (): void => ipcRenderer.send(IPC_CHANNELS.windowMinimize),
@@ -62,8 +62,8 @@ const api = {
     close: (): void => ipcRenderer.send(IPC_CHANNELS.windowClose),
   },
 
-  /** QuickValue manager window ↔ main. */
-  quickValue: quickValueApi,
+  /** Widget manager window ↔ main. */
+  widget: widgetApi,
 
   /** Custom window layouts ↔ main. */
   customLayout: {

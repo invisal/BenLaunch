@@ -1,10 +1,10 @@
 /* Launcher-only styles. Loaded by `launcher/main.tsx` after the shared
-   `index.css`; the settings and QuickValue windows never see this.
+   `index.css`; the settings and Widget windows never see this.
 
    The launcher is a spotlight-style overlay — stray text selection while
    typing a query reads as broken, so selection is off by default here.
    (This must stay out of the shared sheet: inherited `user-select: none`
-   makes contenteditable fields like the QuickValue code editor impossible
+   makes contenteditable fields like the Widget code editor impossible
    to type into. CalculatorPanel opts selection back in where it needs it.) */
 html,
 body,

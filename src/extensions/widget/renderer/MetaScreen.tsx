@@ -4,7 +4,7 @@ import { useShortcut } from "@renderer/lib/use-shortcut";
 import { DEFAULT_CODE } from "../shared/default-code";
 
 /**
- * The metadata for a QuickValue — name, description, "expose as command" — as a
+ * The metadata for a Widget — name, description, "expose as command" — as a
  * screen pushed onto the launcher's navigation stack (not a framed window). The
  * code lives in its own window (`CodeScreen`), opened by the "Code" row, which
  * persists the metadata first (with `DEFAULT_CODE` on create) so the editor has
@@ -32,7 +32,7 @@ function MetaScreen({
   useEffect(() => {
     if (id === null) return;
     let cancelled = false;
-    void window.api.quickValue.get(id).then((def) => {
+    void window.api.widget.get(id).then((def) => {
       if (cancelled || !def) return;
       setName(def.name);
       setDescription(def.description ?? "");
@@ -46,7 +46,7 @@ function MetaScreen({
 
   /** Persist the metadata (keeping any existing code) and return the id. */
   async function persist(): Promise<string> {
-    const saved = await window.api.quickValue.save({
+    const saved = await window.api.widget.save({
       id: id ?? undefined,
       name: name.trim(),
       description: description.trim() || undefined,
@@ -73,8 +73,8 @@ function MetaScreen({
     setBusy(true);
     try {
       const savedId = await persist();
-      // Opens the standalone CodeMirror window (see QuickValueSource.execute).
-      void window.api.execute(`qv:edit:${savedId}`, "");
+      // Opens the standalone CodeMirror window (see WidgetSource.execute).
+      void window.api.execute(`widget:edit:${savedId}`, "");
       onDone();
     } finally {
       setBusy(false);
@@ -98,7 +98,7 @@ function MetaScreen({
           ←
         </button>
         <span className="text-sm font-medium">
-          {id === null ? "Create QuickValue" : name || "Edit QuickValue"}
+          {id === null ? "Create Widget" : name || "Edit Widget"}
         </span>
       </div>
 

@@ -17,7 +17,7 @@ const nodeAlias = {
 }
 
 /**
- * Serves `typescript/lib/typescript.js` (used by the QuickValue code editor's
+ * Serves `typescript/lib/typescript.js` (used by the Widget code editor's
  * language-service integration — see CodeEditor.tsx) as its own same-origin
  * script asset, with its trailing `//# sourceMappingURL=typescript.js.map`
  * comment stripped — that .map file doesn't actually ship in the `typescript`
@@ -89,10 +89,10 @@ export default defineConfig({
           // Output name stays `apps-worker.js` (the input key); apps.ts resolves it
           // as `join(__dirname, 'apps-worker.js')` at runtime.
           'apps-worker': resolve(__dirname, 'src/main/native/apps-worker.ts'),
-          // Runs a QuickValue's user function out-of-process (same reason as above);
-          // src/extensions/quickvalue/main/runner.ts spawns it as `quickvalue-worker.js`
+          // Runs a Widget's user function out-of-process (same reason as above);
+          // src/extensions/widget/main/runner.ts spawns it as `widget-worker.js`
           // (the input key below sets the output name).
-          'quickvalue-worker': resolve(__dirname, 'src/extensions/quickvalue/main/worker.ts')
+          'widget-worker': resolve(__dirname, 'src/extensions/widget/main/worker.ts')
         }
       }
     }
@@ -119,7 +119,7 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
           settings: resolve(__dirname, 'src/renderer/settings.html'),
-          quickvalue: resolve(__dirname, 'src/renderer/quickvalue.html')
+          widget: resolve(__dirname, 'src/renderer/widget.html')
         }
       }
     },

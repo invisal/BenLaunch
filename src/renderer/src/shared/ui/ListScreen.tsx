@@ -40,7 +40,7 @@ import { Footer, type FooterMenuItem } from "./Footer";
  * plain CSS `:hover` background instead (give `ListScreen.Item` one — it
  * already has `hover:bg-item-hover`).
  *
- * Unvirtualized by default — fine for bounded lists (the QuickValue manager).
+ * Unvirtualized by default — fine for bounded lists (the Widget manager).
  * Pass `virtualized` + `itemHeight` to switch to `@tanstack/react-virtual`
  * for long/unbounded lists (see `measureItem` for rows that can grow past
  * their estimate). Pass `serverFiltered` when `data` is already filtered and

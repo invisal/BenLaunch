@@ -4,7 +4,7 @@ export type LauncherActionType =
   | "application"
   | "command"
   | "quicklink"
-  | "quickvalue";
+  | "widget";
 
 export interface LauncherAction {
   id: string;
@@ -32,13 +32,13 @@ export interface LauncherAction {
   /** Quicklink is hidden from the root list (still returned for an explicit search). */
   hidden?: boolean
   /**
-   * The action is resolving a value in the background (e.g. a QuickValue running
+   * The action is resolving a value in the background (e.g. a Widget running
    * its async function). The list shows a spinner instead of the subtitle.
    */
   isLoading?: boolean;
   /**
    * The subtitle isn't computed up front — it needs an IPC round-trip to fetch
-   * (e.g. a QuickValue's cached/live value). The renderer requests it only once
+   * (e.g. a Widget's cached/live value). The renderer requests it only once
    * the row actually renders (virtualization keeps this lazy: off-screen rows
    * never fire the request), rather than the action source computing it eagerly
    * for every row on every `provide()`.
@@ -140,11 +140,11 @@ export const IPC_CHANNELS = {
   requestAccessibility: "window:request-accessibility",
   /** launcher → main: a deferred-subtitle row (`isDeferredSubtitle`) rendered
    *  (or asked to force-refresh); whichever source owns it resolves with the
-   *  fresh subtitle. Not QuickValue-specific — there is no separate push
+   *  fresh subtitle. Not Widget-specific — there is no separate push
    *  channel, the resolved value IS the update. */
   requestSubtitle: "launcher:request-subtitle",
   /** Renderer → main window-chrome controls for the framed windows (Settings,
-   *  QuickValue), which draw their own title bar via `shared/ui/WindowFrame`.
+   *  Widget), which draw their own title bar via `shared/ui/WindowFrame`.
    *  Each targets whichever `BrowserWindow` the sender belongs to. */
   windowMinimize: "window:minimize",
   windowToggleMaximize: "window:toggle-maximize",

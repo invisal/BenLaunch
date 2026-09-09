@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { ListScreen as ListScreenBase } from "@renderer/shared/ui";
 import type { FooterMenuItem } from "@renderer/shared/ui";
-import type { QuickValueDef } from "../shared/types";
+import type { WidgetDef } from "../shared/types";
 
 /**
- * The QuickValue manager list, as a screen pushed onto the launcher's navigation
+ * The Widget manager list, as a screen pushed onto the launcher's navigation
  * stack. Built on the shared `ListScreen` from `@renderer/shared/ui` (imported
  * here as `ListScreenBase`) — it only supplies the data, the row markup, and the
  * ⌘K menu; the Autocomplete wiring, query state, highlight tracking and Escape
@@ -12,7 +12,7 @@ import type { QuickValueDef } from "../shared/types";
  *
  * A management list: rows show name + description, Enter / click opens the
  * metadata screen, and per-row management actions live in the ⌘K menu. Live
- * values are the job of the `qv:*` rows in the launcher's own search, not here.
+ * values are the job of the `widget:*` rows in the launcher's own search, not here.
  */
 function ListScreen({
   onEdit,
@@ -24,10 +24,10 @@ function ListScreen({
   /** Leave the manager — back to the launcher search. */
   onExit: () => void;
 }) {
-  const [items, setItems] = useState<QuickValueDef[] | null>(null);
+  const [items, setItems] = useState<WidgetDef[] | null>(null);
 
   const reload = useCallback(() => {
-    void window.api.quickValue.list().then(setItems);
+    void window.api.widget.list().then(setItems);
   }, []);
 
   // Re-fetches on mount and whenever this screen returns to the top of the stack
@@ -36,36 +36,36 @@ function ListScreen({
     reload();
   }, [reload]);
 
-  async function toggleExposed(qv: QuickValueDef): Promise<void> {
-    await window.api.quickValue.setExposed(qv.id, !qv.exposed);
+  async function toggleExposed(widget: WidgetDef): Promise<void> {
+    await window.api.widget.setExposed(widget.id, !widget.exposed);
     reload();
   }
 
-  async function remove(qv: QuickValueDef): Promise<void> {
-    await window.api.quickValue.delete(qv.id);
+  async function remove(widget: WidgetDef): Promise<void> {
+    await window.api.widget.delete(widget.id);
     reload();
   }
 
-  const menu = (qv: QuickValueDef | null): FooterMenuItem[] => {
+  const menu = (widget: WidgetDef | null): FooterMenuItem[] => {
     const newItem: FooterMenuItem = {
       id: "new",
-      label: "New QuickValue",
+      label: "New Widget",
       onSelect: onCreate,
     };
-    if (!qv) return [newItem];
+    if (!widget) return [newItem];
     return [
-      { id: "edit", label: "Edit QuickValue", onSelect: () => onEdit(qv.id) },
+      { id: "edit", label: "Edit Widget", onSelect: () => onEdit(widget.id) },
       {
         id: "expose",
-        label: qv.exposed ? "Hide from Launcher" : "Expose in Launcher",
-        onSelect: () => void toggleExposed(qv),
+        label: widget.exposed ? "Hide from Launcher" : "Expose in Launcher",
+        onSelect: () => void toggleExposed(widget),
       },
       {
         id: "delete",
-        label: "Delete QuickValue",
-        confirmLabel: `Delete "${qv.name}"? Select again`,
+        label: "Delete Widget",
+        confirmLabel: `Delete "${widget.name}"? Select again`,
         danger: true,
-        onSelect: () => void remove(qv),
+        onSelect: () => void remove(widget),
       },
       newItem,
     ];
@@ -74,23 +74,23 @@ function ListScreen({
   return (
     <ListScreenBase
       data={items}
-      getId={(qv) => qv.id}
-      getSearchText={(qv) => `${qv.name} ${qv.description ?? ""}`}
-      placeholder="Search QuickValues..."
-      renderItem={(qv, { highlighted }) => (
+      getId={(widget) => widget.id}
+      getSearchText={(widget) => `${widget.name} ${widget.description ?? ""}`}
+      placeholder="Search Widgets..."
+      renderItem={(widget, { highlighted }) => (
         <ListScreenBase.Item
           highlighted={highlighted}
           icon="⚡"
-          title={qv.name}
-          subtitle={qv.description || qv.id}
-          badge={qv.exposed ? "Exposed" : undefined}
+          title={widget.name}
+          subtitle={widget.description || widget.id}
+          badge={widget.exposed ? "Exposed" : undefined}
         />
       )}
-      onActivate={(qv) => onEdit(qv.id)}
+      onActivate={(widget) => onEdit(widget.id)}
       onExit={onExit}
       menu={menu}
-      footerLabel={(n) => `${n} QuickValue${n === 1 ? "" : "s"}`}
-      emptyLabel="No QuickValues yet. Create one to get started."
+      footerLabel={(n) => `${n} Widget${n === 1 ? "" : "s"}`}
+      emptyLabel="No Widgets yet. Create one to get started."
     />
   );
 }

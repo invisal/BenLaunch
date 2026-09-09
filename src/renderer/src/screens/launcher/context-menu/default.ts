@@ -3,7 +3,7 @@ import type { ContextMenuContributor } from "./types";
 /**
  * Last in the chain: the generic block for any action nothing else claimed with
  * a `role: "primary"` contribution — installed apps and built-in commands.
- * Quicklinks and QuickValues supply their own primary block, so this never runs
+ * Quicklinks and Widgets supply their own primary block, so this never runs
  * for them.
  */
 export const defaultContextMenu: ContextMenuContributor = {

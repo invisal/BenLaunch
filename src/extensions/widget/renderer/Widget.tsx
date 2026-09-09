@@ -3,15 +3,15 @@ import { WindowFrame } from "@renderer/shared/ui";
 import CodeScreen from "./CodeScreen";
 
 /**
- * The QuickValue window is now just the CodeMirror editor for one QuickValue —
+ * The Widget window is now just the CodeMirror editor for one Widget —
  * the list and the metadata form moved into the launcher's navigation stack.
- * The id is carried in the URL hash (`#<id>`); `openQuickValueWindow` sets it.
+ * The id is carried in the URL hash (`#<id>`); `openWidgetWindow` sets it.
  */
 function idFromHash(): string {
   return decodeURIComponent(window.location.hash.replace(/^#/, ""));
 }
 
-function QuickValue() {
+function Widget() {
   const [id, setId] = useState(idFromHash);
 
   useEffect(() => {
@@ -21,16 +21,16 @@ function QuickValue() {
   }, []);
 
   return (
-    <WindowFrame title="QuickValue">
+    <WindowFrame title="Widget">
       {id ? (
         <CodeScreen key={id} id={id} />
       ) : (
         <p className="px-6 py-8 text-sm text-foreground-subtle">
-          No QuickValue selected.
+          No Widget selected.
         </p>
       )}
     </WindowFrame>
   );
 }
 
-export default QuickValue;
+export default Widget;

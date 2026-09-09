@@ -1,6 +1,6 @@
 /**
  * Persisted list of user-authored custom window layouts ("Create Command").
- * Mirrors `quickvalue/store.ts`: deliberately Electron-free (the `node --test`
+ * Mirrors `widget/store.ts`: deliberately Electron-free (the `node --test`
  * suite imports it directly, `dir` is injected by `actions.ts`), a single JSON
  * file written via temp-file + atomic rename, and every filesystem failure
  * swallowed with a `[window/custom]` prefix so a bad disk never takes the

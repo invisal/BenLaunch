@@ -6,7 +6,7 @@ import { PositionGlyph } from "./PositionGlyph";
 
 /**
  * The custom-layout manager, as a screen pushed onto the launcher's navigation
- * stack — the counterpart to the QuickValue `ListScreen`, and built on the same
+ * stack — the counterpart to the Widget `ListScreen`, and built on the same
  * shared `ListScreen` from `@renderer/shared/ui`: it only supplies the data,
  * the row markup, and the ⌘K menu.
  *

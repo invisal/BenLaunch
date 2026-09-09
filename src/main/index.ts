@@ -18,8 +18,8 @@ import {
   initActionSources,
   openQuicklinkWith,
   query,
-  quickValueRunner,
-  quickValueStore,
+  widgetRunner,
+  widgetStore,
   refreshActionSources,
   requestSubtitle,
   setQuicklinkHidden,
@@ -27,7 +27,7 @@ import {
   settings,
   updateQuicklink,
 } from "./actions";
-import { registerQuickValueIpc } from "@extensions/quickvalue/ipc/handlers";
+import { registerWidgetIpc } from "@extensions/widget/ipc/handlers";
 import { registerCustomLayoutIpc } from "./sources/window/custom-ipc";
 import { registerWindowControlsIpc } from "./window-chrome";
 import { listOpenWithApps } from "./sources/apps/open-with";
@@ -130,7 +130,7 @@ app.whenReady().then(() => {
   // instead of waiting for the renderer's first search.
   initActionSources();
 
-  registerQuickValueIpc(quickValueStore, quickValueRunner);
+  registerWidgetIpc(widgetStore, widgetRunner);
   registerCustomLayoutIpc(customLayoutStore, settings);
   registerWindowControlsIpc();
 

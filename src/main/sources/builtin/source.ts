@@ -40,23 +40,23 @@ export class BuiltinCommandSource implements ActionSource {
     },
     {
       action: {
-        id: 'cmd:quickvalue-create',
-        title: 'Create QuickValue',
-        subtitle: 'Write a new QuickValue snippet',
+        id: 'cmd:widget-create',
+        title: 'Create Widget',
+        subtitle: 'Write a new Widget snippet',
         icon: '⚡',
         type: 'command',
-        view: 'quickvalue-create'
+        view: 'widget-create'
       },
       run: () => {}
     },
     {
       action: {
-        id: 'cmd:quickvalue-manage',
-        title: 'Manage QuickValue',
-        subtitle: 'View, edit and expose your QuickValues',
+        id: 'cmd:widget-manage',
+        title: 'Manage Widgets',
+        subtitle: 'View, edit and expose your Widgets',
         icon: '🗂️',
         type: 'command',
-        view: 'quickvalue-list'
+        view: 'widget-list'
       },
       run: () => {}
     },

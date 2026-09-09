@@ -59,7 +59,7 @@ function loadTypescript(): Promise<TSModule> {
  * lib.*.d.ts text bundled straight from the installed `typescript` package
  * (rather than @typescript/vfs's CDN-fetching helper) so the language service
  * works fully offline. Loaded eagerly as raw strings by Vite; only paid for
- * once the QuickValue editor chunk actually runs `getTsEnv()`.
+ * once the Widget editor chunk actually runs `getTsEnv()`.
  */
 // Relative, not `/`-rooted: electron.vite.config.ts sets the renderer's Vite
 // root to `src/renderer`, so a `/`-prefixed glob would resolve against that
@@ -72,8 +72,8 @@ const TS_LIB_SOURCES = import.meta.glob('../../../../node_modules/typescript/lib
 
 const TS_ENTRY_PATH = 'index.ts'
 
-// The sandbox `runUserCode` runs QuickValue snippets in (see
-// src/extensions/quickvalue/main/run-user-code.ts): a bare `new Function('module',
+// The sandbox `runUserCode` runs Widget snippets in (see
+// src/extensions/widget/main/run-user-code.ts): a bare `new Function('module',
 // 'exports', 'require', code)` call, not a real CommonJS loader. These globals
 // are what's actually in scope there — modeled here so the editor's type
 // checking matches reality instead of flagging `module`/`require` as undefined.
@@ -149,7 +149,7 @@ async function formatInPlace(view: EditorView): Promise<void> {
 /**
  * A thin CodeMirror 6 wrapper. Built once on mount (once the shared
  * TypeScript environment is ready); external `value` changes (e.g. loading a
- * different QuickValue into the editor) are reconciled via a dispatch rather
+ * different Widget into the editor) are reconciled via a dispatch rather
  * than a rebuild.
  */
 const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(

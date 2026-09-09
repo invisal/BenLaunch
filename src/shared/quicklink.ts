@@ -52,8 +52,8 @@ export type QuicklinkCreateResult = { ok: true; name: string } | { ok: false; er
  *  `router/` and `LauncherScreen`'s `runRow`). */
 export type LauncherView =
   | 'create-quicklink'
-  | 'quickvalue-list'
-  | 'quickvalue-create'
+  | 'widget-list'
+  | 'widget-create'
   | 'custom-layout-list'
   | 'custom-layout-create'
 

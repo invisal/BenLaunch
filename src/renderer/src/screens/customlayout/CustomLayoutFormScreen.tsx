@@ -9,7 +9,7 @@ import { POSITIONS, PositionGlyph } from "./PositionGlyph";
 /**
  * Design one custom window layout — name, size, offset, anchor — as a screen
  * pushed onto the launcher's navigation stack (the same place Create Quicklink
- * and the QuickValue metadata form live). Serves create, edit and duplicate,
+ * and the Widget metadata form live). Serves create, edit and duplicate,
  * like `CreateQuicklink`.
  *
  * Two panes: the live preview on the left, the controls on the right. The

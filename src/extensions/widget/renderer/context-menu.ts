@@ -1,17 +1,17 @@
 import type { ContextMenuContributor } from "@renderer/screens/launcher/context-menu/types";
 
 /**
- * The Ctrl+K menu for a QuickValue row. A QuickValue row is a *value*, not an
+ * The Ctrl+K menu for a Widget row. A Widget row is a *value*, not an
  * action — so the primary verb is "Copy Value" (like the calculator row), not
  * "Run". Everything here goes through the existing `window.api` surface; the
  * store and runner stay in the main process.
  */
-export const quickValueContextMenu: ContextMenuContributor = {
-  id: "quickvalue",
+export const widgetContextMenu: ContextMenuContributor = {
+  id: "widget",
   contribute(action, ctx) {
-    if (action.type !== "quickvalue") return null;
+    if (action.type !== "widget") return null;
 
-    const slug = action.id.slice("qv:".length);
+    const slug = action.id.slice("widget:".length);
 
     return {
       role: "primary",
@@ -42,13 +42,13 @@ export const quickValueContextMenu: ContextMenuContributor = {
         },
         {
           id: "edit",
-          label: "Edit QuickValue",
-          onSelect: () => ctx.push({ name: "quickvalue-edit", id: slug }),
+          label: "Edit Widget",
+          onSelect: () => ctx.push({ name: "widget-edit", id: slug }),
         },
         {
           id: "manage",
-          label: "Manage QuickValues",
-          onSelect: () => ctx.push({ name: "quickvalue-list" }),
+          label: "Manage Widgets",
+          onSelect: () => ctx.push({ name: "widget-list" }),
         },
       ],
     };

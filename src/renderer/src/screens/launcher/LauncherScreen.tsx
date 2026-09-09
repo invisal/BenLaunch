@@ -90,7 +90,7 @@ function LauncherScreen() {
   //
   // Deliberately depends only on `calculation`/`results`: a row's live subtitle
   // is fetched and held by its own `SearchItem` instance, not lifted up here —
-  // see SearchItem.tsx. `rows` used to be rebuilt on every QuickValue value
+  // see SearchItem.tsx. `rows` used to be rebuilt on every Widget value
   // push, which changed every row's identity; Autocomplete tracks the
   // highlighted item by identity in this `rows`/`items` array, so that churn
   // (which, since deferred rows fetch on mount, happened continuously while
@@ -124,20 +124,20 @@ function LauncherScreen() {
     }
     const { action } = row;
     // Some actions open a renderer screen (the Create Quicklink form, the
-    // QuickValue manager) instead of executing in the main process — push it
+    // Widget manager) instead of executing in the main process — push it
     // onto the stack and keep the launcher window open behind it.
     if (action.view) {
       const route: Record<LauncherView, Route> = {
         "create-quicklink": { name: "quicklink-create", seed: query },
-        "quickvalue-list": { name: "quickvalue-list" },
-        "quickvalue-create": { name: "quickvalue-create" },
+        "widget-list": { name: "widget-list" },
+        "widget-create": { name: "widget-create" },
         "custom-layout-list": { name: "custom-layout-list" },
         "custom-layout-create": { name: "custom-layout-create" },
       };
       push(route[action.view]);
       return;
     }
-    if (action.type === "quickvalue") {
+    if (action.type === "widget") {
       // The row is a value, not an action — Enter copies it, like the calc row.
       // Ask for the current value directly (cheap: a no-op refresh resolves
       // from cache instantly) rather than reading `row.action.subtitle`, which
