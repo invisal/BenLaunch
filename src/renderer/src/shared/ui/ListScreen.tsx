@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
 import { Footer, type FooterMenuItem } from "./Footer";
@@ -34,8 +35,17 @@ import { Footer, type FooterMenuItem } from "./Footer";
  *     menu={(x) => [{ label: "Edit", onSelect: () => edit(x!.id) }]}
  *   />
  *
- * Not virtualized — meant for bounded lists (the QuickValue manager). The
- * launcher keeps its own virtualized copy in `SearchItem` / `LauncherScreen`.
+ * `highlighted` is the keyboard cursor only — the row Enter, the ⌘K menu and
+ * `onInputKeyDown` act on. The mouse never moves it; a hovered row gets a
+ * plain CSS `:hover` background instead (give `ListScreen.Item` one — it
+ * already has `hover:bg-item-hover`).
+ *
+ * Unvirtualized by default — fine for bounded lists (the QuickValue manager).
+ * Pass `virtualized` + `itemHeight` to switch to `@tanstack/react-virtual`
+ * for long/unbounded lists (see `measureItem` for rows that can grow past
+ * their estimate). Pass `serverFiltered` when `data` is already filtered and
+ * ranked upstream (e.g. a main-process query), so `ListScreen` renders it
+ * as-is instead of re-filtering it against the query text.
  */
 
 /* --------------------------------- item -------------------------------- */
@@ -124,7 +134,7 @@ const INPUT_CLASS =
   "w-full bg-transparent px-2 py-2 text-lg outline-none " +
   "placeholder:text-foreground-subtle [-webkit-app-region:no-drag]";
 
-interface ListScreenProps<T> {
+interface ListScreenBaseProps<T> {
   /** Full row data, in display order. `null` / `undefined` = loading. */
   data: T[] | null | undefined;
   /** Stable key per row. */
@@ -132,29 +142,69 @@ interface ListScreenProps<T> {
   /** Draw one row — return a single element, normally `<ListScreen.Item>`. */
   renderItem: (item: T, state: { highlighted: boolean }) => ReactElement;
 
-  /** ⌘K + right-click menu, rebuilt from the current highlighted row. */
+  /** ⌘K + right-click menu, rebuilt from the current highlighted row.
+   *  Renders via the built-in `Footer.Menu` (a flat, searchable list —
+   *  sections, icons, danger + confirm rows, but no nesting) in
+   *  `Footer.Right`. */
   menu?: (highlighted: T | null) => FooterMenuItem[];
   /** Click / Enter on a row. */
   onActivate?: (item: T) => void;
   /** Escape with an empty query (a non-empty query is cleared first). */
   onExit?: () => void;
-  /** Mirror of the highlighted row, for use outside `menu`. */
-  onHighlightChange?: (item: T | null) => void;
 
   /** Opt-in controlled query. Omit to let `ListScreen` hold it internally. */
   inputValue?: string;
   onInputChange?: (value: string) => void;
   placeholder?: string;
+  /** Refocus + select-all in the search input whenever the window regains
+   *  focus (e.g. the launcher reappearing with its last query still in the
+   *  box). Default false — the input is still focused once, on mount. */
+  autoRefocus?: boolean;
   /** Text automatic filtering matches against. Default: `getId(item)`. */
   getSearchText?: (item: T) => string;
-  /** Full opt-in override of the built-in substring filter. */
+  /** Full opt-in override of the built-in substring filter. Ignored when
+   *  `serverFiltered` is set. */
   filter?: (item: T, query: string) => boolean;
+  /** `data` is already filtered/ranked upstream (e.g. a main-process query)
+   *  — skip the built-in substring filter and render `data` as-is. */
+  serverFiltered?: boolean;
+  /** Extra key handling on the search input, run before the built-in
+   *  Escape ladder (clear query, else `onExit`). The second arg is the
+   *  currently highlighted row (falling back to the first, like `menu`'s) —
+   *  so a screen needing it for a shortcut doesn't have to mirror the
+   *  highlight in its own state. Call `preventDefault` to suppress the
+   *  built-in handling for a key you own instead. */
+  onInputKeyDown?: (
+    e: KeyboardEvent<HTMLInputElement>,
+    highlighted: T | null,
+  ) => void;
 
   footerLabel?: ReactNode | ((visibleCount: number) => ReactNode);
+  /** Escape hatch replacing `Footer.Left` entirely (a count label plus a
+   *  Pin toggle, say) — takes over from `footerLabel` when set. */
+  customFooter?: ReactNode;
   loadingLabel?: ReactNode;
   emptyLabel?: ReactNode;
   noMatchLabel?: ReactNode;
 }
+
+type ListScreenVirtualProps<T> =
+  | { virtualized?: false; itemHeight?: never; measureItem?: never }
+  | {
+      /** Switch row rendering to `@tanstack/react-virtual`, for long or
+       *  unbounded lists. */
+      virtualized: true;
+      /** Row height in px, per item — the virtualizer's fixed/estimated
+       *  size. Required: a mismatched real height silently produces
+       *  overlapping/gapped rows rather than an error. */
+      itemHeight: (item: T) => number;
+      /** Rows that can grow past `itemHeight`'s estimate (e.g. wrap onto
+       *  more than one line) opt into measurement via a ResizeObserver.
+       *  Omit if every row is truly fixed-height — cheaper. */
+      measureItem?: (item: T) => boolean;
+    };
+
+type ListScreenProps<T> = ListScreenBaseProps<T> & ListScreenVirtualProps<T>;
 
 function ListScreenRoot<T>({
   data,
@@ -163,16 +213,22 @@ function ListScreenRoot<T>({
   menu,
   onActivate,
   onExit,
-  onHighlightChange,
   inputValue,
   onInputChange,
   placeholder = "Search…",
   getSearchText,
   filter,
+  serverFiltered = false,
+  onInputKeyDown: onExtraInputKeyDown,
   footerLabel,
+  customFooter,
   loadingLabel = "Loading…",
   emptyLabel,
   noMatchLabel = "No matches.",
+  autoRefocus = false,
+  virtualized = false,
+  itemHeight,
+  measureItem,
 }: ListScreenProps<T>) {
   const controlled = inputValue !== undefined;
   const [innerQuery, setInnerQuery] = useState("");
@@ -185,15 +241,25 @@ function ListScreenRoot<T>({
   const [highlighted, setHighlighted] = useState<T | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastHighlightedIndex = useRef<number | null>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    function focusAndSelect(): void {
+      inputRef.current?.focus();
+      if (autoRefocus) inputRef.current?.select();
+    }
+    focusAndSelect();
+    if (!autoRefocus) return;
+    window.addEventListener("focus", focusAndSelect);
+    return () => window.removeEventListener("focus", focusAndSelect);
+  }, [autoRefocus]);
 
   const loading = data == null;
 
   const visible = useMemo(() => {
     const list = data ?? [];
+    if (serverFiltered) return list;
     const q = query.trim().toLowerCase();
     if (!q) return list;
     if (filter) return list.filter((item) => filter(item, query));
@@ -202,22 +268,34 @@ function ListScreenRoot<T>({
         .toLowerCase()
         .includes(q),
     );
-  }, [data, query, filter, getSearchText, getId]);
+  }, [data, query, filter, getSearchText, getId, serverFiltered]);
 
-  const changeHighlight = (item: T | null) => {
-    setHighlighted(item);
-    onHighlightChange?.(item);
-  };
+  // `itemHeight` is only absent when `virtualized` is false, in which case
+  // the virtualizer below is created but never rendered from — the type
+  // union (see `ListScreenVirtualProps`) guarantees callers that opt into
+  // `virtualized` supply it.
+  const virtualizer = useVirtualizer({
+    count: visible.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: (index) =>
+      virtualized ? itemHeight!(visible[index]) : LIST_SCREEN_ITEM_HEIGHT,
+    overscan: 8,
+    gap: 1,
+  });
+
+  // The highlighted row, falling back to the first — the target both the
+  // `menu` builder and `onInputKeyDown`'s second arg receive.
+  const menuTarget = highlighted ?? visible[0] ?? null;
 
   function onInputKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
+    onExtraInputKeyDown?.(e, menuTarget);
+    if (e.defaultPrevented) return;
     if (e.key === "Escape") {
       e.preventDefault();
       if (query) setQuery("");
       else onExit?.();
     }
   }
-
-  const menuTarget = highlighted ?? visible[0] ?? null;
 
   const emptyMessage = loading
     ? loadingLabel
@@ -240,9 +318,27 @@ function ListScreenRoot<T>({
       open
       loopFocus={false}
       autoHighlight="always"
-      onItemHighlighted={(item) =>
-        changeHighlight((item as T | undefined) ?? null)
-      }
+      // The highlighted row is the keyboard cursor only — Enter, ⌘K's menu
+      // target and `onInputKeyDown`'s second arg all key off it, so hovering
+      // the mouse must not move it. A hovered row instead gets its own plain
+      // CSS `:hover` background (`hover:bg-item-hover` on the row), distinct
+      // from the cursor's `bg-item-selected`.
+      highlightItemOnHover={false}
+      onItemHighlighted={(item, { index }) => {
+        const value = (item as T | undefined) ?? null;
+        setHighlighted(value);
+        // Rows are rebuilt (new object identities) whenever `data` changes,
+        // which re-fires this even though the highlighted *index* hasn't
+        // moved — only scroll on an actual index change, so a data refresh
+        // doesn't yank a virtualized list back to the highlighted row while
+        // the user has scrolled elsewhere.
+        if (virtualized && value && index !== lastHighlightedIndex.current) {
+          lastHighlightedIndex.current = index;
+          queueMicrotask(() =>
+            virtualizer.scrollToIndex(index, { align: "auto" }),
+          );
+        }
+      }}
     >
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
         <div className="flex items-center border-b border-border px-2 p-1 [-webkit-app-region:drag]">
@@ -255,27 +351,73 @@ function ListScreenRoot<T>({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2">
-          <Autocomplete.List className="relative w-full">
-            {(item: T) => (
-              <Autocomplete.Item
-                key={getId(item)}
-                value={item}
-                onClick={() => onActivate?.(item)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  changeHighlight(item);
-                  setMenuOpen(true);
-                }}
-                render={(props, state) =>
-                  cloneElement(
-                    renderItem(item, { highlighted: state.highlighted }),
-                    props,
-                  )
-                }
-              />
-            )}
-          </Autocomplete.List>
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2">
+          {virtualized ? (
+            <Autocomplete.List
+              className="relative w-full"
+              style={{ height: virtualizer.getTotalSize() }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const item = visible[virtualRow.index];
+                if (!item) return null;
+                const measure = measureItem?.(item) ?? false;
+                return (
+                  <Autocomplete.Item
+                    key={getId(item)}
+                    value={item}
+                    index={virtualRow.index}
+                    onClick={() => onActivate?.(item)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setHighlighted(item);
+                      setMenuOpen(true);
+                    }}
+                    {...(measure
+                      ? {
+                          ref: virtualizer.measureElement,
+                          "data-index": virtualRow.index,
+                        }
+                      : {})}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: virtualRow.size,
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                    render={(props, state) =>
+                      cloneElement(
+                        renderItem(item, { highlighted: state.highlighted }),
+                        props,
+                      )
+                    }
+                  />
+                );
+              })}
+            </Autocomplete.List>
+          ) : (
+            <Autocomplete.List className="relative w-full">
+              {(item: T) => (
+                <Autocomplete.Item
+                  key={getId(item)}
+                  value={item}
+                  onClick={() => onActivate?.(item)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setHighlighted(item);
+                    setMenuOpen(true);
+                  }}
+                  render={(props, state) =>
+                    cloneElement(
+                      renderItem(item, { highlighted: state.highlighted }),
+                      props,
+                    )
+                  }
+                />
+              )}
+            </Autocomplete.List>
+          )}
 
           {visible.length === 0 && (
             <div className="px-3 py-2 text-sm text-foreground-subtle">
@@ -285,9 +427,9 @@ function ListScreenRoot<T>({
         </div>
 
         <Footer>
-          {label != null && (
+          {(customFooter != null || label != null) && (
             <Footer.Left>
-              <Footer.Label>{label}</Footer.Label>
+              {customFooter ?? <Footer.Label>{label}</Footer.Label>}
             </Footer.Left>
           )}
           {menu && (

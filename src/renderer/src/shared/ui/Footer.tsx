@@ -1,5 +1,7 @@
 import {
+  Fragment,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentPropsWithoutRef,
@@ -10,6 +12,8 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
 import { useShortcut } from "@renderer/lib/use-shortcut";
+
+const isImageIcon = (icon: string): boolean => /^(https?:|data:|file:)/.test(icon);
 
 /** A key-combo pill (e.g. ⌘⏎ / Ctrl+Enter). Decorative — hidden from a11y. */
 function Kbd({
@@ -222,6 +226,22 @@ export interface FooterMenuItem {
   /** Display hint shown on the row. Bind the key itself with `useShortcut`. */
   shortcut?: string;
   disabled?: boolean;
+  /** Emoji or image URL shown before the label. */
+  icon?: string;
+  /** Render the row in a warning colour (a Delete action). */
+  danger?: boolean;
+  /**
+   * Group heading. Drawn once above the first item of each contiguous run of
+   * items sharing a `section`; items with no `section` get no heading. Keep
+   * items of one section next to each other in the array.
+   */
+  section?: string;
+  /**
+   * Guards a destructive action with a second activation: the first select
+   * swaps the label to this text and arms the row (auto-disarms after a few
+   * seconds, or when the query changes); a second select runs `onSelect`.
+   */
+  confirmLabel?: string;
   onSelect: () => void;
 }
 
@@ -244,10 +264,13 @@ export interface FooterMenuProps {
 }
 
 /**
- * A searchable actions menu for the footer, opened by its trigger or the ⌘K
- * shortcut. Uncontrolled by default (owns its open/close and binds ⌘K); pass
- * `open` / `onOpenChange` to drive it. An item's `shortcut` is a display hint on
- * the row; bind the key itself with `useShortcut` in the screen.
+ * A searchable, single-level actions menu for the footer, opened by its trigger
+ * or the ⌘K shortcut. Uncontrolled by default (owns its open/close and binds
+ * ⌘K); pass `open` / `onOpenChange` to drive it. An item's `shortcut` is a
+ * display hint on the row; bind the key itself with `useShortcut` in the screen.
+ * Items can carry an `icon`, a `section` heading, `danger` styling, and a
+ * `confirmLabel` (arm-then-confirm) — see `FooterMenuItem`. No nesting: a menu
+ * that wants sub-lists lays them out as sections instead.
  *
  *   const format = () => editor.current?.format();
  *   useShortcut({ "CommandOrControl+S": format });
@@ -271,6 +294,8 @@ function Menu({
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = openProp ?? uncontrolledOpen;
   const [search, setSearch] = useState("");
+  // Key of the `confirmLabel` item awaiting its second activation, if any.
+  const [armedId, setArmedId] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   // The popup is portalled into this element rather than `document.body`, so it
   // stays inside the owning screen's subtree. When an `onSelect` navigates and
@@ -284,13 +309,48 @@ function Menu({
     onOpenChange?.(next);
   };
 
-  // Clear the query on every close path (select / Escape / outside click / ⌘K).
+  // Clear the query and disarm any pending confirm on every close path
+  // (select / Escape / outside click / ⌘K).
   useEffect(() => {
-    if (!open) setSearch("");
+    if (!open) {
+      setSearch("");
+      setArmedId(null);
+    }
   }, [open]);
+
+  // A pending confirm disarms when the user filters away from it, and a few
+  // seconds after arming if it's never confirmed.
+  useEffect(() => {
+    setArmedId(null);
+  }, [search]);
+  useEffect(() => {
+    if (!armedId) return;
+    const timer = setTimeout(() => setArmedId(null), 4000);
+    return () => clearTimeout(timer);
+  }, [armedId]);
+
+  // Heading rows: the key of the first item of each contiguous `section` run.
+  const sectionFirstKeys = useMemo(() => {
+    const keys = new Set<string>();
+    let prev: string | undefined;
+    for (const item of items) {
+      const key = item.id ?? item.label;
+      if (item.section && item.section !== prev) keys.add(key);
+      prev = item.section;
+    }
+    return keys;
+  }, [items]);
 
   const choose = (item: FooterMenuItem) => {
     if (item.disabled) return;
+    const key = item.id ?? item.label;
+    // First hit on a guarded item just arms it — keep the menu open so the
+    // swapped-in `confirmLabel` is visible for the confirming second hit.
+    if (item.confirmLabel && armedId !== key) {
+      setArmedId(key);
+      return;
+    }
+    setArmedId(null);
     setOpen(false);
     item.onSelect();
   };
@@ -334,26 +394,64 @@ function Menu({
               />
             </div>
             <Autocomplete.List className="p-1">
-              {(item: FooterMenuItem) => (
-                <Autocomplete.Item
-                  key={item.id ?? item.label}
-                  value={item}
-                  onClick={() => choose(item)}
-                  className={cn(
-                    "flex w-full cursor-default items-center justify-between gap-2 rounded px-2 py-1.5 text-sm outline-none",
-                    "data-[highlighted]:bg-item-selected data-[highlighted]:text-foreground",
-                    item.disabled && "opacity-40",
-                  )}
-                >
-                  <span className="truncate">{item.label}</span>
-                  {item.shortcut ? (
-                    <Kbd
-                      accelerator={item.shortcut}
-                      className="border-border"
-                    />
-                  ) : null}
-                </Autocomplete.Item>
-              )}
+              {(item: FooterMenuItem, index: number) => {
+                const key = item.id ?? item.label;
+                const armed = armedId === key;
+                return (
+                  <Fragment key={key}>
+                    {sectionFirstKeys.has(key) && (
+                      <div
+                        aria-hidden
+                        className={cn(
+                          "px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-foreground-subtle",
+                          index === 0 ? "pt-1" : "pt-3",
+                        )}
+                      >
+                        {item.section}
+                      </div>
+                    )}
+                    <Autocomplete.Item
+                      value={item}
+                      onClick={() => choose(item)}
+                      className={cn(
+                        "flex w-full cursor-default items-center justify-between gap-2 rounded px-2 py-1.5 text-sm outline-none",
+                        armed
+                          ? "bg-red-500/20 text-red-400"
+                          : item.danger
+                            ? "text-red-400/90 data-[highlighted]:text-red-400"
+                            : "data-[highlighted]:bg-item-selected data-[highlighted]:text-foreground",
+                        item.disabled && "opacity-40",
+                      )}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        {item.icon &&
+                          (isImageIcon(item.icon) ? (
+                            <img
+                              src={item.icon}
+                              alt=""
+                              className="h-4 w-4 shrink-0 object-contain"
+                            />
+                          ) : (
+                            <span className="w-4 shrink-0 text-center text-[13px]">
+                              {item.icon}
+                            </span>
+                          ))}
+                        <span className="truncate">
+                          {armed && item.confirmLabel
+                            ? item.confirmLabel
+                            : item.label}
+                        </span>
+                      </span>
+                      {item.shortcut ? (
+                        <Kbd
+                          accelerator={item.shortcut}
+                          className="border-border"
+                        />
+                      ) : null}
+                    </Autocomplete.Item>
+                  </Fragment>
+                );
+              }}
             </Autocomplete.List>
             <Autocomplete.Empty className="px-2 py-1.5 text-xs text-foreground-subtle">
               No actions found

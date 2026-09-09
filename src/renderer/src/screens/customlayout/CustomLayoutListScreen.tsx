@@ -36,7 +36,6 @@ function CustomLayoutListScreen({
   onExit: () => void;
 }) {
   const [items, setItems] = useState<CustomLayoutDef[] | null>(null);
-  const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     void window.api.customLayout.list().then(setItems);
@@ -47,12 +46,6 @@ function CustomLayoutListScreen({
   useEffect(() => {
     reload();
   }, [reload]);
-
-  useEffect(() => {
-    if (!armedDeleteId) return;
-    const timer = setTimeout(() => setArmedDeleteId(null), 4000);
-    return () => clearTimeout(timer);
-  }, [armedDeleteId]);
 
   async function remove(def: CustomLayoutDef): Promise<void> {
     await window.api.customLayout.delete(def.id);
@@ -66,7 +59,6 @@ function CustomLayoutListScreen({
       onSelect: onCreate,
     };
     if (!def) return [newItem];
-    const armed = armedDeleteId === def.id;
     return [
       {
         id: "apply",
@@ -82,15 +74,10 @@ function CustomLayoutListScreen({
       },
       {
         id: "delete",
-        label: armed ? `Delete "${def.name}"? Select again` : "Delete Command",
-        onSelect: () => {
-          if (armed) {
-            setArmedDeleteId(null);
-            void remove(def);
-          } else {
-            setArmedDeleteId(def.id);
-          }
-        },
+        label: "Delete Command",
+        confirmLabel: `Delete "${def.name}"? Select again`,
+        danger: true,
+        onSelect: () => void remove(def),
       },
       newItem,
     ];

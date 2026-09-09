@@ -25,7 +25,6 @@ function ListScreen({
   onExit: () => void;
 }) {
   const [items, setItems] = useState<QuickValueDef[] | null>(null);
-  const [armedDeleteId, setArmedDeleteId] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     void window.api.quickValue.list().then(setItems);
@@ -36,12 +35,6 @@ function ListScreen({
   useEffect(() => {
     reload();
   }, [reload]);
-
-  useEffect(() => {
-    if (!armedDeleteId) return;
-    const timer = setTimeout(() => setArmedDeleteId(null), 4000);
-    return () => clearTimeout(timer);
-  }, [armedDeleteId]);
 
   async function toggleExposed(qv: QuickValueDef): Promise<void> {
     await window.api.quickValue.setExposed(qv.id, !qv.exposed);
@@ -60,7 +53,6 @@ function ListScreen({
       onSelect: onCreate,
     };
     if (!qv) return [newItem];
-    const armed = armedDeleteId === qv.id;
     return [
       { id: "edit", label: "Edit QuickValue", onSelect: () => onEdit(qv.id) },
       {
@@ -70,17 +62,10 @@ function ListScreen({
       },
       {
         id: "delete",
-        label: armed
-          ? `Delete "${qv.name}"? Select again`
-          : "Delete QuickValue",
-        onSelect: () => {
-          if (armed) {
-            setArmedDeleteId(null);
-            void remove(qv);
-          } else {
-            setArmedDeleteId(qv.id);
-          }
-        },
+        label: "Delete QuickValue",
+        confirmLabel: `Delete "${qv.name}"? Select again`,
+        danger: true,
+        onSelect: () => void remove(qv),
       },
       newItem,
     ];

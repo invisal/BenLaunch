@@ -117,7 +117,7 @@ export class QuicklinkSource implements ActionSource {
 
   /**
    * Run a quicklink or the built-in "Edit Quicklinks" action. `openWithOverride`
-   * comes from the action panel's "Open With" submenu: a path forces that app,
+   * comes from the Ctrl+K menu's "Open With" rows: a path forces that app,
    * an empty string forces the system default (ignoring the link's saved
    * `openWith`), and `undefined` uses whatever the link was saved with.
    */

@@ -1,31 +1,33 @@
 import type { LauncherAction } from "@shared/types";
 import type { ContextMenuContext, ContextMenuContributor, MenuActionItem } from "./types";
 
-/** The "Open With…" submenu: the system default plus every resolved app. */
-function openWithItem(actionId: string, ctx: ContextMenuContext): MenuActionItem {
-  return {
-    id: "open-with",
-    label: "Open With…",
-    submenu: [
-      {
-        id: "ow:__default",
-        label: "Default App",
-        onSelect: () => {
-          void window.api.openQuicklinkWith(actionId, ctx.query, "");
-          ctx.dismiss();
-        },
+/** The "Open With" rows: the system default plus every resolved app, as one
+ *  flat `section` (there are no submenus). */
+function openWithItems(
+  actionId: string,
+  ctx: ContextMenuContext,
+): MenuActionItem[] {
+  return [
+    {
+      id: "ow:__default",
+      section: "Open With",
+      label: "Default App",
+      onSelect: () => {
+        void window.api.openQuicklinkWith(actionId, ctx.query, "");
+        ctx.dismiss();
       },
-      ...ctx.apps.map((app) => ({
-        id: `ow:${app.path}`,
-        label: app.name,
-        icon: app.icon,
-        onSelect: () => {
-          void window.api.openQuicklinkWith(actionId, ctx.query, app.path);
-          ctx.dismiss();
-        },
-      })),
-    ],
-  };
+    },
+    ...ctx.apps.map((app) => ({
+      id: `ow:${app.path}`,
+      section: "Open With",
+      label: app.name,
+      icon: app.icon,
+      onSelect: () => {
+        void window.api.openQuicklinkWith(actionId, ctx.query, app.path);
+        ctx.dismiss();
+      },
+    })),
+  ];
 }
 
 /**
@@ -64,7 +66,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           shortcut: "Enter",
           onSelect: () => ctx.runAction(action),
         },
-        openWithItem(actionId, ctx),
+        ...openWithItems(actionId, ctx),
         {
           id: "pin",
           section: "Manage Quicklink",

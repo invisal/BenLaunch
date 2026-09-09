@@ -1,38 +1,17 @@
 import type { LauncherAction } from "@shared/types";
 import type { OpenWithApp } from "@shared/quicklink";
+import type { FooterMenuItem } from "@renderer/shared/ui";
 import type { Route } from "../router/types";
 
 /**
- * One entry in the Ctrl+K "Actions" menu. Consumed by `ActionsMenu`, produced by
- * the context-menu contributors (`./registry`). A bare leaf has an `onSelect`; an
- * item with a `submenu` drills in instead; `confirmLabel` guards a destructive
- * leaf with a second activation.
+ * One entry in the Ctrl+K "Actions" menu, produced by the context-menu
+ * contributors (`./registry`) and rendered by the shared `Footer.Menu` — a
+ * flat, searchable list. It's exactly a `FooterMenuItem`: a leaf with an
+ * `onSelect`, optionally carrying an `icon`, a `section` heading, `danger`
+ * styling, or a `confirmLabel` (arm-then-confirm). No nesting — a group of
+ * related actions is a `section`, not a submenu.
  */
-export interface MenuActionItem {
-  id: string;
-  label: string;
-  shortcut?: string;
-  /** Emoji or image URL shown before the label (used by the "Open With" apps). */
-  icon?: string;
-  /** Render in a warning colour (Delete Quicklink). */
-  danger?: boolean;
-  /**
-   * Group heading. A heading is drawn above the first item of each run of items
-   * that share a `section`; items with no `section` get no heading. Keep items
-   * of one section contiguous in the array.
-   */
-  section?: string;
-  /** Leaf action. Omitted when the item only opens a `submenu`. */
-  onSelect?: () => void;
-  /** When present, selecting the item drills into this nested list instead. */
-  submenu?: MenuActionItem[];
-  /**
-   * Destructive leaf action guarded by a second activation: the first
-   * activation just swaps the label to this text (arming it); a second
-   * activation within a few seconds runs `onSelect`.
-   */
-  confirmLabel?: string;
-}
+export type MenuActionItem = FooterMenuItem;
 
 /**
  * Renderer-local capabilities a contributor can trigger from a menu item's
@@ -45,7 +24,7 @@ export interface ContextMenuContext {
   query: string;
   /** Whether the launcher is currently pinned — for the Pin/Unpin label. */
   pinned: boolean;
-  /** Installed apps, for the quicklink "Open With…" submenu. */
+  /** Installed apps, for the quicklink "Open With" menu rows. */
   apps: OpenWithApp[];
   setQuery(value: string): void;
   /** Push a screen onto the launcher's navigation stack (e.g. the Create Quicklink form). */
