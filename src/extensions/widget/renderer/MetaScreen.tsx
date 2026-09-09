@@ -6,9 +6,12 @@ import { DEFAULT_CODE } from "../shared/default-code";
 /**
  * The metadata for a Widget — name, description, "expose as command" — as a
  * screen pushed onto the launcher's navigation stack (not a framed window). The
- * code lives in its own window (`CodeScreen`), opened by the "Code" row, which
- * persists the metadata first (with `DEFAULT_CODE` on create) so the editor has
- * a real id to save against.
+ * code lives in its own window (`CodeScreen`).
+ *
+ * Create mode is deliberately minimal: just Name and Description. There's no
+ * Code row or Expose switch yet — a new Widget is always exposed, seeded with
+ * `DEFAULT_CODE`, and Save drops you straight into the code editor window.
+ * The Expose switch and the "edit code" row only appear once the Widget exists.
  *
  * On edit we deliberately never send `code` back on save — the store keeps the
  * existing code when a draft omits it — so saving here can't clobber an edit
@@ -23,14 +26,15 @@ function MetaScreen({
   /** Return to the list (the adapter also reloads it). */
   onDone: () => void;
 }) {
+  const isCreate = id === null;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [exposed, setExposed] = useState(true);
-  const [loaded, setLoaded] = useState(id === null);
+  const [loaded, setLoaded] = useState(isCreate);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (id === null) return;
+    if (isCreate) return;
     let cancelled = false;
     void window.api.widget.get(id).then((def) => {
       if (cancelled || !def) return;
@@ -51,30 +55,32 @@ function MetaScreen({
       name: name.trim(),
       description: description.trim() || undefined,
       // Seed code only on create; on edit, omit it so the code window wins.
-      code: id === null ? DEFAULT_CODE : undefined,
-      exposed,
+      code: isCreate ? DEFAULT_CODE : undefined,
+      // New Widgets are always exposed; the switch only exists on edit.
+      exposed: isCreate ? true : exposed,
     });
     return saved.id;
   }
 
-  async function saveAndClose(): Promise<void> {
-    if (!name.trim() || busy) return;
-    setBusy(true);
-    try {
-      await persist();
-      onDone();
-    } finally {
-      setBusy(false);
-    }
+  /**
+   * Save. On create this hands off to the code editor window (a new Widget has
+   * nothing but boilerplate code, so the next step is always to write it); on
+   * edit it just returns to the list.
+   */
+  async function save(): Promise<void> {
+    await saveThen(isCreate);
   }
 
-  async function saveAndEditCode(): Promise<void> {
+  /** Persist, optionally open the code window, then return to the list. */
+  async function saveThen(openCode: boolean): Promise<void> {
     if (!name.trim() || busy) return;
     setBusy(true);
     try {
       const savedId = await persist();
-      // Opens the standalone CodeMirror window (see WidgetSource.execute).
-      void window.api.execute(`widget:edit:${savedId}`, "");
+      if (openCode) {
+        // Opens the standalone CodeMirror window (see WidgetSource.execute).
+        void window.api.execute(`widget:edit:${savedId}`, "");
+      }
       onDone();
     } finally {
       setBusy(false);
@@ -83,7 +89,7 @@ function MetaScreen({
 
   useShortcut({
     Escape: onDone,
-    "CommandOrControl+Enter": () => void saveAndClose(),
+    "CommandOrControl+Enter": () => void save(),
   });
 
   return (
@@ -98,7 +104,7 @@ function MetaScreen({
           ←
         </button>
         <span className="text-sm font-medium">
-          {id === null ? "Create Widget" : name || "Edit Widget"}
+          {isCreate ? "Create Widget" : name || "Edit Widget"}
         </span>
       </div>
 
@@ -132,23 +138,27 @@ function MetaScreen({
                   />
                 </Form.Field>
 
-                <Form.Field
-                  label="Code"
-                  description="Runs in a background Node process. Opens in the editor window."
-                >
-                  <Form.Trigger
-                    onClick={() => void saveAndEditCode()}
-                    disabled={busy || !name.trim()}
-                  >
-                    TypeScript
-                  </Form.Trigger>
-                </Form.Field>
+                {!isCreate && (
+                  <>
+                    <Form.Field
+                      label="Code"
+                      description="Runs in a background Node process. Opens in the editor window."
+                    >
+                      <Form.Trigger
+                        onClick={() => void saveThen(true)}
+                        disabled={busy || !name.trim()}
+                      >
+                        TypeScript
+                      </Form.Trigger>
+                    </Form.Field>
 
-                <Form.Switch
-                  label="Expose as a launcher command"
-                  checked={exposed}
-                  onCheckedChange={setExposed}
-                />
+                    <Form.Switch
+                      label="Expose as a launcher command"
+                      checked={exposed}
+                      onCheckedChange={setExposed}
+                    />
+                  </>
+                )}
               </Form>
             )}
           </Layout.Content>
@@ -167,9 +177,9 @@ function MetaScreen({
                 loading={busy}
                 loadingLabel="Saving…"
                 disabled={!name.trim()}
-                onClick={() => void saveAndClose()}
+                onClick={() => void save()}
               >
-                Save
+                {isCreate ? "Create & Edit Code" : "Save"}
               </Layout.Footer.Button>
             </Layout.Footer.Right>
           </Layout.Footer>

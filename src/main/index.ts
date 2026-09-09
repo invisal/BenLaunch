@@ -31,7 +31,12 @@ import { registerWidgetIpc } from "@extensions/widget/ipc/handlers";
 import { registerCustomLayoutIpc } from "./sources/window/custom-ipc";
 import { registerWindowControlsIpc } from "./window-chrome";
 import { listOpenWithApps } from "./sources/apps/open-with";
-import { centerOnActiveDisplay, createLauncherWindow } from "./window";
+import {
+  createLauncherWindow,
+  getLauncherWindow,
+  hideLauncher,
+  showLauncher,
+} from "./window";
 
 // Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
 // (e.g. to Mission Control/Spotlight variants) and Cmd+Space/Cmd+Option+Space/
@@ -65,7 +70,6 @@ if (!app.requestSingleInstanceLock()) {
   process.exit(0);
 }
 
-let launcherWindow: BrowserWindow | null = null;
 let pinned = false;
 /**
  * Set while a modal picker (the file/folder dialog) is open, so the launcher's
@@ -92,16 +96,15 @@ function launcherHandle(win: BrowserWindow): number {
 }
 
 function toggleLauncher(): void {
-  if (!launcherWindow) return;
-  if (launcherWindow.isVisible()) {
-    launcherWindow.hide();
+  const win = getLauncherWindow();
+  if (!win) return;
+  if (win.isVisible()) {
+    win.hide();
     return;
   }
   // Grab the window the user is in now, before show()/focus() makes it the launcher.
-  captureFocusedWindow(launcherHandle(launcherWindow));
-  centerOnActiveDisplay(launcherWindow);
-  launcherWindow.show();
-  launcherWindow.focus();
+  captureFocusedWindow(launcherHandle(win));
+  showLauncher();
   // Pick up changes since the last run (e.g. apps installed/removed); sources throttle.
   refreshActionSources();
 }
@@ -123,7 +126,7 @@ app.on("second-instance", (_event, argv) => {
 });
 
 app.whenReady().then(() => {
-  launcherWindow = createLauncherWindow(keepLauncherOpen);
+  createLauncherWindow(keepLauncherOpen);
   handleCliAction(process.argv);
 
   // Warm every action source now (apps: disk cache, then a background worker run)
@@ -141,13 +144,13 @@ app.whenReady().then(() => {
   ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string, text: string) => {
     // Hide synchronously before launching so the launcher disappears instantly,
     // instead of lingering until the launched app grabs focus and triggers `blur`.
-    if (!pinned) launcherWindow?.hide();
+    if (!pinned) hideLauncher();
     // `text` is threaded through so usage tracking can learn "typed X, picked Y".
     return executeAction(id, text);
   });
 
   ipcMain.on(IPC_CHANNELS.hide, () => {
-    launcherWindow?.hide();
+    hideLauncher();
   });
 
   ipcMain.handle(
@@ -182,7 +185,7 @@ app.whenReady().then(() => {
     IPC_CHANNELS.quicklinkOpenWith,
     (_event, id: string, text: string, appPath: string) => {
       // Mirror the main execute handler: hide first so the launcher vanishes at once.
-      if (!pinned) launcherWindow?.hide()
+      if (!pinned) hideLauncher()
       return openQuicklinkWith(id, text, appPath)
     }
   )
@@ -195,6 +198,7 @@ app.whenReady().then(() => {
           'openDirectory' | 'openFile'
         >
       }
+      const launcherWindow = getLauncherWindow()
       suppressAutoHide = true
       try {
         const result = launcherWindow
@@ -233,7 +237,7 @@ app.whenReady().then(() => {
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      launcherWindow = createLauncherWindow(keepLauncherOpen);
+      createLauncherWindow(keepLauncherOpen);
     }
   });
 });

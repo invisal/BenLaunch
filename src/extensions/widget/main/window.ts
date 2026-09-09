@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { framelessChrome } from '@main/window-chrome'
+import { showLauncher } from '@main/window'
 
 /**
  * The Widget window is the CodeMirror editor for a single Widget — the
@@ -55,6 +56,9 @@ export function openWidgetWindow(target: WidgetView): void {
   widgetWindow.once('ready-to-show', () => widgetWindow?.show())
   widgetWindow.on('closed', () => {
     widgetWindow = null
+    // Every dismissal (Save, Cancel, ✕, ⌘W) funnels through here — bring the
+    // launcher the user came from back to the front.
+    showLauncher()
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
