@@ -38,7 +38,11 @@ async function build(): Promise<OpenWithApp[]> {
 
   for (const browser of browsers) add(browser.name, browser.path)
   for (const shortcut of appsCache?.shortcuts ?? []) {
-    if (shortcut.target) add(shortcut.title, shortcut.target, shortcut.icon)
+    // Windows: only shortcuts whose `.lnk` resolves to an `.exe` are launchable
+    // with an argument. macOS: every `.app` bundle's own path is the target —
+    // there's no separate shortcut-vs-resolved-target distinction.
+    const launchPath = process.platform === 'win32' ? shortcut.target : shortcut.path
+    if (launchPath) add(shortcut.title, launchPath, shortcut.icon)
   }
 
   // Fill in any missing icons straight from the executable (browsers, mostly).

@@ -91,8 +91,14 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
       return;
     }
     setArmedId(null);
-    item.onSelect?.();
     onOpenChange(false);
+    // Deferred: some items (e.g. "Create Quicklink") navigate to a new screen,
+    // which deactivates this one via `<Activity>`. React batches same-tick
+    // updates into one commit, so closing and navigating together can leave
+    // this Menu's portal — rendered outside the Activity-hidden subtree —
+    // stuck mid-close with its teardown effects never run. Letting the close
+    // commit on its own first (while still active) avoids that.
+    setTimeout(() => item.onSelect?.(), 0);
   }
 
   function pop(): void {
@@ -168,7 +174,7 @@ function ActionsMenu({ open, onOpenChange, actions, finalFocus }: ActionsMenuPro
             finalFocus={finalFocus}
             className={cn(
               "flex w-72 max-h-[min(26rem,var(--available-height))] flex-col overflow-hidden",
-              "rounded-md border border-border bg-background text-foreground shadow-lg outline-none",
+              "rounded-md border border-border bg-popover text-foreground shadow-lg outline-none",
             )}
           >
             {inSubmenu && (

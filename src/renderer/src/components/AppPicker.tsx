@@ -74,7 +74,7 @@ function AppPicker({ apps, value, onChange, defaultLabel }: AppPickerProps) {
           <Combobox.Popup
             className={cn(
               "flex max-h-[min(18rem,var(--available-height))] w-[var(--anchor-width)] flex-col overflow-hidden",
-              "rounded-md border border-border bg-background text-sm text-foreground shadow-lg outline-none",
+              "rounded-md border border-border bg-popover text-sm text-foreground shadow-lg outline-none",
             )}
           >
             <div className="border-b border-border p-1">
