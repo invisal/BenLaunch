@@ -1,21 +1,26 @@
-import { dialog, shell, systemPreferences } from 'electron'
-import { execFile, execFileSync } from 'node:child_process'
-import { promisify } from 'node:util'
-import { allDisplays, currentDisplay, toRect, workAreaFor } from './electron-screen'
+import { dialog, shell, systemPreferences } from "electron";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
+import {
+  allDisplays,
+  currentDisplay,
+  toRect,
+  workAreaFor,
+} from "./electron-screen";
 import {
   computeCustomRect,
   computeEdgeMove,
   computeTargetRect,
   mapRectToDisplay,
   pickAdjacentDisplay,
-  type Rect
-} from './layout'
-import { popRestore, saveForRestore } from './restore-stack'
-import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from './layout'
+  type Rect,
+} from "./layout";
+import { popRestore, saveForRestore } from "./restore-stack";
+import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 
-export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from './layout'
+export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 
-const execFileAsync = promisify(execFile)
+const execFileAsync = promisify(execFile);
 
 /**
  * macOS-side window control: no native addon (consistent with how `apps-mac.ts`
@@ -29,7 +34,7 @@ const execFileAsync = promisify(execFile)
  */
 
 /** Last-captured application pid; 0 when none/unknown. */
-let capturedPid = 0
+let capturedPid = 0;
 
 /**
  * Records the frontmost application's pid. Must run synchronously right before
@@ -39,26 +44,26 @@ let capturedPid = 0
 export function capture(): void {
   try {
     const out = execFileSync(
-      'osascript',
+      "osascript",
       [
-        '-e',
-        'tell application "System Events" to get unix id of first application process whose frontmost is true'
+        "-e",
+        'tell application "System Events" to get unix id of first application process whose frontmost is true',
       ],
-      { encoding: 'utf8', timeout: 500 }
-    ).trim()
-    const pid = Number(out)
+      { encoding: "utf8", timeout: 500 },
+    ).trim();
+    const pid = Number(out);
     // Our own process is reported like any other; excluding it is the mac
     // analogue of Windows' `exclude` handle, needing no extra plumbing since
     // Electron's main process pid *is* what System Events reports for us.
-    capturedPid = pid && pid !== process.pid ? pid : 0
+    capturedPid = pid && pid !== process.pid ? pid : 0;
   } catch (error) {
-    console.error('[window/mac] capture failed:', error)
-    capturedPid = 0
+    console.error("[window/mac] capture failed:", error);
+    capturedPid = 0;
   }
 }
 
 function restoreKey(pid: number): string {
-  return `mac:${pid}`
+  return `mac:${pid}`;
 }
 
 async function readFrame(pid: number): Promise<Rect | null> {
@@ -69,16 +74,19 @@ async function readFrame(pid: number): Promise<Rect | null> {
     set {sw, sh} to size of win
     return (px as text) & "," & (py as text) & "," & (sw as text) & "," & (sh as text)
   end tell
-end tell`
+end tell`;
   try {
-    const { stdout } = await execFileAsync('osascript', ['-e', script], { timeout: 1000 })
-    const [x, y, width, height] = stdout.trim().split(',').map(Number)
-    if ([x, y, width, height].some((value) => !Number.isFinite(value))) return null
-    return { x, y, width, height }
+    const { stdout } = await execFileAsync("osascript", ["-e", script], {
+      timeout: 1000,
+    });
+    const [x, y, width, height] = stdout.trim().split(",").map(Number);
+    if ([x, y, width, height].some((value) => !Number.isFinite(value)))
+      return null;
+    return { x, y, width, height };
   } catch (error) {
-    console.error('[window/mac] readFrame failed:', error)
-    notifyPermissionIssue()
-    return null
+    console.error("[window/mac] readFrame failed:", error);
+    notifyPermissionIssue();
+    return null;
   }
 }
 
@@ -88,21 +96,26 @@ end tell`
  * move is what makes the final result stick.
  */
 async function writeFrame(pid: number, rect: Rect): Promise<boolean> {
-  const { x, y, width, height } = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) }
+  const { x, y, width, height } = {
+    x: Math.round(rect.x),
+    y: Math.round(rect.y),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+  };
   const script = `tell application "System Events"
   tell (first process whose unix id is ${pid})
     set size of window 1 to {${width}, ${height}}
     set position of window 1 to {${x}, ${y}}
     set size of window 1 to {${width}, ${height}}
   end tell
-end tell`
+end tell`;
   try {
-    await execFileAsync('osascript', ['-e', script], { timeout: 1000 })
-    return true
+    await execFileAsync("osascript", ["-e", script], { timeout: 1000 });
+    return true;
   } catch (error) {
-    console.error('[window/mac] writeFrame failed:', error)
-    notifyPermissionIssue()
-    return false
+    console.error("[window/mac] writeFrame failed:", error);
+    notifyPermissionIssue();
+    return false;
   }
 }
 
@@ -120,14 +133,61 @@ async function toggleFullscreenFrame(pid: number): Promise<boolean> {
     set win to window 1
     set value of attribute "AXFullScreen" of win to not (value of attribute "AXFullScreen" of win)
   end tell
-end tell`
+end tell`;
   try {
-    await execFileAsync('osascript', ['-e', script], { timeout: 1000 })
-    return true
+    await execFileAsync("osascript", ["-e", script], { timeout: 1000 });
+    return true;
   } catch (error) {
-    console.error('[window/mac] toggleFullscreenFrame failed:', error)
-    notifyPermissionIssue()
-    return false
+    console.error("[window/mac] toggleFullscreenFrame failed:", error);
+    notifyPermissionIssue();
+    return false;
+  }
+}
+
+/**
+ * Whether the window is currently in native macOS fullscreen (its own Space,
+ * filling the whole display — what users see as the window taking over the
+ * "wide screen"). Read via the same `AXFullScreen` attribute `toggleFullscreenFrame`
+ * writes.
+ */
+async function isFullscreenFrame(pid: number): Promise<boolean> {
+  const script = `tell application "System Events"
+  tell (first process whose unix id is ${pid})
+    return value of attribute "AXFullScreen" of window 1
+  end tell
+end tell`;
+  try {
+    const { stdout } = await execFileAsync("osascript", ["-e", script], {
+      timeout: 1000,
+    });
+    return stdout.trim() === "true";
+  } catch {
+    // Some windows don't expose AXFullScreen at all — treat as "not fullscreen"
+    // rather than surfacing a permission dialog for a check that's just advisory.
+    return false;
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * A window in native fullscreen fills the entire display and macOS refuses to
+ * reposition/resize it — `writeFrame` silently fails (osascript errors, caught
+ * and reported as a permission issue) every time it's tried against one, which
+ * from the user's side looks like window management having stopped working
+ * the moment a window went "wide screen". Snap/move/restore commands need the
+ * window out of fullscreen first, so this exits it and waits out the exit
+ * animation (macOS has no synchronous "fullscreen toggle finished" signal)
+ * before the caller reads/writes the frame.
+ */
+async function exitFullscreenIfNeeded(pid: number): Promise<void> {
+  if (!(await isFullscreenFrame(pid))) return;
+  await toggleFullscreenFrame(pid);
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await delay(100);
+    if (!(await isFullscreenFrame(pid))) return;
   }
 }
 
@@ -136,12 +196,12 @@ end tell`
  * runs on mac and it's not yet granted — not proactively at app launch, so the
  * user isn't hit with a system dialog before they've asked for this feature.
  */
-let accessibilityPrompted = false
+let accessibilityPrompted = false;
 function ensureAccessibilityPrompted(): void {
-  if (accessibilityPrompted) return
-  accessibilityPrompted = true
+  if (accessibilityPrompted) return;
+  accessibilityPrompted = true;
   if (!systemPreferences.isTrustedAccessibilityClient(false)) {
-    systemPreferences.isTrustedAccessibilityClient(true)
+    systemPreferences.isTrustedAccessibilityClient(true);
   }
 }
 
@@ -151,95 +211,109 @@ function ensureAccessibilityPrompted(): void {
  * failure is treated as "assume a permission gate" and surfaced the same way,
  * once per session so repeated failures don't spam the user with dialogs.
  */
-let permissionDialogShown = false
+let permissionDialogShown = false;
 function notifyPermissionIssue(): void {
-  if (permissionDialogShown) return
-  permissionDialogShown = true
+  if (permissionDialogShown) return;
+  permissionDialogShown = true;
   void dialog
     .showMessageBox({
-      type: 'warning',
-      message: 'BenLaunch needs Accessibility access',
+      type: "warning",
+      message: "BenLaunch needs Accessibility access",
       detail:
         'Window Management moves and resizes other apps’ windows, which macOS only allows once BenLaunch is granted Accessibility access (and, the first time, permission to control "System Events").',
-      buttons: ['Open Privacy Settings', 'Cancel'],
+      buttons: ["Open Privacy Settings", "Cancel"],
       defaultId: 0,
-      cancelId: 1
+      cancelId: 1,
     })
     .then(({ response }) => {
       if (response === 0) {
         void shell.openExternal(
-          'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
-        )
+          "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+        );
       }
-    })
+    });
 }
 
 /** Shared by `applyRegion`/`applyCustomLayout`: capture check, read the current frame, compute, save-for-restore, write. */
-async function applyComputedRect(computeRect: (workArea: Rect, currentRect: Rect) => Rect): Promise<boolean> {
-  if (capturedPid === 0) return false
-  ensureAccessibilityPrompted()
+async function applyComputedRect(
+  computeRect: (workArea: Rect, currentRect: Rect) => Rect,
+): Promise<boolean> {
+  if (capturedPid === 0) return false;
+  ensureAccessibilityPrompted();
+  await exitFullscreenIfNeeded(capturedPid);
 
-  const current = await readFrame(capturedPid)
-  if (!current) return false
+  const current = await readFrame(capturedPid);
+  if (!current) return false;
 
-  const target = computeRect(workAreaFor(current), current)
-  saveForRestore(restoreKey(capturedPid), current)
-  return writeFrame(capturedPid, target)
+  const target = computeRect(workAreaFor(current), current);
+  saveForRestore(restoreKey(capturedPid), current);
+  return writeFrame(capturedPid, target);
 }
 
 export function applyRegion(region: SnapRegion): Promise<boolean> {
-  return applyComputedRect((workArea, currentRect) => computeTargetRect(region, { workArea, currentRect }))
+  return applyComputedRect((workArea, currentRect) =>
+    computeTargetRect(region, { workArea, currentRect }),
+  );
 }
 
 export function applyCustomLayout(
   layout: CustomLayoutGeometry,
   useGap: boolean,
-  gapPx: number
+  gapPx: number,
 ): Promise<boolean> {
   return applyComputedRect((workArea, currentRect) =>
-    computeCustomRect(layout, { workArea, currentRect, useGap, gapPx })
-  )
+    computeCustomRect(layout, { workArea, currentRect, useGap, gapPx }),
+  );
 }
 
-export async function moveToDisplay(direction: 'next' | 'previous'): Promise<boolean> {
-  if (capturedPid === 0) return false
-  ensureAccessibilityPrompted()
+export async function moveToDisplay(
+  direction: "next" | "previous",
+): Promise<boolean> {
+  if (capturedPid === 0) return false;
+  ensureAccessibilityPrompted();
+  await exitFullscreenIfNeeded(capturedPid);
 
-  const current = await readFrame(capturedPid)
-  if (!current) return false
+  const current = await readFrame(capturedPid);
+  if (!current) return false;
 
-  const display = currentDisplay(current)
-  const target = pickAdjacentDisplay(allDisplays(), display.id, direction)
-  if (!target) return false
+  const display = currentDisplay(current);
+  const target = pickAdjacentDisplay(allDisplays(), display.id, direction);
+  if (!target) return false;
 
-  const rect = mapRectToDisplay(current, toRect(display.workArea), target.workArea)
-  saveForRestore(restoreKey(capturedPid), current)
-  return writeFrame(capturedPid, rect)
+  const rect = mapRectToDisplay(
+    current,
+    toRect(display.workArea),
+    target.workArea,
+  );
+  saveForRestore(restoreKey(capturedPid), current);
+  return writeFrame(capturedPid, rect);
 }
 
 export async function moveToEdge(direction: EdgeDirection): Promise<boolean> {
-  if (capturedPid === 0) return false
-  ensureAccessibilityPrompted()
+  if (capturedPid === 0) return false;
+  ensureAccessibilityPrompted();
+  await exitFullscreenIfNeeded(capturedPid);
 
-  const current = await readFrame(capturedPid)
-  if (!current) return false
+  const current = await readFrame(capturedPid);
+  if (!current) return false;
 
-  const target = computeEdgeMove(direction, workAreaFor(current), current)
-  saveForRestore(restoreKey(capturedPid), current)
-  return writeFrame(capturedPid, target)
+  const target = computeEdgeMove(direction, workAreaFor(current), current);
+  saveForRestore(restoreKey(capturedPid), current);
+  return writeFrame(capturedPid, target);
 }
 
 export async function restore(): Promise<boolean> {
-  if (capturedPid === 0) return false
-  ensureAccessibilityPrompted()
+  if (capturedPid === 0) return false;
+  ensureAccessibilityPrompted();
 
-  const previous = popRestore(restoreKey(capturedPid))
-  if (!previous) return false
-  return writeFrame(capturedPid, previous)
+  const previous = popRestore(restoreKey(capturedPid));
+  if (!previous) return false;
+  await exitFullscreenIfNeeded(capturedPid);
+  return writeFrame(capturedPid, previous);
 }
 
 export async function toggleFullscreen(): Promise<boolean> {
-  if (capturedPid === 0) return false
-  ensureAccessibilityPrompted()
-  return toggleFullscreenFrame(capturedPid)
+  if (capturedPid === 0) return false;
+  ensureAccessibilityPrompted();
+  return toggleFullscreenFrame(capturedPid);
 }
