@@ -1,13 +1,13 @@
-import { clipboard } from 'electron'
-import { Extension } from '@core/base'
-import type { RequestSubtitleOptions } from '@shared/types'
-import type { ActionDefinition } from '@main/types'
-import { openWidgetWindow } from './window'
-import { WidgetRunner } from './runner'
-import { WidgetStore } from './store'
+import { clipboard } from "electron";
+import { Extension } from "@core/base";
+import type { RequestSubtitleOptions } from "@shared/types";
+import type { ActionDefinition } from "@main/types";
+import { openWidgetWindow } from "./window";
+import { WidgetRunner } from "./runner";
+import { WidgetStore } from "./store";
 
 /** Action id that opens the code editor window for an existing Widget. */
-const EDIT_PREFIX = 'widget:edit:'
+const EDIT_PREFIX = "widget:edit:";
 
 /**
  * Exposes each "exposed" Widget as a launcher command whose subtitle is the
@@ -30,72 +30,109 @@ const EDIT_PREFIX = 'widget:edit:'
  * keeps limited to visible rows.
  */
 export class WidgetSource extends Extension {
-  readonly store: WidgetStore
-  readonly runner: WidgetRunner
+  readonly store: WidgetStore;
+  readonly runner: WidgetRunner;
 
   constructor() {
-    super('widget')
-    this.store = new WidgetStore(this.storage)
-    this.runner = new WidgetRunner(this.storage)
+    super("widget");
+    this.store = new WidgetStore(this.storage);
+    this.runner = new WidgetRunner(this.storage);
   }
 
   init(): void {
-    this.store.init()
-    this.runner.init()
+    this.store.init();
+    this.runner.init();
   }
 
   provide(): ActionDefinition[] {
-    const exposed = this.store.list().filter((widget) => widget.exposed)
+    // The extension's own entry points. `view` navigates the launcher route
+    // stack renderer-side (see `LauncherScreen.runRow`); `run` never fires.
+    const commands: ActionDefinition[] = [
+      {
+        action: {
+          id: "widget:create",
+          title: "Create Widget",
+          subtitle: "Write a new Widget snippet",
+          icon: "⚡",
+          type: "command",
+          view: "widget-create",
+        },
+        run: () => {},
+      },
+      {
+        action: {
+          id: "widget:manage",
+          title: "Manage Widgets",
+          subtitle: "View, edit and expose your Widgets",
+          icon: "🗂️",
+          type: "command",
+          view: "widget-list",
+        },
+        run: () => {},
+      },
+    ];
+
+    const exposed = this.store.list().filter((widget) => widget.exposed);
     // Cheap bookkeeping only — drops cache entries for Widgets that no
     // longer exist/are no longer exposed. No code runs here.
-    this.runner.prune(exposed.map((widget) => widget.id))
+    this.runner.prune(exposed.map((widget) => widget.id));
 
-    return exposed.map((widget) => {
-      const subtitle = this.runner.getSubtitle(widget.id)
+    const rows = exposed.map((widget) => {
+      const subtitle = this.runner.getSubtitle(widget.id);
       return {
         action: {
           id: `widget:${widget.id}`,
           title: widget.name,
-          subtitle: subtitle || 'Widget',
-          icon: '⚡',
-          type: 'widget' as const,
+          subtitle: subtitle || "Widget",
+          icon: "⚡",
+          type: "widget" as const,
           isDeferredSubtitle: true,
           // No cached value yet is just as much "not ready to show" as an
           // in-flight fetch — both render as a spinner.
-          isLoading: this.runner.isLoading(widget.id) || subtitle === ''
+          isLoading: this.runner.isLoading(widget.id) || subtitle === "",
         },
         run: () => {
-          const s = this.runner.getSubtitle(widget.id)
-          if (s) clipboard.writeText(s)
-          void this.runner.run(widget.id, widget.code)
-        }
-      }
-    })
+          const s = this.runner.getSubtitle(widget.id);
+          if (s) clipboard.writeText(s);
+          void this.runner.run(widget.id, widget.code);
+        },
+      };
+    });
+
+    return [...commands, ...rows];
   }
 
   async execute(actionId: string): Promise<void> {
     if (actionId.startsWith(EDIT_PREFIX)) {
-      openWidgetWindow({ view: 'code', id: actionId.slice(EDIT_PREFIX.length) })
-      return
+      openWidgetWindow({
+        view: "code",
+        id: actionId.slice(EDIT_PREFIX.length),
+      });
+      return;
     }
-    const widget = this.store.get(actionId.slice('widget:'.length))
-    if (widget) await this.runner.run(widget.id, widget.code)
+    const widget = this.store.get(actionId.slice("widget:".length));
+    if (widget) await this.runner.run(widget.id, widget.code);
   }
 
-  async requestSubtitle(actionId: string, opts?: RequestSubtitleOptions): Promise<string | undefined> {
-    const id = actionId.slice('widget:'.length)
-    const widget = this.store.get(id)
+  async requestSubtitle(
+    actionId: string,
+    opts?: RequestSubtitleOptions,
+  ): Promise<string | undefined> {
+    const id = actionId.slice("widget:".length);
+    const widget = this.store.get(id);
     if (!widget?.exposed) {
-      console.log(`[widget] ${id}: requestSubtitle ignored — not found or not exposed`)
-      return undefined
+      console.log(
+        `[widget] ${id}: requestSubtitle ignored — not found or not exposed`,
+      );
+      return undefined;
     }
     if (opts?.force) {
-      console.log(`[widget] ${id}: requestSubtitle (forced)`)
-      await this.runner.run(widget.id, widget.code)
+      console.log(`[widget] ${id}: requestSubtitle (forced)`);
+      await this.runner.run(widget.id, widget.code);
     } else {
-      console.log(`[widget] ${id}: requestSubtitle (row rendered)`)
-      await this.runner.refreshIfStale(widget.id, widget.code)
+      console.log(`[widget] ${id}: requestSubtitle (row rendered)`);
+      await this.runner.refreshIfStale(widget.id, widget.code);
     }
-    return this.runner.getSubtitle(widget.id)
+    return this.runner.getSubtitle(widget.id);
   }
 }
