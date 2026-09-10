@@ -22,7 +22,12 @@ test("popRestore clears the entry, so a second pop returns undefined", () => {
 test("saving again for the same key overwrites the previous rect", () => {
   saveForRestore("win-3", { x: 0, y: 0, width: 100, height: 100 });
   saveForRestore("win-3", { x: 10, y: 10, width: 50, height: 50 });
-  assert.deepEqual(popRestore("win-3"), { x: 10, y: 10, width: 50, height: 50 });
+  assert.deepEqual(popRestore("win-3"), {
+    x: 10,
+    y: 10,
+    width: 50,
+    height: 50,
+  });
 });
 
 test("keys are independent of one another", () => {
