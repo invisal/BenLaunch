@@ -19,12 +19,15 @@ import { WidgetRunner } from "@extensions/widget/main/runner";
 import { WidgetSource } from "@extensions/widget/main/source";
 import { WidgetStore } from "@extensions/widget/main/store";
 import { Usage } from "./usage/store";
+import { GroupExtension } from "@extensions/group";
 
 /** Persisted user settings (today: the custom-layout gap size). Also read directly by `index.ts` to wire the custom-layout manager's IPC. */
 export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
 /** Persisted custom window layouts ("Create Command"). Also read directly by `index.ts` to wire the manager window's IPC. */
-export const customLayoutStore = new CustomLayoutStore({ dir: app.getPath("userData") });
+export const customLayoutStore = new CustomLayoutStore({
+  dir: app.getPath("userData"),
+});
 /** Persisted Widget definitions + the cache of their last computed values. */
 export const widgetStore = new WidgetStore({
   dir: app.getPath("userData"),
@@ -47,6 +50,7 @@ const sources: ActionSource[] = [
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),
+  new GroupExtension(),
 ];
 
 /** Persist a quicklink from the renderer's Create form. */
