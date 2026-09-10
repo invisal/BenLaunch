@@ -3,23 +3,16 @@
  * it's exposed as a launcher command). The values those functions produce are
  * *not* here — that's the runner's cache (see `runner.ts`).
  *
- * Mirrors `usage/store.ts`: deliberately Electron-free (the `node --test` suite
- * imports it directly, `dir` is injected by `actions.ts`), a single JSON file
- * written via temp-file + atomic rename, and every filesystem failure swallowed
- * with a `[widget]` prefix so a bad disk never takes the launcher down.
+ * Persistence goes through the Widget extension's `ExtensionStorage` (injected
+ * by `WidgetSource`), under the `widgets` key of `<userData>/extensions/widget.json`.
+ * This class keeps the domain logic — slugging, id collisions, partial updates —
+ * and stays Electron-free so the `node --test` suite can drive it directly.
  */
-import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import type { ExtensionStorage } from '@core/storage'
 import type { WidgetDef, WidgetDraft } from '../shared/types'
 
-/** Bumped when the persisted shape changes, to invalidate old files. */
-const CACHE_VERSION = 1
-
-interface StoreFile {
-  version: number
-  savedAt: number
-  items: WidgetDef[]
-}
+/** Storage key holding the `WidgetDef[]`. */
+const KEY = 'widgets'
 
 function isWidgetDef(value: unknown): value is WidgetDef {
   if (!value || typeof value !== 'object') return false
@@ -33,13 +26,6 @@ function isWidgetDef(value: unknown): value is WidgetDef {
   )
 }
 
-function isStoreFile(value: unknown): value is StoreFile {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<StoreFile>
-  if (candidate.version !== CACHE_VERSION) return false
-  return Array.isArray(candidate.items) && candidate.items.every(isWidgetDef)
-}
-
 /** `name` → url-safe slug. Empty / all-punctuation names fall back to `widget`. */
 function slugify(name: string): string {
   const slug = name
@@ -51,29 +37,22 @@ function slugify(name: string): string {
 }
 
 export class WidgetStore {
-  private readonly dir: string
-  private readonly now: () => number
+  private readonly storage: ExtensionStorage
 
   private items: WidgetDef[] = []
   private loaded = false
 
-  constructor(opts: { dir: string; now?: () => number }) {
-    this.dir = opts.dir
-    this.now = opts.now ?? Date.now
+  constructor(storage: ExtensionStorage) {
+    this.storage = storage
   }
 
-  /** Load `widgets.json` into memory. Corrupt / missing / old version → empty list. */
+  /** Load the stored list into memory. Missing / malformed → empty list. */
   init(): void {
     if (this.loaded) return
     this.loaded = true
-    console.log('[widget] store file:', this.path())
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(this.path(), 'utf8'))
-      if (isStoreFile(parsed)) this.items = parsed.items
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('[widget] Failed to read store:', error)
-      }
+    const raw = this.storage.get<unknown>(KEY)
+    if (Array.isArray(raw) && raw.every(isWidgetDef)) {
+      this.items = raw as WidgetDef[]
     }
   }
 
@@ -148,28 +127,7 @@ export class WidgetStore {
     }
   }
 
-  private path(): string {
-    return join(this.dir, 'widgets.json')
-  }
-
   private persist(): void {
-    const file = this.path()
-    const tmp = `${file}.tmp`
-    const payload: StoreFile = {
-      version: CACHE_VERSION,
-      savedAt: this.now(),
-      items: this.items
-    }
-    try {
-      writeFileSync(tmp, JSON.stringify(payload, null, 2))
-      renameSync(tmp, file)
-    } catch (error) {
-      console.error('[widget] Failed to write store:', error)
-      try {
-        unlinkSync(tmp)
-      } catch {
-        /* nothing to clean up */
-      }
-    }
+    this.storage.set(KEY, this.items)
   }
 }

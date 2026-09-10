@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, test } from 'node:test'
 
+import { ExtensionStorage } from '../../../core/storage.ts'
 import { WidgetRunner } from './runner.ts'
 import type { UserCodeResult } from './run-user-code.ts'
 
@@ -17,11 +18,13 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
+const storage = (): ExtensionStorage => new ExtensionStorage(join(dir, 'widget.json'), 'ext:widget')
+
 function makeRunner(
   runCode: (code: string, timeoutMs: number) => Promise<UserCodeResult>,
   now: () => number = () => 1000
 ) {
-  const runner = new WidgetRunner({ dir, now, runCode })
+  const runner = new WidgetRunner(storage(), { now, runCode })
   return { runner }
 }
 
@@ -88,7 +91,7 @@ test('cached values survive across instances and prune() drops the rest', async 
   await runner.run('keep', 'c')
   await runner.run('drop', 'c')
 
-  const reloaded = new WidgetRunner({ dir, runCode: async () => ({ ok: true, value: 0 }) })
+  const reloaded = new WidgetRunner(storage(), { runCode: async () => ({ ok: true, value: 0 }) })
   assert.equal(reloaded.getSubtitle('keep'), 'x')
   assert.equal(reloaded.getSubtitle('drop'), 'x')
 

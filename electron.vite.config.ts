@@ -6,11 +6,13 @@ import type { Plugin } from 'vite'
 
 /**
  * Shared path aliases. Extensions (`src/extensions/<name>/`) hold code for every
- * Electron process at once, so they reach into `src/main` / `src/shared` from a
- * few directories deep — the aliases keep those imports flat. Kept in sync with
- * `paths` in tsconfig.node.json / tsconfig.web.json.
+ * Electron process at once, so they reach into `src/core` / `src/main` /
+ * `src/shared` from a few directories deep — the aliases keep those imports flat.
+ * `@core` is the process-agnostic foundation (extension base class + storage).
+ * Kept in sync with `paths` in tsconfig.node.json / tsconfig.web.json.
  */
 const nodeAlias = {
+  '@core': resolve(__dirname, 'src/core'),
   '@main': resolve(__dirname, 'src/main'),
   '@shared': resolve(__dirname, 'src/shared'),
   '@extensions': resolve(__dirname, 'src/extensions')

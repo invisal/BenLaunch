@@ -1,10 +1,10 @@
 import { clipboard } from 'electron'
+import { Extension } from '@core/base'
 import type { RequestSubtitleOptions } from '@shared/types'
 import type { ActionDefinition } from '@main/types'
-import type { ActionSource } from '@main/sources/base'
 import { openWidgetWindow } from './window'
-import type { WidgetRunner } from './runner'
-import type { WidgetStore } from './store'
+import { WidgetRunner } from './runner'
+import { WidgetStore } from './store'
 
 /** Action id that opens the code editor window for an existing Widget. */
 const EDIT_PREFIX = 'widget:edit:'
@@ -14,7 +14,12 @@ const EDIT_PREFIX = 'widget:edit:'
  * value its function last returned. The list itself is cheap and in-memory (from
  * `WidgetStore`); only the per-item values are async, and `WidgetRunner`
  * already caches those with stale-then-refresh semantics — so this is a plain
- * `ActionSource`, not a `CachedActionSource`.
+ * `Extension`, not a cached source.
+ *
+ * As the Widget `Extension` this is also the composition root for its pieces:
+ * both `store` and `runner` persist through `this.storage`
+ * (`<userData>/extensions/widget.json`, keyed `widgets` / `values`). They're
+ * exposed so `index.ts` can wire the manager window's IPC to the same instances.
  *
  * Rows are marked `isDeferredSubtitle`: `provide()` never runs a Widget's
  * code itself (that would mean spawning a worker for every exposed Widget
@@ -24,13 +29,15 @@ const EDIT_PREFIX = 'widget:edit:'
  * separate push channel) — once a row actually renders, which virtualization
  * keeps limited to visible rows.
  */
-export class WidgetSource implements ActionSource {
-  readonly id = 'widget'
+export class WidgetSource extends Extension {
+  readonly store: WidgetStore
+  readonly runner: WidgetRunner
 
-  constructor(
-    private readonly store: WidgetStore,
-    private readonly runner: WidgetRunner
-  ) {}
+  constructor() {
+    super('widget')
+    this.store = new WidgetStore(this.storage)
+    this.runner = new WidgetRunner(this.storage)
+  }
 
   init(): void {
     this.store.init()
@@ -64,10 +71,6 @@ export class WidgetSource implements ActionSource {
         }
       }
     })
-  }
-
-  owns(actionId: string): boolean {
-    return actionId.startsWith('widget:')
   }
 
   async execute(actionId: string): Promise<void> {

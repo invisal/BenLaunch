@@ -15,11 +15,13 @@ import { QuicklinkSource } from "./sources/quicklinks/source";
 import { WindowManagementSource } from "./sources/window/source";
 import { CustomLayoutStore } from "./sources/window/custom-store";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
-import { WidgetRunner } from "@extensions/widget/main/runner";
 import { WidgetSource } from "@extensions/widget/main/source";
-import { WidgetStore } from "@extensions/widget/main/store";
 import { Usage } from "./usage/store";
+import { configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
+
+// Point extensions at `<userData>/extensions/` before any is constructed below.
+configureExtensions(app.getPath("userData"));
 
 /** Persisted user settings (today: the custom-layout gap size). Also read directly by `index.ts` to wire the custom-layout manager's IPC. */
 export const settings = new SettingsStore({ dir: app.getPath("userData") });
@@ -28,13 +30,15 @@ export const settings = new SettingsStore({ dir: app.getPath("userData") });
 export const customLayoutStore = new CustomLayoutStore({
   dir: app.getPath("userData"),
 });
-/** Persisted Widget definitions + the cache of their last computed values. */
-export const widgetStore = new WidgetStore({
-  dir: app.getPath("userData"),
-});
-export const widgetRunner = new WidgetRunner({
-  dir: app.getPath("userData"),
-});
+/**
+ * The Widget extension. It owns its `ExtensionStorage`
+ * (`<userData>/extensions/widget.json`); `store` (definitions) and `runner`
+ * (value cache) are exposed so `index.ts` can wire the manager window's IPC to
+ * the same instances.
+ */
+const widgetSource = new WidgetSource();
+export const widgetStore = widgetSource.store;
+export const widgetRunner = widgetSource.runner;
 
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
@@ -46,7 +50,7 @@ const quicklinkSource = new QuicklinkSource();
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   new WindowManagementSource(settings, customLayoutStore),
-  new WidgetSource(widgetStore, widgetRunner),
+  widgetSource,
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),

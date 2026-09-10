@@ -8,6 +8,7 @@
     "strict": true,
     "paths": {
       "@benpocket/win": ["./native/win/index.d.ts"],
+      "@core/*": ["./src/core/*"],
       "@main/*": ["./src/main/*"],
       "@shared/*": ["./src/shared/*"],
       "@extensions/*": ["./src/extensions/*"]
@@ -19,6 +20,7 @@
     "resolveJsonModule": true
   },
   "include": [
+    "src/core/**/*",
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",

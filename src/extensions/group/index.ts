@@ -1,16 +1,14 @@
-import { ActionSource } from "@main/sources/base";
+import { Extension } from "@core/base";
 import { ActionDefinition } from "@main/types";
 
-export class GroupExtension implements ActionSource {
-  id = "group";
+export class GroupExtension extends Extension {
+  constructor() {
+    super("group");
+  }
 
   execute(actionId: string, query: string): void | Promise<void> {
     console.log("group:", "execute", actionId, query);
     return;
-  }
-
-  owns(actionId: string) {
-    return actionId.startsWith("group:");
   }
 
   async provide(): Promise<ActionDefinition[]> {

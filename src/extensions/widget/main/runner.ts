@@ -1,21 +1,22 @@
 /**
- * Runs exposed Widgets and caches their last value on disk, so the launcher
- * can show a value the instant it opens and refresh it in the background —
- * mirroring the app-list stale-then-refresh behaviour.
+ * Runs exposed Widgets and caches their last value, so the launcher can show a
+ * value the instant it opens and refresh it in the background — mirroring the
+ * app-list stale-then-refresh behaviour.
  *
- * The value cache (`widget-values.json`) uses the same atomic temp-write +
- * rename as `usage/store.ts`. The actual code execution happens in `./worker.ts`
- * (bundled as `widget-worker.js`), spawned per run; `runCode` is injectable
- * so the `node --test` suite can drive the runner without a build.
+ * The value cache is persisted through the Widget extension's `ExtensionStorage`
+ * (injected by `WidgetSource`), under the `values` key of
+ * `<userData>/extensions/widget.json`. The actual code execution happens in
+ * `./worker.ts` (bundled as `widget-worker.js`), spawned per run; `runCode` is
+ * injectable so the `node --test` suite can drive the runner without a build.
  */
 import { spawn } from 'node:child_process'
-import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import type { ExtensionStorage } from '@core/storage'
 import type { WidgetTestResult } from '../shared/types'
 import type { UserCodeResult } from './run-user-code'
 
-/** Bumped when the persisted shape changes, to invalidate old files. */
-const CACHE_VERSION = 1
+/** Storage key holding the `Record<string, CachedValue>`. */
+const KEY = 'values'
 
 /** How long a cached value is considered fresh enough to skip a background re-run. */
 export const DEFAULT_TTL_MS = 60_000
@@ -35,12 +36,6 @@ interface CachedValue {
   fetchedAt: number
 }
 
-interface CacheFile {
-  version: number
-  savedAt: number
-  values: Record<string, CachedValue>
-}
-
 type RunCode = (code: string, timeoutMs: number) => Promise<UserCodeResult>
 
 function isCachedValue(value: unknown): value is CachedValue {
@@ -51,15 +46,12 @@ function isCachedValue(value: unknown): value is CachedValue {
   return validValue && (c.state === 'ready' || c.state === 'error') && typeof c.fetchedAt === 'number'
 }
 
-function isCacheFile(value: unknown): value is CacheFile {
-  if (!value || typeof value !== 'object') return false
-  const c = value as Partial<CacheFile>
-  if (c.version !== CACHE_VERSION || !c.values || typeof c.values !== 'object') return false
-  return Object.values(c.values).every(isCachedValue)
+function isValueMap(value: unknown): value is Record<string, CachedValue> {
+  return !!value && typeof value === 'object' && Object.values(value).every(isCachedValue)
 }
 
 export class WidgetRunner {
-  private readonly dir: string
+  private readonly storage: ExtensionStorage
   private readonly runCode: RunCode
   private readonly now: () => number
 
@@ -67,24 +59,17 @@ export class WidgetRunner {
   private loaded = false
   private readonly inFlight = new Map<string, Promise<void>>()
 
-  constructor(opts: { dir: string; runCode?: RunCode; now?: () => number }) {
-    this.dir = opts.dir
-    this.runCode = opts.runCode ?? spawnWorker
-    this.now = opts.now ?? Date.now
+  constructor(storage: ExtensionStorage, opts?: { runCode?: RunCode; now?: () => number }) {
+    this.storage = storage
+    this.runCode = opts?.runCode ?? spawnWorker
+    this.now = opts?.now ?? Date.now
   }
 
   init(): void {
     if (this.loaded) return
     this.loaded = true
-    console.log('[widget] value cache:', this.path())
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(this.path(), 'utf8'))
-      if (isCacheFile(parsed)) this.values = parsed.values
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.error('[widget] Failed to read value cache:', error)
-      }
-    }
+    const raw = this.storage.get<unknown>(KEY)
+    if (isValueMap(raw)) this.values = raw
   }
 
   /** Launcher-row subtitle for `id`. `''` when it has never produced a value. */
@@ -187,25 +172,8 @@ export class WidgetRunner {
     this.persist()
   }
 
-  private path(): string {
-    return join(this.dir, 'widget-values.json')
-  }
-
   private persist(): void {
-    const file = this.path()
-    const tmp = `${file}.tmp`
-    const payload: CacheFile = { version: CACHE_VERSION, savedAt: this.now(), values: this.values }
-    try {
-      writeFileSync(tmp, JSON.stringify(payload))
-      renameSync(tmp, file)
-    } catch (error) {
-      console.error('[widget] Failed to write value cache:', error)
-      try {
-        unlinkSync(tmp)
-      } catch {
-        /* nothing to clean up */
-      }
-    }
+    this.storage.set(KEY, this.values)
   }
 }
 
