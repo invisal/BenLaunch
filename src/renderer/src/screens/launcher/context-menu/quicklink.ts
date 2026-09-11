@@ -1,5 +1,9 @@
 import type { LauncherAction } from "@shared/types";
-import type { ContextMenuContext, ContextMenuContributor, MenuActionItem } from "./types";
+import type {
+  ContextMenuContext,
+  ContextMenuContributor,
+  MenuActionItem,
+} from "./types";
 
 /** The "Open With" rows: the system default plus every resolved app, as one
  *  flat `section` (there are no submenus). */
@@ -38,7 +42,8 @@ function openWithItems(
 export const quicklinkContextMenu: ContextMenuContributor = {
   id: "quicklink",
   contribute(action: LauncherAction, ctx: ContextMenuContext) {
-    const isQuicklink = action.type === "quicklink" && action.id.startsWith("ql:");
+    const isQuicklink =
+      action.type === "quicklink" && action.id.startsWith("ql:");
 
     if (!isQuicklink) {
       if (action.type === "widget") return null;
@@ -47,7 +52,8 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           id: "create-quicklink",
           label: "Create Quicklink",
           section: "Quicklink",
-          onSelect: () => ctx.push({ name: "quicklink-create", seed: ctx.query }),
+          onSelect: () =>
+            ctx.push({ name: "quicklink-create", seed: ctx.query }),
         },
       ];
     }
@@ -117,7 +123,8 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           id: "create-quicklink",
           section: "Quicklink",
           label: "Create Quicklink",
-          onSelect: () => ctx.push({ name: "quicklink-create", seed: ctx.query }),
+          onSelect: () =>
+            ctx.push({ name: "quicklink-create", seed: ctx.query }),
         },
         {
           id: "delete",
