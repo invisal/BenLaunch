@@ -52,7 +52,8 @@ interface FormState {
   error: string | null;
 }
 
-const isImageIcon = (icon: string): boolean => /^(https?:|data:|file:)/.test(icon);
+const isImageIcon = (icon: string): boolean =>
+  /^(https?:|data:|file:)/.test(icon);
 
 const looksLikeLink = (text: string): boolean =>
   /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ||
@@ -301,11 +302,17 @@ function CreateQuicklink({
               }
               placeholder="https://example.com/search?q={query}"
               spellCheck={false}
-              className={cn(inputClass, "resize-none pr-2 font-mono text-[13px] leading-relaxed")}
+              className={cn(
+                inputClass,
+                "resize-none pr-2 font-mono text-[13px] leading-relaxed",
+              )}
             />
             <div className="absolute bottom-1.5 right-1.5 flex gap-0.5">
               <Menu.Root>
-                <Menu.Trigger className={iconBtnClass} title="Insert placeholder">
+                <Menu.Trigger
+                  className={iconBtnClass}
+                  title="Insert placeholder"
+                >
                   {"{ }"}
                 </Menu.Trigger>
                 <Menu.Portal>
@@ -318,7 +325,9 @@ function CreateQuicklink({
                           className="flex cursor-default flex-col rounded px-2 py-1.5 outline-none data-[highlighted]:bg-item-selected"
                         >
                           <span className="font-mono text-xs">{p.token}</span>
-                          <span className="text-xs text-foreground-subtle">{p.hint}</span>
+                          <span className="text-xs text-foreground-subtle">
+                            {p.hint}
+                          </span>
                         </Menu.Item>
                       ))}
                     </Menu.Popup>
@@ -327,7 +336,10 @@ function CreateQuicklink({
               </Menu.Root>
 
               <Menu.Root>
-                <Menu.Trigger className={iconBtnClass} title="Choose file or folder">
+                <Menu.Trigger
+                  className={iconBtnClass}
+                  title="Choose file or folder"
+                >
                   📁
                 </Menu.Trigger>
                 <Menu.Portal>
@@ -354,8 +366,8 @@ function CreateQuicklink({
           <p className="mt-1 text-xs text-foreground-subtle">
             Include a placeholder like{" "}
             <code className="rounded bg-item-hover px-1">{"{query}"}</code> or{" "}
-            <code className="rounded bg-item-hover px-1">{"{clipboard}"}</code> to
-            pass an argument or context into the link.
+            <code className="rounded bg-item-hover px-1">{"{clipboard}"}</code>{" "}
+            to pass an argument or context into the link.
           </p>
         </Row>
 
@@ -378,7 +390,11 @@ function CreateQuicklink({
                 title="Change icon"
               >
                 {isImageIcon(previewIcon) ? (
-                  <img src={previewIcon} alt="" className="h-5 w-5 object-contain" />
+                  <img
+                    src={previewIcon}
+                    alt=""
+                    className="h-5 w-5 object-contain"
+                  />
                 ) : (
                   <span>{previewIcon}</span>
                 )}
@@ -501,14 +517,20 @@ function CreateQuicklink({
                 if (e.key === "Enter" || e.key === ",") {
                   e.preventDefault();
                   commitTag();
-                } else if (e.key === "Backspace" && !state.tagDraft && state.tags.length) {
+                } else if (
+                  e.key === "Backspace" &&
+                  !state.tagDraft &&
+                  state.tags.length
+                ) {
                   setState((d) => {
                     d.tags.pop();
                   });
                 }
               }}
               onBlur={commitTag}
-              placeholder={state.tags.length ? "" : "Optional — press Enter to add"}
+              placeholder={
+                state.tags.length ? "" : "Optional — press Enter to add"
+              }
               className="min-w-[8ch] flex-1 bg-transparent text-sm outline-none placeholder:text-foreground-subtle"
             />
           </div>
@@ -532,7 +554,11 @@ function CreateQuicklink({
               : "bg-item-selected text-foreground hover:bg-item-hover",
           )}
         >
-          {state.saving ? "Saving…" : isEdit ? "Save Changes" : "Save Quicklink"}
+          {state.saving
+            ? "Saving…"
+            : isEdit
+              ? "Save Changes"
+              : "Save Quicklink"}
           <kbd className="rounded border border-border px-1.5 py-0.5 font-sans">
             {formatShortcut("CommandOrControl+Enter")}
           </kbd>
