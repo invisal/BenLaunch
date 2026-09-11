@@ -1,5 +1,3 @@
-import type { LauncherView } from "./quicklink";
-
 export type LauncherActionType =
   | "application"
   | "command"
@@ -20,11 +18,6 @@ export interface LauncherAction {
    * (e.g. "g" for a Google quicklink). Everything after it becomes the argument.
    */
   keyword?: string
-  /**
-   * When set, running this action opens a renderer view (e.g. the Create
-   * Quicklink form) instead of executing a handler in the main process.
-   */
-  view?: LauncherView
   /** Extra terms this action should also match on (e.g. a quicklink's tags). */
   tags?: string[]
   /** Quicklink is pinned — sorts above unpinned actions in the root list. */
@@ -129,6 +122,25 @@ export interface Calculation {
 export interface QueryResult {
   result: LauncherAction[];
   calculation?: Calculation;
+}
+
+/**
+ * A screen to push onto the launcher's navigation stack — `name` matches a
+ * `Route`/`ScreenDefinition` name the renderer's router knows about (a core
+ * route, or one an extension registered via its `screen.tsx`). Returned from
+ * `execute()` (see `Extension`'s `ctx.navigate` / `main/navigate.ts`) instead
+ * of a static field on the action, so the launcher only stays open — instead
+ * of hiding once `execute()` resolves — for the one call that actually asked
+ * to navigate.
+ */
+export interface NavigateRequest {
+  name: string;
+  payload?: unknown;
+}
+
+/** What `execute()` resolves with. */
+export interface ExecuteResult {
+  navigate?: NavigateRequest;
 }
 
 export const IPC_CHANNELS = {

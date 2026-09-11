@@ -53,7 +53,10 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           label: "Create Quicklink",
           section: "Quicklink",
           onSelect: () =>
-            ctx.push({ name: "quicklink-create", seed: ctx.query }),
+            ctx.push({
+              name: "quicklink-create",
+              payload: { seed: ctx.query },
+            }),
         },
       ];
     }
@@ -86,13 +89,15 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           id: "edit",
           section: "Manage Quicklink",
           label: "Edit Quicklink",
-          onSelect: () => ctx.push({ name: "quicklink-edit", id }),
+          onSelect: () =>
+            ctx.push({ name: "quicklink-edit", payload: { id } }),
         },
         {
           id: "duplicate",
           section: "Manage Quicklink",
           label: "Duplicate Quicklink",
-          onSelect: () => ctx.push({ name: "quicklink-duplicate", id }),
+          onSelect: () =>
+            ctx.push({ name: "quicklink-duplicate", payload: { id } }),
         },
         {
           id: "hide",
@@ -124,7 +129,10 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           section: "Quicklink",
           label: "Create Quicklink",
           onSelect: () =>
-            ctx.push({ name: "quicklink-create", seed: ctx.query }),
+            ctx.push({
+              name: "quicklink-create",
+              payload: { seed: ctx.query },
+            }),
         },
         {
           id: "delete",

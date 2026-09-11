@@ -45,8 +45,9 @@ export class WidgetSource extends Extension {
   }
 
   provide(): ActionDefinition[] {
-    // The extension's own entry points. `view` navigates the launcher route
-    // stack renderer-side (see `LauncherScreen.runRow`); `run` never fires.
+    // The extension's own entry points. `execute()` below navigates the
+    // launcher route stack via `this.ctx.navigate`; `run` never fires (only
+    // `CachedActionSource`-style sources dispatch through it).
     const commands: ActionDefinition[] = [
       {
         action: {
@@ -55,7 +56,6 @@ export class WidgetSource extends Extension {
           subtitle: "Write a new Widget snippet",
           icon: "⚡",
           type: "command",
-          view: "widget-create",
         },
         run: () => {},
       },
@@ -66,7 +66,6 @@ export class WidgetSource extends Extension {
           subtitle: "View, edit and expose your Widgets",
           icon: "🗂️",
           type: "command",
-          view: "widget-list",
         },
         run: () => {},
       },
@@ -103,6 +102,14 @@ export class WidgetSource extends Extension {
   }
 
   async execute(actionId: string): Promise<void> {
+    if (actionId === "widget:create") {
+      this.ctx.navigate("widget-create");
+      return;
+    }
+    if (actionId === "widget:manage") {
+      this.ctx.navigate("widget-list");
+      return;
+    }
     if (actionId.startsWith(EDIT_PREFIX)) {
       openWidgetWindow({
         view: "code",

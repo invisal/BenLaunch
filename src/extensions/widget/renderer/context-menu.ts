@@ -43,7 +43,8 @@ export const widgetContextMenu: ContextMenuContributor = {
         {
           id: "edit",
           label: "Edit Widget",
-          onSelect: () => ctx.push({ name: "widget-edit", id: slug }),
+          onSelect: () =>
+            ctx.push({ name: "widget-edit", payload: { id: slug } }),
         },
         {
           id: "manage",

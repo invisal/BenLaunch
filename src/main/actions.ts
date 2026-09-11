@@ -1,5 +1,9 @@
 import { app } from "electron";
-import type { QueryResult, RequestSubtitleOptions } from "../shared/types";
+import type {
+  ExecuteResult,
+  QueryResult,
+  RequestSubtitleOptions,
+} from "../shared/types";
 import type {
   Quicklink,
   QuicklinkCreateResult,
@@ -7,6 +11,7 @@ import type {
 } from "../shared/quicklink";
 import { evaluate } from "./calculator";
 import { matchAction } from "./search";
+import { takePendingNavigate } from "./navigate";
 import { SettingsStore } from "./settings/store";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
@@ -156,10 +161,14 @@ export async function query(text: string): Promise<QueryResult> {
   return calculation ? { result, calculation } : { result };
 }
 
-export async function executeAction(id: string, text: string): Promise<void> {
+export async function executeAction(
+  id: string,
+  text: string,
+): Promise<ExecuteResult> {
   await sources.find((source) => source.owns(id))?.execute(id, text);
   // `widget:edit:*` is a UI shortcut (open the editor), not a real action to rank.
   if (!id.startsWith("widget:edit:")) usage.record(id, text);
+  return { navigate: takePendingNavigate() };
 }
 
 /** A deferred-subtitle row rendered in the launcher; ask whichever source owns it for a fresh subtitle. */

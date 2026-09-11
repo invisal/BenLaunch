@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { ActionDefinition } from "../../types";
 import { isSupported } from "../../window/control";
 import { openSettingsWindow } from "../../settings-window";
+import { navigate } from "../../navigate";
 import type { ActionSource } from "../base";
 
 /** Static launcher-level commands (lock, open folders, quit, …). */
@@ -51,9 +52,8 @@ export class BuiltinCommandSource implements ActionSource {
               subtitle: "Design a custom window layout",
               icon: "➕",
               type: "command" as const,
-              view: "custom-layout-create" as const,
             },
-            run: () => {},
+            run: () => navigate("custom-layout-create"),
           },
           {
             action: {
@@ -62,9 +62,8 @@ export class BuiltinCommandSource implements ActionSource {
               subtitle: "View, edit and delete your custom window layouts",
               icon: "🗂️",
               type: "command" as const,
-              view: "custom-layout-list" as const,
             },
-            run: () => {},
+            run: () => navigate("custom-layout-list"),
           },
         ]
       : []),

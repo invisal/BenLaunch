@@ -24,6 +24,8 @@
     "src/preload/index.d.ts",
     "src/extensions/**/renderer/**/*",
     "src/extensions/**/shared/**/*",
-    "src/extensions/**/ipc/preload.ts"
+    "src/extensions/**/ipc/preload.ts",
+    "src/extensions/*/screen.ts",
+    "src/extensions/*/screen.tsx"
   ]
 }

@@ -31,13 +31,15 @@ export const customLayoutContextMenu: ContextMenuContributor = {
           id: "edit",
           section: "Manage Command",
           label: "Edit Command",
-          onSelect: () => ctx.push({ name: "custom-layout-edit", id }),
+          onSelect: () =>
+            ctx.push({ name: "custom-layout-edit", payload: { id } }),
         },
         {
           id: "duplicate",
           section: "Manage Command",
           label: "Duplicate Command",
-          onSelect: () => ctx.push({ name: "custom-layout-duplicate", id }),
+          onSelect: () =>
+            ctx.push({ name: "custom-layout-duplicate", payload: { id } }),
         },
         {
           id: "manage",

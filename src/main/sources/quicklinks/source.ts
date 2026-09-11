@@ -7,6 +7,7 @@ import type {
 } from "../../../shared/quicklink";
 import type { ActionDefinition } from "../../types";
 import type { ActionSource } from "../base";
+import { navigate } from "../../navigate";
 import {
   QuicklinkStore,
   expandDynamic,
@@ -56,7 +57,6 @@ export class QuicklinkSource implements ActionSource {
           subtitle: "Add a shortcut to a URL, file, or folder",
           icon: "➕",
           type: "command",
-          view: "create-quicklink",
         },
         run: () => {},
       },
@@ -137,6 +137,11 @@ export class QuicklinkSource implements ActionSource {
     query: string,
     openWithOverride?: string,
   ): Promise<void> {
+    if (actionId === CREATE_ACTION_ID) {
+      navigate("quicklink-create", { seed: query });
+      return;
+    }
+
     if (actionId === EDIT_ACTION_ID) {
       await shell.openPath(this.store.filePath());
       return;

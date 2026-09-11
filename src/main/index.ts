@@ -141,12 +141,15 @@ app.whenReady().then(() => {
     return query(text);
   });
 
-  ipcMain.handle(IPC_CHANNELS.execute, (_event, id: string, text: string) => {
-    // Hide synchronously before launching so the launcher disappears instantly,
-    // instead of lingering until the launched app grabs focus and triggers `blur`.
-    if (!pinned) hideLauncher();
+  ipcMain.handle(IPC_CHANNELS.execute, async (_event, id: string, text: string) => {
     // `text` is threaded through so usage tracking can learn "typed X, picked Y".
-    return executeAction(id, text);
+    const result = await executeAction(id, text);
+    // Hide as soon as execute() resolves, rather than waiting for the launched
+    // app to grab focus and trigger `blur` — unless the action asked the
+    // launcher to navigate instead (`ctx.navigate`), in which case it stays
+    // open showing the pushed screen.
+    if (!result.navigate && !pinned) hideLauncher();
+    return result;
   });
 
   ipcMain.on(IPC_CHANNELS.hide, () => {

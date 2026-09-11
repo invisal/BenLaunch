@@ -10,6 +10,7 @@ import {
   type CustomLayoutDef,
   type CustomLayoutDraft,
   type DisplayPreviewInfo,
+  type ExecuteResult,
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
@@ -19,7 +20,7 @@ const api = {
   platform: process.platform,
   query: (text: string): Promise<QueryResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.query, text),
-  execute: (id: string, text: string): Promise<void> =>
+  execute: (id: string, text: string): Promise<ExecuteResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.execute, id, text),
   hide: (): void => ipcRenderer.send(IPC_CHANNELS.hide),
   togglePin: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.togglePin),

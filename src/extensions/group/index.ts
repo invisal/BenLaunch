@@ -7,8 +7,11 @@ export class GroupExtension extends Extension {
   }
 
   execute(actionId: string, query: string): void | Promise<void> {
+    if (actionId === "group:list") {
+      this.ctx.navigate("group-list");
+      return;
+    }
     console.log("group:", "execute", actionId, query);
-    return;
   }
 
   async provide(): Promise<ActionDefinition[]> {

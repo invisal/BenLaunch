@@ -1,28 +1,37 @@
-import { Activity, type FC } from "react";
-import WidgetListScreen from "@extensions/widget/renderer/ListScreen";
-import WidgetMetaScreen from "@extensions/widget/renderer/MetaScreen";
+import { Activity } from "react";
 import CustomLayoutFormScreen from "../../customlayout/CustomLayoutFormScreen";
 import CustomLayoutListScreen from "../../customlayout/CustomLayoutListScreen";
 import CreateQuicklink from "../../../components/CreateQuicklink";
 import LauncherScreen from "../LauncherScreen";
 import { useLauncherHost } from "../host";
 import { useRouteStack } from "./context";
-import type { Route, RouteName } from "./types";
+import { extensionScreens } from "./registry";
+import type { ScreenComponent } from "./createScreen";
 
 /**
  * Adapter that connects the prop-driven `CreateQuicklink` form to the navigation
  * stack and the launcher host. Keeping the router knowledge here means the form
- * itself stays a plain component that's trivial to render in isolation.
+ * itself stays a plain component that's trivial to render in isolation; the
+ * three `quicklink-*` routes below just pick which of these props to fill in
+ * from their payload.
  */
-function QuicklinkForm({ route }: { route: Route }) {
+function QuicklinkFormScreen({
+  seed,
+  editId,
+  duplicateId,
+}: {
+  seed?: string;
+  editId?: string;
+  duplicateId?: string;
+}) {
   const { pop } = useRouteStack();
   const { setQuery, reload } = useLauncherHost();
 
   return (
     <CreateQuicklink
-      seed={route.name === "quicklink-create" ? route.seed : undefined}
-      editId={route.name === "quicklink-edit" ? route.id : undefined}
-      duplicateId={route.name === "quicklink-duplicate" ? route.id : undefined}
+      seed={seed}
+      editId={editId}
+      duplicateId={duplicateId}
       onCancel={pop}
       onCreated={(name) => {
         pop();
@@ -33,68 +42,46 @@ function QuicklinkForm({ route }: { route: Route }) {
   );
 }
 
-/**
- * Adapter for the Widget manager screens (list + metadata form), which live
- * in the extension and know nothing about the router. The list is the root of
- * the Widget sub-stack; the metadata form pops back to it, and coming back
- * re-mounts the list's Effects so it re-fetches.
- */
-function WidgetScreen({ route }: { route: Route }) {
-  const { push, pop } = useRouteStack();
-
-  if (route.name === "widget-list") {
-    return (
-      <WidgetListScreen
-        onEdit={(id) => push({ name: "widget-edit", id })}
-        onCreate={() => push({ name: "widget-create" })}
-        onExit={pop}
-      />
-    );
-  }
+/** The custom window-layout manager list, which lives in `screens/customlayout` and knows nothing about the router. */
+function CustomLayoutList() {
+  const { push, pop, reset } = useRouteStack();
 
   return (
-    <WidgetMetaScreen
-      id={route.name === "widget-edit" ? route.id : null}
-      onDone={pop}
+    <CustomLayoutListScreen
+      onCreate={() => push({ name: "custom-layout-create" })}
+      onEdit={(id) => push({ name: "custom-layout-edit", payload: { id } })}
+      onDuplicate={(id) =>
+        push({ name: "custom-layout-duplicate", payload: { id } })
+      }
+      onApply={(id) => {
+        // Applying is the one action here that has to reach past the stack: the
+        // layout runs against the window that was focused before the launcher
+        // opened, so the launcher has to get out of the way afterwards.
+        // `useRouteStack` has no `dismiss`, hence `reset()` + `hide()` by hand.
+        void window.api.execute(`win:custom:${id}`, "");
+        reset();
+        window.api.hide();
+      }}
+      onExit={pop}
     />
   );
 }
 
-/**
- * Adapter for the custom window-layout screens (manager list + the designer),
- * which live in `screens/customlayout` and know nothing about the router.
- *
- * Applying is the one action here that has to reach past the stack: the layout
- * runs against the window that was focused before the launcher opened, so the
- * launcher has to get out of the way afterwards. `useRouteStack` has no
- * `dismiss`, hence `reset()` + `hide()` by hand.
- */
-function CustomLayoutScreen({ route }: { route: Route }) {
-  const { push, pop, reset } = useRouteStack();
+/** The custom window-layout designer, shared by create/edit/duplicate. */
+function CustomLayoutForm({
+  editId,
+  duplicateId,
+}: {
+  editId?: string;
+  duplicateId?: string;
+}) {
+  const { pop } = useRouteStack();
   const { setQuery, reload } = useLauncherHost();
-
-  if (route.name === "custom-layout-list") {
-    return (
-      <CustomLayoutListScreen
-        onCreate={() => push({ name: "custom-layout-create" })}
-        onEdit={(id) => push({ name: "custom-layout-edit", id })}
-        onDuplicate={(id) => push({ name: "custom-layout-duplicate", id })}
-        onApply={(id) => {
-          void window.api.execute(`win:custom:${id}`, "");
-          reset();
-          window.api.hide();
-        }}
-        onExit={pop}
-      />
-    );
-  }
 
   return (
     <CustomLayoutFormScreen
-      editId={route.name === "custom-layout-edit" ? route.id : undefined}
-      duplicateId={
-        route.name === "custom-layout-duplicate" ? route.id : undefined
-      }
+      editId={editId}
+      duplicateId={duplicateId}
       onCancel={pop}
       onSaved={(name) => {
         pop();
@@ -105,20 +92,52 @@ function CustomLayoutScreen({ route }: { route: Route }) {
   );
 }
 
-/** Maps each {@link Route} name to the component that renders it. */
-const SCREENS: Record<RouteName, FC<{ route: Route }>> = {
+/**
+ * Every screen the launcher's router knows about: the core routes here, plus
+ * every extension's `renderer/screen.ts` (see `registry.ts`) — dropping one
+ * in is the entire wiring an extension needs; nothing here has to change.
+ */
+const SCREENS: Record<string, ScreenComponent> = {
   launcher: () => <LauncherScreen />,
-  "quicklink-create": QuicklinkForm,
-  "quicklink-edit": QuicklinkForm,
-  "quicklink-duplicate": QuicklinkForm,
-  "widget-list": WidgetScreen,
-  "widget-create": WidgetScreen,
-  "widget-edit": WidgetScreen,
-  "custom-layout-list": CustomLayoutScreen,
-  "custom-layout-create": CustomLayoutScreen,
-  "custom-layout-edit": CustomLayoutScreen,
-  "custom-layout-duplicate": CustomLayoutScreen,
+  "quicklink-create": (payload) => (
+    <QuicklinkFormScreen
+      seed={(payload as { seed?: string } | undefined)?.seed}
+    />
+  ),
+  "quicklink-edit": (payload) => (
+    <QuicklinkFormScreen editId={(payload as { id: string }).id} />
+  ),
+  "quicklink-duplicate": (payload) => (
+    <QuicklinkFormScreen duplicateId={(payload as { id: string }).id} />
+  ),
+  "custom-layout-list": () => <CustomLayoutList />,
+  "custom-layout-create": () => <CustomLayoutForm />,
+  "custom-layout-edit": (payload) => (
+    <CustomLayoutForm editId={(payload as { id: string }).id} />
+  ),
+  "custom-layout-duplicate": (payload) => (
+    <CustomLayoutForm duplicateId={(payload as { id: string }).id} />
+  ),
+  ...extensionScreens,
 };
+
+/**
+ * Renders one stack entry. A real component (rather than calling
+ * `component(payload)` inline in `RouteStackOutlet`'s `.map`) gives every
+ * entry its own Fiber, so hooks the screen calls (`useRouteStack`,
+ * `useState`, …) stay tied to that entry across re-renders instead of being
+ * attributed to the outlet's own hook order — which would break as routes are
+ * pushed/popped and the number of `.map` iterations changes.
+ */
+function ScreenSlot({
+  component,
+  payload,
+}: {
+  component: ScreenComponent;
+  payload: unknown;
+}) {
+  return <>{component(payload)}</>;
+}
 
 /**
  * Renders every screen in the stack at once, each in its own `<Activity>`; only
@@ -138,17 +157,14 @@ export function RouteStackOutlet() {
 
   return (
     <>
-      {stack.map((route, index) => {
-        const Screen = SCREENS[route.name];
-        return (
-          <Activity
-            key={`${index}:${route.name}`}
-            mode={index === topIndex ? "visible" : "hidden"}
-          >
-            <Screen route={route} />
-          </Activity>
-        );
-      })}
+      {stack.map((route, index) => (
+        <Activity
+          key={`${index}:${route.name}`}
+          mode={index === topIndex ? "visible" : "hidden"}
+        >
+          <ScreenSlot component={SCREENS[route.name]} payload={route.payload} />
+        </Activity>
+      ))}
     </>
   );
 }

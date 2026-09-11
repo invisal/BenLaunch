@@ -2,9 +2,10 @@
  * Base class for launcher extensions.
  *
  * An extension is an {@link ActionSource} (it contributes rows and executes
- * them) plus a small per-extension context. Today that context is just
- * `this.storage` — a JSON document isolated by the extension's `id`, so two
- * extensions can use the same keys without colliding.
+ * them) plus a small per-extension context: `this.storage` (a JSON document
+ * isolated by the extension's `id`, so two extensions can use the same keys
+ * without colliding) and `this.ctx` (capabilities beyond storage — today just
+ * `navigate`, to push a screen onto the launcher's stack from `execute()`).
  *
  * Subclasses pass their `id` to `super()`; it is both the storage namespace and
  * the conventional prefix of their action ids.
@@ -12,6 +13,7 @@
 import { join } from 'node:path'
 import type { ActionSource } from '@main/sources/base'
 import type { ActionDefinition } from '@main/types'
+import { navigate } from '@main/navigate'
 import { ExtensionStorage } from './storage'
 
 /** `<userData>/extensions`, set once at startup by `configureExtensions`. */
@@ -28,6 +30,8 @@ export function configureExtensions(userDataDir: string): void {
 export abstract class Extension implements ActionSource {
   readonly id: string
   protected readonly storage: ExtensionStorage
+  /** Capabilities available to `provide()`/`execute()` beyond storage. */
+  protected readonly ctx = { navigate }
 
   constructor(id: string) {
     this.id = id

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import type { LauncherView, OpenWithApp } from "../../../../shared/quicklink";
+import type { OpenWithApp } from "../../../../shared/quicklink";
 import type { Calculation, LauncherAction } from "../../../../shared/types";
 import { Footer, ListScreen } from "@renderer/shared/ui";
 import type { FooterMenuItem } from "@renderer/shared/ui";
@@ -11,7 +11,6 @@ import { buildContextMenu } from "./context-menu/registry";
 import type { ContextMenuContext } from "./context-menu/types";
 import { useLauncherHost } from "./host";
 import { useRouteStack } from "./router/context";
-import type { Route } from "./router/types";
 
 type Row =
   | { key: string; kind: "calc"; calculation: Calculation }
@@ -123,20 +122,6 @@ function LauncherScreen() {
       return;
     }
     const { action } = row;
-    // Some actions open a renderer screen (the Create Quicklink form, the
-    // Widget manager) instead of executing in the main process — push it
-    // onto the stack and keep the launcher window open behind it.
-    if (action.view) {
-      const route: Record<LauncherView, Route> = {
-        "create-quicklink": { name: "quicklink-create", seed: query },
-        "widget-list": { name: "widget-list" },
-        "widget-create": { name: "widget-create" },
-        "custom-layout-list": { name: "custom-layout-list" },
-        "custom-layout-create": { name: "custom-layout-create" },
-      };
-      push(route[action.view]);
-      return;
-    }
     if (action.type === "widget") {
       // The row is a value, not an action — Enter copies it, like the calc row.
       // Ask for the current value directly (cheap: a no-op refresh resolves
@@ -150,8 +135,17 @@ function LauncherScreen() {
       dismiss();
       return;
     }
-    void window.api.execute(action.id, query);
-    dismiss();
+    // Most actions just run in the main process and the launcher dismisses.
+    // Some (e.g. the Widget/Group managers, "Create Quicklink") instead call
+    // `ctx.navigate()` and resolve with a screen to push — the launcher stays
+    // open showing it instead of dismissing.
+    void window.api.execute(action.id, query).then((result) => {
+      if (result.navigate) {
+        push(result.navigate);
+      } else {
+        dismiss();
+      }
+    });
   }
 
   function buildMenuActions(target: Row | null): FooterMenuItem[] {
