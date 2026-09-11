@@ -17,12 +17,9 @@ import type { WidgetDef } from "../shared/types";
 function ListScreen({
   onEdit,
   onCreate,
-  onExit,
 }: {
   onEdit: (id: string) => void;
   onCreate: () => void;
-  /** Leave the manager — back to the launcher search. */
-  onExit: () => void;
 }) {
   const [items, setItems] = useState<WidgetDef[] | null>(null);
 
@@ -87,7 +84,6 @@ function ListScreen({
         />
       )}
       onActivate={(widget) => onEdit(widget.id)}
-      onExit={onExit}
       menu={menu}
       footerLabel={(n) => `${n} Widget${n === 1 ? "" : "s"}`}
       emptyLabel="No Widgets yet. Create one to get started."

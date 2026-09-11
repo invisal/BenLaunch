@@ -44,7 +44,7 @@ function QuicklinkFormScreen({
 
 /** The custom window-layout manager list, which lives in `screens/customlayout` and knows nothing about the router. */
 function CustomLayoutList() {
-  const { push, pop, reset } = useRouteStack();
+  const { push, reset } = useRouteStack();
 
   return (
     <CustomLayoutListScreen
@@ -62,7 +62,6 @@ function CustomLayoutList() {
         reset();
         window.api.hide();
       }}
-      onExit={pop}
     />
   );
 }

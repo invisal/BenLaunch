@@ -14,6 +14,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
+import { useRouteStack } from "@renderer/screens/launcher/router/context";
 import { Footer, type FooterMenuItem } from "./Footer";
 
 /**
@@ -55,6 +56,21 @@ export const LIST_SCREEN_ITEM_HEIGHT = 40;
 
 function isImageIcon(icon: string): boolean {
   return /^(https?:|data:|file:)/.test(icon);
+}
+
+/** Back-navigation chevron for the header's back button. */
+function BackIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path
+        d="M9.5 3.5L4.5 8l5 4.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 function ItemIcon({ icon }: { icon?: ReactNode }) {
@@ -149,7 +165,10 @@ interface ListScreenBaseProps<T> {
   menu?: (highlighted: T | null) => FooterMenuItem[];
   /** Click / Enter on a row. */
   onActivate?: (item: T) => void;
-  /** Escape with an empty query (a non-empty query is cleared first). */
+  /** Escape with an empty query (a non-empty query is cleared first).
+   *  Defaults to popping this screen off the launcher's route stack — every
+   *  `ListScreen` is pushed there, so a caller only needs this to override
+   *  the default (e.g. to do something else before leaving). */
   onExit?: () => void;
 
   /** Opt-in controlled query. Omit to let `ListScreen` hold it internally. */
@@ -230,6 +249,7 @@ function ListScreenRoot<T>({
   itemHeight,
   measureItem,
 }: ListScreenProps<T>) {
+  const { stack, pop } = useRouteStack();
   const controlled = inputValue !== undefined;
   const [innerQuery, setInnerQuery] = useState("");
   const query = controlled ? inputValue : innerQuery;
@@ -287,13 +307,24 @@ function ListScreenRoot<T>({
   // `menu` builder and `onInputKeyDown`'s second arg receive.
   const menuTarget = highlighted ?? visible[0] ?? null;
 
+  // Whether this screen is pushed on top of something — i.e. whether "back"
+  // is a real place to go, as opposed to the launcher root's `onExit`, which
+  // hides the window rather than navigating anywhere. Drives the header's
+  // back button; `onExit` (root's custom hide, or a pushed screen's override
+  // of the default pop) is still whatever Escape runs either way.
+  const canGoBack = stack.length > 1;
+  function exit(): void {
+    if (onExit) onExit();
+    else if (stack.length > 1) pop();
+  }
+
   function onInputKeyDown(e: KeyboardEvent<HTMLInputElement>): void {
     onExtraInputKeyDown?.(e, menuTarget);
     if (e.defaultPrevented) return;
     if (e.key === "Escape") {
       e.preventDefault();
       if (query) setQuery("");
-      else onExit?.();
+      else exit();
     }
   }
 
@@ -341,7 +372,17 @@ function ListScreenRoot<T>({
       }}
     >
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
-        <div className="flex items-center border-b border-border px-2 p-1 [-webkit-app-region:drag]">
+        <div className="flex items-center gap-1 border-b border-border px-2 p-1 [-webkit-app-region:drag]">
+          {canGoBack && (
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={exit}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded text-foreground-subtle transition-colors hover:bg-item-hover hover:text-foreground [-webkit-app-region:no-drag]"
+            >
+              <BackIcon />
+            </button>
+          )}
           <Autocomplete.Input
             ref={inputRef}
             onKeyDown={onInputKeyDown}

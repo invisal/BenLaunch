@@ -5,13 +5,12 @@ import WidgetMetaScreen from "./renderer/MetaScreen";
 
 /** The Widget manager list, the root of the Widget sub-stack. */
 function WidgetList() {
-  const { push, pop } = useRouteStack();
+  const { push } = useRouteStack();
 
   return (
     <WidgetListScreen
       onEdit={(id) => push({ name: "widget-edit", payload: { id } })}
       onCreate={() => push({ name: "widget-create" })}
-      onExit={pop}
     />
   );
 }

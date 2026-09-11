@@ -25,15 +25,12 @@ function CustomLayoutListScreen({
   onDuplicate,
   onCreate,
   onApply,
-  onExit,
 }: {
   onEdit: (id: string) => void;
   onDuplicate: (id: string) => void;
   onCreate: () => void;
   /** Run the layout against the captured window and dismiss the launcher. */
   onApply: (id: string) => void;
-  /** Leave the manager — back to the launcher search. */
-  onExit: () => void;
 }) {
   const [items, setItems] = useState<CustomLayoutDef[] | null>(null);
 
@@ -102,7 +99,6 @@ function CustomLayoutListScreen({
         />
       )}
       onActivate={(def) => onApply(def.id)}
-      onExit={onExit}
       menu={menu}
       footerLabel={(n) => `${n} Command${n === 1 ? "" : "s"}`}
       emptyLabel="No commands yet. Create one to get started."
