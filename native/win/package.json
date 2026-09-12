@@ -23,8 +23,5 @@
     "install": "napi build --platform --release",
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform"
-  },
-  "devDependencies": {
-    "@napi-rs/cli": "^3.8.6"
   }
 }
