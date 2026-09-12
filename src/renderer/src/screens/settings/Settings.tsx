@@ -29,11 +29,11 @@ function AccessibilityRow() {
   const [trusted, setTrusted] = useState<boolean | null>(null)
 
   useEffect(() => {
-    window.api.getAccessibilityStatus().then(setTrusted)
+    window.api.window.getAccessibilityStatus().then(setTrusted)
   }, [])
 
   async function grant(): Promise<void> {
-    const result = await window.api.requestAccessibility()
+    const result = await window.api.window.requestAccessibility()
     setTrusted(result)
   }
 
@@ -62,12 +62,12 @@ function GapSizeRow() {
   const [gapPx, setGapPx] = useState<number | null>(null)
 
   useEffect(() => {
-    window.api.getGapSize().then(setGapPx)
+    window.api.window.getGapSize().then(setGapPx)
   }, [])
 
   async function save(value: number): Promise<void> {
     setGapPx(value)
-    await window.api.setGapSize(value)
+    await window.api.window.setGapSize(value)
   }
 
   return (

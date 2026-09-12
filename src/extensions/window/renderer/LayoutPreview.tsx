@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
-import { anchorOrigin, AUTO_PREVIEW_FRACTION } from "@shared/anchor";
-import type { CustomLayoutDraft, DisplayPreviewInfo } from "@shared/types";
+import { anchorOrigin, AUTO_PREVIEW_FRACTION } from "../shared/anchor";
+import type { CustomLayoutDraft, DisplayPreviewInfo } from "../shared/types";
 
 /**
  * Scaled-down live preview of the layout's rect on the primary display. Shares
@@ -37,9 +37,13 @@ export function LayoutPreview({
   if (!display) return <div className="h-full w-full rounded bg-background" />;
 
   const width =
-    draft.widthPercent != null ? draft.widthPercent / 100 : AUTO_PREVIEW_FRACTION;
+    draft.widthPercent != null
+      ? draft.widthPercent / 100
+      : AUTO_PREVIEW_FRACTION;
   const height =
-    draft.heightPercent != null ? draft.heightPercent / 100 : AUTO_PREVIEW_FRACTION;
+    draft.heightPercent != null
+      ? draft.heightPercent / 100
+      : AUTO_PREVIEW_FRACTION;
 
   // A unit box, so the origin comes back as fractions we can hand straight to CSS.
   const origin = anchorOrigin(

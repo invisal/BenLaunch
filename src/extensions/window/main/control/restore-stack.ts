@@ -1,4 +1,4 @@
-import type { Rect } from './layout'
+import type { Rect } from "./layout";
 
 /**
  * Single-level undo for window snaps: whatever a window's rect was right before
@@ -8,16 +8,16 @@ import type { Rect } from './layout'
  * persisted — "restore" is a same-session undo, not a durable window-position
  * history, so losing it on app restart is the intended behaviour, not a bug.
  */
-const previousRects = new Map<string, Rect>()
+const previousRects = new Map<string, Rect>();
 
 /** Records `rect` as what `key`'s window should return to on the next `popRestore`. */
 export function saveForRestore(key: string, rect: Rect): void {
-  previousRects.set(key, rect)
+  previousRects.set(key, rect);
 }
 
 /** Returns and clears the saved rect for `key`, or `undefined` if none is stored. */
 export function popRestore(key: string): Rect | undefined {
-  const rect = previousRects.get(key)
-  previousRects.delete(key)
-  return rect
+  const rect = previousRects.get(key);
+  previousRects.delete(key);
+  return rect;
 }

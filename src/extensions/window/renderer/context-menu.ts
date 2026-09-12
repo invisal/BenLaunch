@@ -1,7 +1,7 @@
 import type { LauncherAction } from "@shared/types";
-import type { ContextMenuContributor } from "./types";
+import type { ContextMenuContributor } from "@renderer/screens/launcher/context-menu/types";
 
-/** Matches `CUSTOM_LAYOUT_PREFIX` in `main/sources/window/source.ts`. */
+/** Matches `CUSTOM_LAYOUT_PREFIX` in `main/source.ts`. */
 const CUSTOM_LAYOUT_PREFIX = "win:custom:";
 
 /**
@@ -11,7 +11,7 @@ const CUSTOM_LAYOUT_PREFIX = "win:custom:";
  * and launcher commands, so the id prefix is the only thing that tells them
  * apart — matching on `type` here would claim every command row in the app.
  */
-export const customLayoutContextMenu: ContextMenuContributor = {
+export const windowContextMenu: ContextMenuContributor = {
   id: "custom-layout",
   contribute(action: LauncherAction, ctx) {
     if (!action.id.startsWith(CUSTOM_LAYOUT_PREFIX)) return null;
@@ -61,7 +61,7 @@ export const customLayoutContextMenu: ContextMenuContributor = {
           confirmLabel: `Click again to delete "${action.title}"`,
           danger: true,
           onSelect: async () => {
-            await window.api.customLayout.delete(id);
+            await window.api.window.customLayout.delete(id);
             ctx.reload();
           },
         },

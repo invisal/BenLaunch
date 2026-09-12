@@ -43,13 +43,17 @@ let capturedPid = 0;
  */
 export function capture(): void {
   try {
+    // 500ms used to be enough, but osascript's own fork/exec + AppleScript
+    // component load routinely blows past it under ordinary system load,
+    // which silently zeroed `capturedPid` and made every window command a
+    // no-op — 1000ms matches the budget every other osascript call below uses.
     const out = execFileSync(
       "osascript",
       [
         "-e",
         'tell application "System Events" to get unix id of first application process whose frontmost is true',
       ],
-      { encoding: "utf8", timeout: 500 },
+      { encoding: "utf8", timeout: 1000 },
     ).trim();
     const pid = Number(out);
     // Our own process is reported like any other; excluding it is the mac

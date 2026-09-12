@@ -1,7 +1,8 @@
-import type { SettingsStore } from "../../settings/store";
-import type { ActionDefinition } from "../../types";
-import type { CustomLayoutDef } from "../../../shared/types";
-import { anchorOrigin, AUTO_PREVIEW_FRACTION } from "../../../shared/anchor";
+import { Extension } from "@core/base";
+import type { SettingsStore } from "@main/settings/store";
+import type { ActionDefinition } from "@main/types";
+import type { CustomLayoutDef } from "../shared/types";
+import { anchorOrigin, AUTO_PREVIEW_FRACTION } from "../shared/anchor";
 import {
   applyCustomLayout,
   applyRegion,
@@ -17,12 +18,11 @@ import {
   type FractionSpan,
   type GridRegion,
   type SnapRegion,
-} from "../../window/control";
-import type { ActionSource } from "../base";
-import type { CustomLayoutStore } from "./custom-store";
+} from "./control/control";
+import { WindowLayoutStore } from "./store";
 
 /**
- * `window/control` has a backend for all three desktop platforms — see
+ * `./control/control` has a backend for all three desktop platforms — see
  * `control-win.ts`/`control-mac.ts`/`control-linux.ts`. On Linux this also
  * checks that there's actually an XWayland window to act on at all — see
  * `isSupported` in `control.ts`. Checked once (and cached) the first time
@@ -51,15 +51,29 @@ const SUPPORTED_PLATFORM = isSupported();
 /** Id prefix for a saved custom layout's searchable command, e.g. `win:custom:sidebar`. */
 const CUSTOM_LAYOUT_PREFIX = "win:custom:";
 
-export class WindowManagementSource implements ActionSource {
-  readonly id = "win";
+/**
+ * As the window-management `Extension` this is also the composition root for
+ * its custom-layout store — it persists through `this.storage`
+ * (`<userData>/extensions/window.json`, keyed `layouts`). Exposed as `store` so
+ * `index.ts` can wire the manager screens' IPC to the same instance.
+ *
+ * Action ids keep the pre-existing `win:` prefix (not `window:`) — renaming
+ * them would break saved usage-ranking data and muscle memory — so `owns()` is
+ * overridden instead of relying on `Extension`'s default `<id>:*` scheme.
+ */
+export class WindowExtension extends Extension {
+  readonly store: WindowLayoutStore;
 
   private readonly definitions: ActionDefinition[] = buildDefinitions();
 
-  constructor(
-    private readonly settings: SettingsStore,
-    private readonly customLayoutStore: CustomLayoutStore,
-  ) {}
+  constructor(private readonly settings: SettingsStore) {
+    super("window");
+    this.store = new WindowLayoutStore(this.storage);
+  }
+
+  init(): void {
+    this.store.init();
+  }
 
   provide(): ActionDefinition[] {
     if (!SUPPORTED_PLATFORM) return [];
@@ -67,13 +81,18 @@ export class WindowManagementSource implements ActionSource {
   }
 
   owns(actionId: string): boolean {
-    return actionId.startsWith(`${this.id}:`);
+    return actionId.startsWith("win:");
   }
 
   async execute(actionId: string, _query: string): Promise<void> {
     if (actionId.startsWith(CUSTOM_LAYOUT_PREFIX)) {
-      const def = this.customLayoutStore.get(actionId.slice(CUSTOM_LAYOUT_PREFIX.length));
-      if (def) void applyCustomLayout(toGeometry(def), def.useGap, this.settings.getGapSize());
+      const def = this.store.get(actionId.slice(CUSTOM_LAYOUT_PREFIX.length));
+      if (def)
+        void applyCustomLayout(
+          toGeometry(def),
+          def.useGap,
+          this.settings.getGapSize(),
+        );
       return;
     }
     await this.definitions
@@ -83,7 +102,7 @@ export class WindowManagementSource implements ActionSource {
 
   /** Each saved custom layout, as a searchable `win:custom:<id>` command. Read fresh every call — the manager screens can add/edit/remove them at any time. */
   private customLayoutDefinitions(): ActionDefinition[] {
-    return this.customLayoutStore.list().map((def) => ({
+    return this.store.list().map((def) => ({
       action: {
         id: `${CUSTOM_LAYOUT_PREFIX}${def.id}`,
         title: def.name,
@@ -92,7 +111,11 @@ export class WindowManagementSource implements ActionSource {
         type: "command",
       },
       run: () => {
-        void applyCustomLayout(toGeometry(def), def.useGap, this.settings.getGapSize());
+        void applyCustomLayout(
+          toGeometry(def),
+          def.useGap,
+          this.settings.getGapSize(),
+        );
       },
     }));
   }
@@ -124,7 +147,7 @@ const GRID_TITLE_OVERRIDES: Partial<Record<GridRegion, string>> = {
 };
 
 /**
- * All commands — empty on a platform `window/control` has no backend for at
+ * All commands — empty on a platform `./control/control` has no backend for at
  * all, rather than listing commands that would silently do nothing when run.
  * (Today this only matters for an unrecognized `process.platform`; win32,
  * darwin, and linux are all covered.)
@@ -211,7 +234,12 @@ function gridRegion(id: GridRegion): ActionDefinition {
 }
 
 /** Build a "move to the edge, unresized" command. Uses an arrow-to-bar glyph rather than the region-diagram icon. */
-function edge(id: string, title: string, icon: string, dir: EdgeDirection): ActionDefinition {
+function edge(
+  id: string,
+  title: string,
+  icon: string,
+  dir: EdgeDirection,
+): ActionDefinition {
   return {
     action: {
       id: `win:${id}`,
@@ -256,7 +284,9 @@ function display(
  * bands). Every region added since falls back to `iconRectFromSpan`, which
  * derives the same shape from `regionSpan` — see `snapIcon`.
  */
-const REGION_RECT: Partial<Record<SnapRegion, readonly [x: number, y: number, w: number, h: number]>> = {
+const REGION_RECT: Partial<
+  Record<SnapRegion, readonly [x: number, y: number, w: number, h: number]>
+> = {
   "left-half": [4, 5, 7.5, 14],
   "right-half": [12.5, 5, 7.5, 14],
   "top-half": [4, 5, 16, 6.5],
@@ -296,10 +326,16 @@ function iconRectFromSpan(span: {
   col: FractionSpan;
   row: FractionSpan;
 }): readonly [x: number, y: number, w: number, h: number] {
-  function inset(fraction: FractionSpan, total: number): [start: number, size: number] {
+  function inset(
+    fraction: FractionSpan,
+    total: number,
+  ): [start: number, size: number] {
     const startGutter = fraction.start > 0 ? ICON_GUTTER / 2 : 0;
     const endGutter = fraction.start + fraction.size < 1 ? ICON_GUTTER / 2 : 0;
-    return [fraction.start * total + startGutter, fraction.size * total - startGutter - endGutter];
+    return [
+      fraction.start * total + startGutter,
+      fraction.size * total - startGutter - endGutter,
+    ];
   }
   const [x, w] = inset(span.col, ICON_INNER.width);
   const [y, h] = inset(span.row, ICON_INNER.height);
@@ -311,7 +347,9 @@ function iconRectFromSpan(span: {
  * `<img>` by `SearchItem`, so colours are baked for the launcher's dark UI
  * (`--color-foreground-subtle` frame, `--color-foreground` fill).
  */
-function iconSvg(rect: readonly [x: number, y: number, w: number, h: number]): string {
+function iconSvg(
+  rect: readonly [x: number, y: number, w: number, h: number],
+): string {
   const [x, y, w, h] = rect;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
@@ -336,10 +374,17 @@ function snapIcon(id: SnapRegion): string {
  */
 function customLayoutIcon(def: CustomLayoutDef): string {
   const w =
-    (def.widthPercent != null ? def.widthPercent / 100 : AUTO_PREVIEW_FRACTION) * ICON_INNER.width;
+    (def.widthPercent != null
+      ? def.widthPercent / 100
+      : AUTO_PREVIEW_FRACTION) * ICON_INNER.width;
   const h =
-    (def.heightPercent != null ? def.heightPercent / 100 : AUTO_PREVIEW_FRACTION) *
-    ICON_INNER.height;
-  const origin = anchorOrigin(def.position, { width: w, height: h }, ICON_INNER);
+    (def.heightPercent != null
+      ? def.heightPercent / 100
+      : AUTO_PREVIEW_FRACTION) * ICON_INNER.height;
+  const origin = anchorOrigin(
+    def.position,
+    { width: w, height: h },
+    ICON_INNER,
+  );
   return iconSvg([ICON_INNER.x + origin.x, ICON_INNER.y + origin.y, w, h]);
 }

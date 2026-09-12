@@ -1,5 +1,5 @@
 import { cn } from "cnfast";
-import type { AnchorPosition } from "@shared/types";
+import type { AnchorPosition } from "../shared/types";
 
 /** The nine anchors, in reading order — the layout of the form's 3×3 picker. */
 export const POSITIONS: AnchorPosition[] = [

@@ -1,6 +1,4 @@
 import { Activity } from "react";
-import CustomLayoutFormScreen from "../../customlayout/CustomLayoutFormScreen";
-import CustomLayoutListScreen from "../../customlayout/CustomLayoutListScreen";
 import CreateQuicklink from "../../../components/CreateQuicklink";
 import LauncherScreen from "../LauncherScreen";
 import { useLauncherHost } from "../host";
@@ -42,55 +40,6 @@ function QuicklinkFormScreen({
   );
 }
 
-/** The custom window-layout manager list, which lives in `screens/customlayout` and knows nothing about the router. */
-function CustomLayoutList() {
-  const { push, reset } = useRouteStack();
-
-  return (
-    <CustomLayoutListScreen
-      onCreate={() => push({ name: "custom-layout-create" })}
-      onEdit={(id) => push({ name: "custom-layout-edit", payload: { id } })}
-      onDuplicate={(id) =>
-        push({ name: "custom-layout-duplicate", payload: { id } })
-      }
-      onApply={(id) => {
-        // Applying is the one action here that has to reach past the stack: the
-        // layout runs against the window that was focused before the launcher
-        // opened, so the launcher has to get out of the way afterwards.
-        // `useRouteStack` has no `dismiss`, hence `reset()` + `hide()` by hand.
-        void window.api.execute(`win:custom:${id}`, "");
-        reset();
-        window.api.hide();
-      }}
-    />
-  );
-}
-
-/** The custom window-layout designer, shared by create/edit/duplicate. */
-function CustomLayoutForm({
-  editId,
-  duplicateId,
-}: {
-  editId?: string;
-  duplicateId?: string;
-}) {
-  const { pop } = useRouteStack();
-  const { setQuery, reload } = useLauncherHost();
-
-  return (
-    <CustomLayoutFormScreen
-      editId={editId}
-      duplicateId={duplicateId}
-      onCancel={pop}
-      onSaved={(name) => {
-        pop();
-        setQuery(name);
-        reload();
-      }}
-    />
-  );
-}
-
 /**
  * Every screen the launcher's router knows about: the core routes here, plus
  * every extension's `renderer/screen.ts` (see `registry.ts`) — dropping one
@@ -108,14 +57,6 @@ const SCREENS: Record<string, ScreenComponent> = {
   ),
   "quicklink-duplicate": (payload) => (
     <QuicklinkFormScreen duplicateId={(payload as { id: string }).id} />
-  ),
-  "custom-layout-list": () => <CustomLayoutList />,
-  "custom-layout-create": () => <CustomLayoutForm />,
-  "custom-layout-edit": (payload) => (
-    <CustomLayoutForm editId={(payload as { id: string }).id} />
-  ),
-  "custom-layout-duplicate": (payload) => (
-    <CustomLayoutForm duplicateId={(payload as { id: string }).id} />
   ),
   ...extensionScreens,
 };

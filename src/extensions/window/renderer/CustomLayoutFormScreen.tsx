@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { cn } from "cnfast";
 import { Form, Layout } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
-import type { CustomLayoutDraft, DisplayPreviewInfo } from "@shared/types";
+import type { CustomLayoutDraft, DisplayPreviewInfo } from "../shared/types";
 import { LayoutPreview } from "./LayoutPreview";
 import { POSITIONS, PositionGlyph } from "./PositionGlyph";
 
@@ -47,7 +47,7 @@ function CustomLayoutFormScreen({
   const loadId = editId ?? duplicateId ?? null;
 
   useEffect(() => {
-    void window.api.getDisplayInfo().then(setDisplay);
+    void window.api.window.getDisplayInfo().then(setDisplay);
   }, []);
 
   // `RouteStackOutlet` keys its `<Activity>` entries on `index:name`, so
@@ -62,7 +62,7 @@ function CustomLayoutFormScreen({
     setDraft(DEFAULT_DRAFT);
     setLoaded(false);
     let cancelled = false;
-    void window.api.customLayout.get(loadId).then((def) => {
+    void window.api.window.customLayout.get(loadId).then((def) => {
       if (cancelled || !def) return;
       setDraft({ ...def, name: duplicateId ? `${def.name} Copy` : def.name });
       setLoaded(true);
@@ -87,7 +87,7 @@ function CustomLayoutFormScreen({
     try {
       // `id` is omitted for create *and* duplicate, so the store mints a fresh
       // slug instead of overwriting the layout we copied from.
-      await window.api.customLayout.save({ ...draft, name, id: editId });
+      await window.api.window.customLayout.save({ ...draft, name, id: editId });
       onSaved(name);
     } finally {
       setBusy(false);
@@ -142,7 +142,11 @@ function CustomLayoutFormScreen({
               {!loaded ? (
                 <p className="text-xs text-foreground-subtle">Loading…</p>
               ) : (
-                <Form variant="stacked" className="gap-1.5" onSubmit={() => void save()}>
+                <Form
+                  variant="stacked"
+                  className="gap-1.5"
+                  onSubmit={() => void save()}
+                >
                   <Form.Field label="Name">
                     <Form.Input
                       value={draft.name}

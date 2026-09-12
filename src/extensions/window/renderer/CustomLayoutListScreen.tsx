@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ListScreen } from "@renderer/shared/ui";
 import type { FooterMenuItem } from "@renderer/shared/ui";
-import type { CustomLayoutDef } from "@shared/types";
+import type { CustomLayoutDef } from "../shared/types";
 import { PositionGlyph } from "./PositionGlyph";
 
 /**
@@ -35,7 +35,7 @@ function CustomLayoutListScreen({
   const [items, setItems] = useState<CustomLayoutDef[] | null>(null);
 
   const reload = useCallback(() => {
-    void window.api.customLayout.list().then(setItems);
+    void window.api.window.customLayout.list().then(setItems);
   }, []);
 
   // Re-fetches on mount and whenever this screen returns to the top of the stack
@@ -45,7 +45,7 @@ function CustomLayoutListScreen({
   }, [reload]);
 
   async function remove(def: CustomLayoutDef): Promise<void> {
-    await window.api.customLayout.delete(def.id);
+    await window.api.window.customLayout.delete(def.id);
     reload();
   }
 

@@ -1,7 +1,7 @@
 import type { LauncherAction } from "@shared/types";
 import { widgetContextMenu } from "@extensions/widget/renderer/context-menu";
+import { windowContextMenu } from "@extensions/window/renderer/context-menu";
 import type { ContextMenuContext, ContextMenuContributor, MenuActionItem } from "./types";
-import { customLayoutContextMenu } from "./custom-layout";
 import { defaultContextMenu } from "./default";
 import { quicklinkContextMenu } from "./quicklink";
 
@@ -24,7 +24,7 @@ const contributors: ContextMenuContributor[] = [
   // Before `quicklinkContextMenu` so it claims the primary block for
   // `win:custom:*` rows; the quicklink contributor still appends its "Create
   // Quicklink" item to them, same as any other command row.
-  customLayoutContextMenu,
+  windowContextMenu,
   quicklinkContextMenu,
   defaultContextMenu,
 ];
