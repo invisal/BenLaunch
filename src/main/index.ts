@@ -4,14 +4,12 @@ import {
   dialog,
   globalShortcut,
   ipcMain,
-  systemPreferences,
 } from "electron";
 import type { QuicklinkDraft } from "../shared/quicklink";
-import { captureFocusedWindow } from "./window/control";
+import { captureFocusedWindow } from "@extensions/window/main/control/control";
 import { IPC_CHANNELS, type RequestSubtitleOptions } from "../shared/types";
 import {
   createQuicklink,
-  customLayoutStore,
   deleteQuicklink,
   executeAction,
   getQuicklink,
@@ -20,6 +18,7 @@ import {
   query,
   widgetRunner,
   widgetStore,
+  windowLayoutStore,
   refreshActionSources,
   requestSubtitle,
   setQuicklinkHidden,
@@ -28,7 +27,7 @@ import {
   updateQuicklink,
 } from "./actions";
 import { registerWidgetIpc } from "@extensions/widget/ipc/handlers";
-import { registerCustomLayoutIpc } from "./sources/window/custom-ipc";
+import { registerWindowIpc } from "@extensions/window/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
 import { listOpenWithApps } from "./sources/apps/open-with";
 import {
@@ -134,7 +133,7 @@ app.whenReady().then(() => {
   initActionSources();
 
   registerWidgetIpc(widgetStore, widgetRunner);
-  registerCustomLayoutIpc(customLayoutStore, settings);
+  registerWindowIpc(windowLayoutStore, settings);
   registerWindowControlsIpc();
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
@@ -222,16 +221,6 @@ app.whenReady().then(() => {
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
     pinned = !pinned;
     return pinned;
-  });
-
-  ipcMain.handle(IPC_CHANNELS.accessibilityStatus, () => {
-    if (process.platform !== "darwin") return true;
-    return systemPreferences.isTrustedAccessibilityClient(false);
-  });
-
-  ipcMain.handle(IPC_CHANNELS.requestAccessibility, () => {
-    if (process.platform !== "darwin") return true;
-    return systemPreferences.isTrustedAccessibilityClient(true);
   });
 
   if (!globalShortcut.register(TOGGLE_SHORTCUT, toggleLauncher)) {

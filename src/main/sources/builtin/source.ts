@@ -3,7 +3,7 @@ import { exec } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ActionDefinition } from "../../types";
-import { isSupported } from "../../window/control";
+import { isSupported } from "@extensions/window/main/control/control";
 import { openSettingsWindow } from "../../settings-window";
 import { navigate } from "../../navigate";
 import type { ActionSource } from "../base";
@@ -40,8 +40,8 @@ export class BuiltinCommandSource implements ActionSource {
       },
     },
     // A layout designed here can only ever run as a `win:custom:*` command,
-    // which `WindowManagementSource` already hides when `isSupported()` is
-    // false (see `sources/window/source.ts`) — offering the editor anyway
+    // which `WindowExtension` already hides when `isSupported()` is
+    // false (see `@extensions/window/main/source.ts`) — offering the editor anyway
     // would just let the user build something that can never be executed.
     ...(isSupported()
       ? [

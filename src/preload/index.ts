@@ -7,14 +7,12 @@ import type {
 } from "../shared/quicklink";
 import {
   IPC_CHANNELS,
-  type CustomLayoutDef,
-  type CustomLayoutDraft,
-  type DisplayPreviewInfo,
   type ExecuteResult,
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
 import { widgetApi } from "@extensions/widget/ipc/preload";
+import { windowApi } from "@extensions/window/ipc/preload";
 
 const api = {
   platform: process.platform,
@@ -43,11 +41,6 @@ const api = {
   openWithApps: (): Promise<OpenWithApp[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWithApps),
 
-  getAccessibilityStatus: (): Promise<boolean> =>
-    ipcRenderer.invoke(IPC_CHANNELS.accessibilityStatus),
-  requestAccessibility: (): Promise<boolean> =>
-    ipcRenderer.invoke(IPC_CHANNELS.requestAccessibility),
-
   /** Launcher: a deferred-subtitle row rendered (or force-refreshed) — resolves with the fresh subtitle. */
   requestSubtitle: (
     actionId: string,
@@ -66,22 +59,8 @@ const api = {
   /** Widget manager window ↔ main. */
   widget: widgetApi,
 
-  /** Custom window layouts ↔ main. */
-  customLayout: {
-    list: (): Promise<CustomLayoutDef[]> =>
-      ipcRenderer.invoke(IPC_CHANNELS.customLayoutList),
-    get: (id: string): Promise<CustomLayoutDef | null> =>
-      ipcRenderer.invoke(IPC_CHANNELS.customLayoutGet, id),
-    save: (draft: CustomLayoutDraft): Promise<CustomLayoutDef> =>
-      ipcRenderer.invoke(IPC_CHANNELS.customLayoutSave, draft),
-    delete: (id: string): Promise<void> =>
-      ipcRenderer.invoke(IPC_CHANNELS.customLayoutDelete, id),
-  },
-  getGapSize: (): Promise<number> => ipcRenderer.invoke(IPC_CHANNELS.gapSize),
-  setGapSize: (px: number): Promise<void> =>
-    ipcRenderer.invoke(IPC_CHANNELS.setGapSize, px),
-  getDisplayInfo: (): Promise<DisplayPreviewInfo> =>
-    ipcRenderer.invoke(IPC_CHANNELS.displayInfo),
+  /** Window management (OS-level control + the custom-layout manager) ↔ main. */
+  window: windowApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);

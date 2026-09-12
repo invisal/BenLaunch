@@ -1,14 +1,19 @@
-import { screen } from 'electron'
-import type { DisplayInfo, Rect } from './layout'
+import { screen } from "electron";
+import type { DisplayInfo, Rect } from "./layout";
 
 /** Small Electron `screen`-module helpers shared by `control-win.ts`, `control-mac.ts`, and `control-linux.ts`. */
 
 export function toRect(bounds: Electron.Rectangle): Rect {
-  return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+  return {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+  };
 }
 
 export function centerOf(rect: Rect): { x: number; y: number } {
-  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
 }
 
 /**
@@ -25,26 +30,28 @@ export function centerOf(rect: Rect): { x: number; y: number } {
  * a no-op there — same behavior as before this fix.
  */
 function toDipPoint(point: { x: number; y: number }): { x: number; y: number } {
-  return process.platform === 'win32' ? screen.screenToDipPoint(point) : point
+  return process.platform === "win32" ? screen.screenToDipPoint(point) : point;
 }
 
 function toPhysicalRect(rect: Rect): Rect {
-  return process.platform === 'win32' ? toRect(screen.dipToScreenRect(null, rect)) : rect
+  return process.platform === "win32"
+    ? toRect(screen.dipToScreenRect(null, rect))
+    : rect;
 }
 
 /** The display `rect` sits on. */
 export function currentDisplay(rect: Rect): Electron.Display {
-  return screen.getDisplayNearestPoint(toDipPoint(centerOf(rect)))
+  return screen.getDisplayNearestPoint(toDipPoint(centerOf(rect)));
 }
 
 /** The work area (screen minus taskbar/menu bar/dock) of the display `rect` sits on. */
 export function workAreaFor(rect: Rect): Rect {
-  return toPhysicalRect(toRect(currentDisplay(rect).workArea))
+  return toPhysicalRect(toRect(currentDisplay(rect).workArea));
 }
 
 export function allDisplays(): DisplayInfo[] {
   return screen.getAllDisplays().map((display) => ({
     id: display.id,
-    workArea: toPhysicalRect(toRect(display.workArea))
-  }))
+    workArea: toPhysicalRect(toRect(display.workArea)),
+  }));
 }

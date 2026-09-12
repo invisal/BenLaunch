@@ -17,10 +17,9 @@ import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { QuicklinkSource } from "./sources/quicklinks/source";
-import { WindowManagementSource } from "./sources/window/source";
-import { CustomLayoutStore } from "./sources/window/custom-store";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
 import { WidgetSource } from "@extensions/widget/main/source";
+import { WindowExtension } from "@extensions/window/main/source";
 import { Usage } from "./usage/store";
 import { configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
@@ -31,10 +30,6 @@ configureExtensions(app.getPath("userData"));
 /** Persisted user settings (today: the custom-layout gap size). Also read directly by `index.ts` to wire the custom-layout manager's IPC. */
 export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
-/** Persisted custom window layouts ("Create Command"). Also read directly by `index.ts` to wire the manager window's IPC. */
-export const customLayoutStore = new CustomLayoutStore({
-  dir: app.getPath("userData"),
-});
 /**
  * The Widget extension. It owns its `ExtensionStorage`
  * (`<userData>/extensions/widget.json`); `store` (definitions) and `runner`
@@ -46,6 +41,14 @@ export const widgetStore = widgetSource.store;
 export const widgetRunner = widgetSource.runner;
 
 /**
+ * The window-management extension. It owns its `ExtensionStorage`
+ * (`<userData>/extensions/window.json`); `store` (saved custom layouts) is
+ * exposed so `index.ts` can wire the manager screens' IPC to the same instance.
+ */
+const windowExtension = new WindowExtension(settings);
+export const windowLayoutStore = windowExtension.store;
+
+/**
  * Registry of action sources. Order matters: `query` keeps it, and the
  * stable sort below preserves it among equally-scored results (so built-in
  * commands rank ahead of applications on a tie).
@@ -54,7 +57,7 @@ const quicklinkSource = new QuicklinkSource();
 
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
-  new WindowManagementSource(settings, customLayoutStore),
+  windowExtension,
   widgetSource,
   quicklinkSource,
   new InstalledAppSource(),
@@ -112,7 +115,6 @@ const usage = new Usage({ dir: app.getPath("userData") });
 export function initActionSources(): void {
   usage.init();
   settings.init();
-  customLayoutStore.init();
   for (const source of sources) source.init?.();
 }
 

@@ -41,7 +41,14 @@ test("regionSpan resolves every id in GRID_REGION_IDS, and only those", () => {
   for (const id of GRID_REGION_IDS) {
     assert.ok(regionSpan(id), id);
   }
-  for (const id of ["center", "center-half", "almost-maximize", "maximize", "maximize-width", "maximize-height"] satisfies SnapRegion[]) {
+  for (const id of [
+    "center",
+    "center-half",
+    "almost-maximize",
+    "maximize",
+    "maximize-width",
+    "maximize-height",
+  ] satisfies SnapRegion[]) {
     assert.equal(regionSpan(id), null, id);
   }
 });
@@ -61,13 +68,28 @@ const regionCases: ReadonlyArray<{ region: SnapRegion; rect: Rect }> = [
   { region: "first-third", rect: { x: 0, y: 0, width: 640, height: 1000 } },
   { region: "center-third", rect: { x: 640, y: 0, width: 640, height: 1000 } },
   { region: "last-third", rect: { x: 1280, y: 0, width: 640, height: 1000 } },
-  { region: "first-two-thirds", rect: { x: 0, y: 0, width: 1280, height: 1000 } },
-  { region: "last-two-thirds", rect: { x: 640, y: 0, width: 1280, height: 1000 } },
-  { region: "center-two-thirds", rect: { x: 320, y: 0, width: 1280, height: 1000 } },
-  { region: "almost-maximize", rect: { x: 96, y: 50, width: 1728, height: 900 } },
+  {
+    region: "first-two-thirds",
+    rect: { x: 0, y: 0, width: 1280, height: 1000 },
+  },
+  {
+    region: "last-two-thirds",
+    rect: { x: 640, y: 0, width: 1280, height: 1000 },
+  },
+  {
+    region: "center-two-thirds",
+    rect: { x: 320, y: 0, width: 1280, height: 1000 },
+  },
+  {
+    region: "almost-maximize",
+    rect: { x: 96, y: 50, width: 1728, height: 900 },
+  },
   { region: "maximize", rect: { x: 0, y: 0, width: 1920, height: 1000 } },
   { region: "maximize-width", rect: { x: 0, y: 0, width: 1920, height: 1000 } },
-  { region: "maximize-height", rect: { x: 0, y: 0, width: 1920, height: 1000 } },
+  {
+    region: "maximize-height",
+    rect: { x: 0, y: 0, width: 1920, height: 1000 },
+  },
 
   // Fourths (standalone column, full height).
   { region: "first-fourth", rect: { x: 0, y: 0, width: 480, height: 1000 } },
@@ -76,39 +98,99 @@ const regionCases: ReadonlyArray<{ region: SnapRegion; rect: Rect }> = [
   { region: "last-fourth", rect: { x: 1440, y: 0, width: 480, height: 1000 } },
 
   // Three-fourths (standalone column, full height).
-  { region: "first-three-fourths", rect: { x: 0, y: 0, width: 1440, height: 1000 } },
-  { region: "center-three-fourths", rect: { x: 240, y: 0, width: 1440, height: 1000 } },
-  { region: "last-three-fourths", rect: { x: 480, y: 0, width: 1440, height: 1000 } },
+  {
+    region: "first-three-fourths",
+    rect: { x: 0, y: 0, width: 1440, height: 1000 },
+  },
+  {
+    region: "center-three-fourths",
+    rect: { x: 240, y: 0, width: 1440, height: 1000 },
+  },
+  {
+    region: "last-three-fourths",
+    rect: { x: 480, y: 0, width: 1440, height: 1000 },
+  },
 
   // Row equivalents of third/two-thirds/three-fourths, anchored top/bottom.
   { region: "top-third", rect: { x: 0, y: 0, width: 1920, height: 333 } },
   { region: "bottom-third", rect: { x: 0, y: 667, width: 1920, height: 333 } },
   { region: "top-two-thirds", rect: { x: 0, y: 0, width: 1920, height: 667 } },
-  { region: "bottom-two-thirds", rect: { x: 0, y: 333, width: 1920, height: 667 } },
-  { region: "top-three-fourths", rect: { x: 0, y: 0, width: 1920, height: 750 } },
-  { region: "bottom-three-fourths", rect: { x: 0, y: 250, width: 1920, height: 750 } },
+  {
+    region: "bottom-two-thirds",
+    rect: { x: 0, y: 333, width: 1920, height: 667 },
+  },
+  {
+    region: "top-three-fourths",
+    rect: { x: 0, y: 0, width: 1920, height: 750 },
+  },
+  {
+    region: "bottom-three-fourths",
+    rect: { x: 0, y: 250, width: 1920, height: 750 },
+  },
 
   // Sixths: a row half crossed with a column third.
   { region: "top-left-sixth", rect: { x: 0, y: 0, width: 640, height: 500 } },
-  { region: "top-center-sixth", rect: { x: 640, y: 0, width: 640, height: 500 } },
-  { region: "top-right-sixth", rect: { x: 1280, y: 0, width: 640, height: 500 } },
-  { region: "bottom-left-sixth", rect: { x: 0, y: 500, width: 640, height: 500 } },
-  { region: "bottom-center-sixth", rect: { x: 640, y: 500, width: 640, height: 500 } },
-  { region: "bottom-right-sixth", rect: { x: 1280, y: 500, width: 640, height: 500 } },
+  {
+    region: "top-center-sixth",
+    rect: { x: 640, y: 0, width: 640, height: 500 },
+  },
+  {
+    region: "top-right-sixth",
+    rect: { x: 1280, y: 0, width: 640, height: 500 },
+  },
+  {
+    region: "bottom-left-sixth",
+    rect: { x: 0, y: 500, width: 640, height: 500 },
+  },
+  {
+    region: "bottom-center-sixth",
+    rect: { x: 640, y: 500, width: 640, height: 500 },
+  },
+  {
+    region: "bottom-right-sixth",
+    rect: { x: 1280, y: 500, width: 640, height: 500 },
+  },
 
   // Fourths grid: a row half crossed with a column fourth.
   { region: "top-first-fourth", rect: { x: 0, y: 0, width: 480, height: 500 } },
-  { region: "top-second-fourth", rect: { x: 480, y: 0, width: 480, height: 500 } },
-  { region: "top-third-fourth", rect: { x: 960, y: 0, width: 480, height: 500 } },
-  { region: "top-last-fourth", rect: { x: 1440, y: 0, width: 480, height: 500 } },
-  { region: "bottom-first-fourth", rect: { x: 0, y: 500, width: 480, height: 500 } },
-  { region: "bottom-second-fourth", rect: { x: 480, y: 500, width: 480, height: 500 } },
-  { region: "bottom-third-fourth", rect: { x: 960, y: 500, width: 480, height: 500 } },
-  { region: "bottom-last-fourth", rect: { x: 1440, y: 500, width: 480, height: 500 } },
+  {
+    region: "top-second-fourth",
+    rect: { x: 480, y: 0, width: 480, height: 500 },
+  },
+  {
+    region: "top-third-fourth",
+    rect: { x: 960, y: 0, width: 480, height: 500 },
+  },
+  {
+    region: "top-last-fourth",
+    rect: { x: 1440, y: 0, width: 480, height: 500 },
+  },
+  {
+    region: "bottom-first-fourth",
+    rect: { x: 0, y: 500, width: 480, height: 500 },
+  },
+  {
+    region: "bottom-second-fourth",
+    rect: { x: 480, y: 500, width: 480, height: 500 },
+  },
+  {
+    region: "bottom-third-fourth",
+    rect: { x: 960, y: 500, width: 480, height: 500 },
+  },
+  {
+    region: "bottom-last-fourth",
+    rect: { x: 1440, y: 500, width: 480, height: 500 },
+  },
 
   // Centered two-thirds, crossed with a row half.
-  { region: "top-center-two-thirds", rect: { x: 320, y: 0, width: 1280, height: 500 } },
-  { region: "bottom-center-two-thirds", rect: { x: 320, y: 500, width: 1280, height: 500 } },
+  {
+    region: "top-center-two-thirds",
+    rect: { x: 320, y: 0, width: 1280, height: 500 },
+  },
+  {
+    region: "bottom-center-two-thirds",
+    rect: { x: 320, y: 500, width: 1280, height: 500 },
+  },
 ];
 
 for (const { region, rect } of regionCases) {
@@ -118,17 +200,22 @@ for (const { region, rect } of regionCases) {
 }
 
 test("computeTargetRect throws on an id that isn't a real region", () => {
-  assert.throws(() => computeTargetRect("not-a-region" as SnapRegion, { workArea: WORK_AREA }));
+  assert.throws(() =>
+    computeTargetRect("not-a-region" as SnapRegion, { workArea: WORK_AREA }),
+  );
 });
 
 test("computeTargetRect(center) preserves the window's current size", () => {
   const currentRect: Rect = { x: 500, y: 500, width: 800, height: 600 };
-  assert.deepEqual(computeTargetRect("center", { workArea: WORK_AREA, currentRect }), {
-    x: 560,
-    y: 200,
-    width: 800,
-    height: 600,
-  });
+  assert.deepEqual(
+    computeTargetRect("center", { workArea: WORK_AREA, currentRect }),
+    {
+      x: 560,
+      y: 200,
+      width: 800,
+      height: 600,
+    },
+  );
 });
 
 test("computeTargetRect(center) falls back to 80% size with no current rect", () => {
@@ -141,7 +228,10 @@ test("computeTargetRect(center) falls back to 80% size with no current rect", ()
 
 test("computeTargetRect(center) clamps a current rect larger than the work area", () => {
   const currentRect: Rect = { x: 0, y: 0, width: 3000, height: 2000 };
-  const result = computeTargetRect("center", { workArea: WORK_AREA, currentRect });
+  const result = computeTargetRect("center", {
+    workArea: WORK_AREA,
+    currentRect,
+  });
   assert.equal(result.width, WORK_AREA.width);
   assert.equal(result.height, WORK_AREA.height);
   assert.equal(result.x, 0);
@@ -150,27 +240,36 @@ test("computeTargetRect(center) clamps a current rect larger than the work area"
 
 test("computeTargetRect(maximize-width) fills the width, keeping the current height/y", () => {
   const currentRect: Rect = { x: 200, y: 300, width: 400, height: 250 };
-  assert.deepEqual(computeTargetRect("maximize-width", { workArea: WORK_AREA, currentRect }), {
-    x: 0,
-    y: 300,
-    width: 1920,
-    height: 250,
-  });
+  assert.deepEqual(
+    computeTargetRect("maximize-width", { workArea: WORK_AREA, currentRect }),
+    {
+      x: 0,
+      y: 300,
+      width: 1920,
+      height: 250,
+    },
+  );
 });
 
 test("computeTargetRect(maximize-height) fills the height, keeping the current width/x", () => {
   const currentRect: Rect = { x: 200, y: 300, width: 400, height: 250 };
-  assert.deepEqual(computeTargetRect("maximize-height", { workArea: WORK_AREA, currentRect }), {
-    x: 200,
-    y: 0,
-    width: 400,
-    height: 1000,
-  });
+  assert.deepEqual(
+    computeTargetRect("maximize-height", { workArea: WORK_AREA, currentRect }),
+    {
+      x: 200,
+      y: 0,
+      width: 400,
+      height: 1000,
+    },
+  );
 });
 
 test("computeTargetRect(maximize-width) clamps a y that would push the window off the bottom", () => {
   const currentRect: Rect = { x: 0, y: 900, width: 400, height: 250 };
-  const result = computeTargetRect("maximize-width", { workArea: WORK_AREA, currentRect });
+  const result = computeTargetRect("maximize-width", {
+    workArea: WORK_AREA,
+    currentRect,
+  });
   assert.equal(result.y, 750); // 1000 - 250
 });
 
@@ -207,7 +306,9 @@ test("computeEdgeMove clamps a window larger than the work area", () => {
   assert.equal(result.x, 0);
 });
 
-function customLayout(overrides: Partial<CustomLayoutGeometry>): CustomLayoutGeometry {
+function customLayout(
+  overrides: Partial<CustomLayoutGeometry>,
+): CustomLayoutGeometry {
   return {
     position: "top-left",
     widthFraction: 0.5,
@@ -220,65 +321,120 @@ function customLayout(overrides: Partial<CustomLayoutGeometry>): CustomLayoutGeo
 
 test("computeCustomRect anchors top-left with no offset", () => {
   const layout = customLayout({ widthFraction: 0.5, heightFraction: 0.3 });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: false,
+    gapPx: 0,
+  });
   assert.deepEqual(result, { x: 0, y: 0, width: 960, height: 300 });
 });
 
 test("computeCustomRect anchors bottom-right with no offset", () => {
-  const layout = customLayout({ position: "bottom-right", widthFraction: 0.25, heightFraction: 0.25 });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  const layout = customLayout({
+    position: "bottom-right",
+    widthFraction: 0.25,
+    heightFraction: 0.25,
+  });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: false,
+    gapPx: 0,
+  });
   assert.deepEqual(result, { x: 1440, y: 750, width: 480, height: 250 });
 });
 
 test("computeCustomRect centers middle-center with no offset", () => {
   const layout = customLayout({ position: "middle-center" });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: false,
+    gapPx: 0,
+  });
   assert.deepEqual(result, { x: 480, y: 250, width: 960, height: 500 });
 });
 
 test("computeCustomRect applies offsetXFraction/offsetYPoints on top of the anchor", () => {
-  const layout = customLayout({ widthFraction: 0.2, heightFraction: 0.2, offsetXFraction: 0.1, offsetYPoints: 50 });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  const layout = customLayout({
+    widthFraction: 0.2,
+    heightFraction: 0.2,
+    offsetXFraction: 0.1,
+    offsetYPoints: 50,
+  });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: false,
+    gapPx: 0,
+  });
   assert.deepEqual(result, { x: 192, y: 50, width: 384, height: 200 });
 });
 
 test("computeCustomRect Auto size keeps currentRect's size, clamped", () => {
   const layout = customLayout({ widthFraction: null, heightFraction: null });
   const currentRect: Rect = { x: 999, y: 999, width: 500, height: 400 };
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, currentRect, useGap: false, gapPx: 0 });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    currentRect,
+    useGap: false,
+    gapPx: 0,
+  });
   assert.deepEqual(result, { x: 0, y: 0, width: 500, height: 400 });
 });
 
 test("computeCustomRect Auto size with no currentRect falls back to 80% of the work area", () => {
-  const layout = customLayout({ position: "middle-center", widthFraction: null, heightFraction: null });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 0 });
+  const layout = customLayout({
+    position: "middle-center",
+    widthFraction: null,
+    heightFraction: null,
+  });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: false,
+    gapPx: 0,
+  });
   assert.deepEqual(result, { x: 192, y: 100, width: 1536, height: 800 });
 });
 
 test("computeCustomRect Auto size clamps a currentRect larger than the work area", () => {
   const layout = customLayout({ widthFraction: null, heightFraction: null });
   const currentRect: Rect = { x: 0, y: 0, width: 3000, height: 2000 };
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, currentRect, useGap: false, gapPx: 0 });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    currentRect,
+    useGap: false,
+    gapPx: 0,
+  });
   assert.equal(result.width, WORK_AREA.width);
   assert.equal(result.height, WORK_AREA.height);
 });
 
 test("computeCustomRect with useGap insets the rect by half the gap on each side", () => {
   const layout = customLayout({ widthFraction: 0.5, heightFraction: 0.5 });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: true, gapPx: 20 });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: true,
+    gapPx: 20,
+  });
   assert.deepEqual(result, { x: 10, y: 10, width: 940, height: 480 });
 });
 
 test("computeCustomRect with useGap floors at zero size for a gap larger than the rect", () => {
   const layout = customLayout({ widthFraction: 0.005, heightFraction: 0.005 });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: true, gapPx: 100 });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: true,
+    gapPx: 100,
+  });
   assert.equal(result.width, 0);
   assert.equal(result.height, 0);
 });
 
 test("computeCustomRect without useGap ignores gapPx entirely", () => {
   const layout = customLayout({ widthFraction: 0.5, heightFraction: 0.5 });
-  const result = computeCustomRect(layout, { workArea: WORK_AREA, useGap: false, gapPx: 999 });
+  const result = computeCustomRect(layout, {
+    workArea: WORK_AREA,
+    useGap: false,
+    gapPx: 999,
+  });
   assert.deepEqual(result, { x: 0, y: 0, width: 960, height: 500 });
 });
 
@@ -315,6 +471,12 @@ test("mapRectToDisplay clamps when the destination work area is smaller", () => 
   const result = mapRectToDisplay(rect, A.workArea, smaller);
   assert.ok(result.width <= smaller.width);
   assert.ok(result.height <= smaller.height);
-  assert.ok(result.x >= smaller.x && result.x + result.width <= smaller.x + smaller.width);
-  assert.ok(result.y >= smaller.y && result.y + result.height <= smaller.y + smaller.height);
+  assert.ok(
+    result.x >= smaller.x &&
+      result.x + result.width <= smaller.x + smaller.width,
+  );
+  assert.ok(
+    result.y >= smaller.y &&
+      result.y + result.height <= smaller.y + smaller.height,
+  );
 });
