@@ -17,11 +17,12 @@
     "Cargo.toml",
     "Cargo.lock",
     "build.rs",
-    "src"
+    "src",
+    "scripts"
   ],
   "scripts": {
-    "install": "napi build --platform --release",
-    "build": "napi build --platform --release",
-    "build:debug": "napi build --platform"
+    "install": "node scripts/guard-build.js --release",
+    "build": "node scripts/guard-build.js --release",
+    "build:debug": "node scripts/guard-build.js"
   }
 }
