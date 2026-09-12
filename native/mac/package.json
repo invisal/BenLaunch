@@ -1,0 +1,25 @@
+{
+  "name": "@benpocket/mac",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native macOS window control for benpocket-launcher (Accessibility API window snap/move/fullscreen)",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "os": ["darwin"],
+  "napi": {
+    "binaryName": "mac",
+    "targets": ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node"
+  ],
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.8.6"
+  }
+}

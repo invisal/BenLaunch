@@ -69,16 +69,15 @@ function typescriptRuntimeAsset(): Plugin {
 
 export default defineConfig({
   main: {
-    // `@benpocket/win` is an optionalDependency (win32-only), so
-    // externalizeDepsPlugin's default `pkg.dependencies` scan misses it — list it
-    // explicitly so it stays a runtime `import`/`require` instead of something
-    // Rollup tries (and fails) to resolve into the bundle on other platforms.
-    // `@benpocket/win` and `electron-liquid-glass` are optionalDependencies with a
+    // `@benpocket/{win,mac,linux}` (each platform-restricted via their own
+    // `os` field) and `electron-liquid-glass` are optionalDependencies with a
     // native addon, so externalizeDepsPlugin's default `pkg.dependencies` scan
-    // misses them — list them explicitly so they stay a runtime `import` instead
-    // of something Rollup tries (and fails) to bundle.
+    // misses them — list them explicitly so they stay a runtime `import`
+    // instead of something Rollup tries (and fails) to bundle.
     plugins: [
-      externalizeDepsPlugin({ include: ['@benpocket/win', 'electron-liquid-glass'] })
+      externalizeDepsPlugin({
+        include: ['@benpocket/win', '@benpocket/mac', '@benpocket/linux', 'electron-liquid-glass']
+      })
     ],
     resolve: { alias: nodeAlias },
     build: {

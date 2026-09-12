@@ -1,0 +1,25 @@
+{
+  "name": "@benpocket/linux",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Native Linux (X11/XWayland) window control for benpocket-launcher (EWMH window snap/move/fullscreen)",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "os": ["linux"],
+  "napi": {
+    "binaryName": "linux",
+    "targets": ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "*.node"
+  ],
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.8.6"
+  }
+}

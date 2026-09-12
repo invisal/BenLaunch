@@ -28,6 +28,8 @@
   },
   "optionalDependencies": {
     "@benpocket/win": "file:native/win",
+    "@benpocket/mac": "file:native/mac",
+    "@benpocket/linux": "file:native/linux",
     "electron-liquid-glass": "^1.1.1"
   },
   "devDependencies": {

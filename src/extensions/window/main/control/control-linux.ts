@@ -1,6 +1,5 @@
 import { dialog } from "electron";
-import { execFile, execFileSync } from "node:child_process";
-import { promisify } from "node:util";
+import { createRequire } from "node:module";
 import {
   allDisplays,
   currentDisplay,
@@ -20,151 +19,88 @@ import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 
 export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 
-const execFileAsync = promisify(execFile);
+/**
+ * `@benpocket/linux` is an optionalDependency that only installs on linux, so
+ * it can't be a static import here — that would crash at module-load time on
+ * every other platform, well before the `process.platform` checks below run.
+ * `createRequire` gives us a synchronous, lazily-invoked load from this ESM
+ * module without pulling in a top-level `require`.
+ */
+type NativeLinux = typeof import("@benpocket/linux");
+const nodeRequire = createRequire(import.meta.url);
+let native: NativeLinux | null | undefined;
+
+function loadNative(): NativeLinux | null {
+  if (native !== undefined) return native;
+  if (process.platform !== "linux") return (native = null);
+  try {
+    native = nodeRequire("@benpocket/linux") as NativeLinux;
+  } catch (error) {
+    console.error("[window/linux] Failed to load @benpocket/linux:", error);
+    native = null;
+  }
+  return native;
+}
 
 /**
- * Linux-side window control: no native addon (same "shell out, don't compile"
- * approach as `control-mac.ts`/`apps-mac.ts`) — window geometry is read and set
- * via `xdotool`, and maximize-state/fullscreen toggling via `wmctrl`'s EWMH
- * `_NET_WM_STATE` support. Both are ordinary packages on every mainstream distro
- * (`apt install xdotool wmctrl` / `dnf install xdotool wmctrl`), not bundled with
- * the app, so a missing binary is reported the same way a denied permission is
- * on mac — a dialog, not a silent no-op.
+ * Linux-side window control, via the `@benpocket/linux` native addon — direct
+ * EWMH-over-X11 calls (through `x11rb`'s pure-Rust connection) replacing a
+ * previous `xdotool`/`wmctrl` shell-out, which forked a whole process per call
+ * and required both tools to be separately installed on the user's system.
  *
- * Hard platform limit, not a gap in this implementation: both tools operate on
- * X11 (which includes XWayland-backed windows under a Wayland session — most
- * apps, today), but a **Wayland-native** window cannot be moved by any external
+ * Hard platform limit, not a gap in this implementation: this operates on X11
+ * (which includes XWayland-backed windows under a Wayland session — most apps,
+ * today), but a **Wayland-native** window cannot be moved by any external
  * process on Linux. Wayland's security model has no cross-app window-control
  * protocol; this is true of every window manager tool on Linux, not just this
  * one, and there is no workaround from here.
  */
 
 /**
- * Whether any real application window is reachable via XWayland at all, checked
- * once at startup and cached for the process's lifetime (see `hasXWaylandWindows`
- * below). On a Wayland session where every running app happens to be a native
- * Wayland client — no XWayland windows exist for `xdotool`/`wmctrl` to act on at
- * all, not even in principle — `WindowExtension` uses this to hide the
- * feature entirely instead of offering commands that can silently no-op.
+ * Whether any real application window is reachable via X11/XWayland at all,
+ * checked once at startup and cached for the process's lifetime. On a Wayland
+ * session where every running app happens to be a native Wayland client — no
+ * XWayland windows exist for the X11 connection to act on at all, not even in
+ * principle — `WindowExtension` uses this to hide the feature entirely instead
+ * of offering commands that can silently no-op.
  */
 let xwaylandWindowsChecked = false;
 let xwaylandWindowsPresent = false;
 
-/**
- * `wmctrl -l` lists every window on the EWMH `_NET_CLIENT_LIST` — empty output
- * means there are zero XWayland-backed windows on the whole desktop right now,
- * not just that the currently focused one happens to be native Wayland. Treated
- * the same as "unsupported" if `wmctrl` itself is missing or the check fails:
- * nothing here can prove the feature would work, so don't offer it.
- */
 export function hasXWaylandWindows(): boolean {
   if (xwaylandWindowsChecked) return xwaylandWindowsPresent;
   xwaylandWindowsChecked = true;
-  try {
-    const out = execFileSync("wmctrl", ["-l"], {
-      encoding: "utf8",
-      timeout: 1000,
-    }).trim();
-    xwaylandWindowsPresent = out.length > 0;
-  } catch (error) {
-    console.error(
-      "[window/linux] hasXWaylandWindows check failed (is wmctrl installed?):",
-      error,
-    );
-    xwaylandWindowsPresent = false;
-  }
+  xwaylandWindowsPresent = loadNative()?.hasXwaylandWindows() ?? false;
   return xwaylandWindowsPresent;
 }
 
-/** Last-captured X11 window id (decimal, as `xdotool` prints it); `null` when none/unknown. */
-let capturedWindowId: string | null = null;
+/** Last-captured X11 window id; `0` when none/unknown. */
+let capturedWindowId = 0;
 
 /**
- * Records the currently active window's id. `exclude` is the launcher's own X11
- * window id (see `launcherHandle()` in `index.ts`) so a stray capture of the
- * launcher itself is discarded rather than moved later.
+ * Records the currently active window's id. `exclude` is the launcher's own
+ * X11 window id (see `launcherHandle()` in `index.ts`) so a stray capture of
+ * the launcher itself is discarded rather than moved later.
  */
 export function capture(exclude?: number): void {
-  try {
-    const out = execFileSync("xdotool", ["getactivewindow"], {
-      encoding: "utf8",
-      timeout: 500,
-    }).trim();
-    const id = Number(out);
-    capturedWindowId = out && id !== exclude ? out : null;
-  } catch (error) {
-    console.error(
-      "[window/linux] capture failed (is xdotool installed?):",
-      error,
-    );
-    capturedWindowId = null;
-  }
+  const linux = loadNative();
+  capturedWindowId = linux ? linux.activeWindow(exclude ?? 0) : 0;
 }
 
-function restoreKey(id: string): string {
+function restoreKey(id: number): string {
   return `linux:${id}`;
 }
 
-async function readFrame(id: string): Promise<Rect | null> {
-  try {
-    const { stdout } = await execFileAsync(
-      "xdotool",
-      ["getwindowgeometry", "--shell", id],
-      {
-        timeout: 1000,
-      },
-    );
-    const vars = Object.fromEntries(
-      stdout
-        .trim()
-        .split("\n")
-        .map((line) => line.split("=") as [string, string]),
-    );
-    const x = Number(vars.X);
-    const y = Number(vars.Y);
-    const width = Number(vars.WIDTH);
-    const height = Number(vars.HEIGHT);
-    if ([x, y, width, height].some((value) => !Number.isFinite(value)))
-      return null;
-    return { x, y, width, height };
-  } catch (error) {
-    console.error("[window/linux] readFrame failed:", error);
-    notifyToolIssue();
-    return null;
-  }
+function readFrame(id: number): Rect | null {
+  const rect = loadNative()?.getWindowRect(id) ?? null;
+  if (!rect) notifyToolIssue();
+  return rect;
 }
 
-async function writeFrame(id: string, rect: Rect): Promise<boolean> {
-  const x = Math.round(rect.x);
-  const y = Math.round(rect.y);
-  const width = Math.round(rect.width);
-  const height = Math.round(rect.height);
-  try {
-    // Unmaximize first — most window managers ignore windowmove/windowsize on an
-    // already-maximized window, the same reason the Windows/mac paths restore
-    // the window before repositioning it. Best-effort: if wmctrl isn't
-    // installed, fall straight through to the resize/move attempt.
-    await execFileAsync("wmctrl", [
-      "-i",
-      "-r",
-      id,
-      "-b",
-      "remove,maximized_vert,maximized_horz",
-    ]).catch(() => {});
-    await execFileAsync(
-      "xdotool",
-      ["windowsize", id, String(width), String(height)],
-      { timeout: 1000 },
-    );
-    await execFileAsync("xdotool", ["windowmove", id, String(x), String(y)], {
-      timeout: 1000,
-    });
-    return true;
-  } catch (error) {
-    console.error("[window/linux] writeFrame failed:", error);
-    notifyToolIssue();
-    return false;
-  }
+function writeFrame(id: number, rect: Rect): boolean {
+  const ok = loadNative()?.applyWindowRect(id, rect) ?? false;
+  if (!ok) notifyToolIssue();
+  return ok;
 }
 
 /**
@@ -181,7 +117,7 @@ function notifyToolIssue(): void {
     type: "warning",
     message: "BenLaunch couldn't move this window",
     detail:
-      'Window Management on Linux needs the "xdotool" and "wmctrl" command-line tools (e.g. `sudo apt install xdotool wmctrl`), and only works on X11 windows — this includes XWayland-backed apps under a Wayland session, but a Wayland-native window can\'t be moved by any external app; that\'s a Wayland platform limitation, not something this app can work around.',
+      "Window Management on Linux needs a reachable X server (this includes XWayland-backed apps under a Wayland session), but a Wayland-native window can't be moved by any external app — that's a Wayland platform limitation, not something this app can work around.",
     buttons: ["OK"],
     defaultId: 0,
   });
@@ -193,7 +129,7 @@ async function applyComputedRect(
 ): Promise<boolean> {
   if (!capturedWindowId) return false;
 
-  const current = await readFrame(capturedWindowId);
+  const current = readFrame(capturedWindowId);
   if (!current) return false;
 
   const target = computeRect(workAreaFor(current), current);
@@ -222,7 +158,7 @@ export async function moveToDisplay(
 ): Promise<boolean> {
   if (!capturedWindowId) return false;
 
-  const current = await readFrame(capturedWindowId);
+  const current = readFrame(capturedWindowId);
   if (!current) return false;
 
   const display = currentDisplay(current);
@@ -241,7 +177,7 @@ export async function moveToDisplay(
 export async function moveToEdge(direction: EdgeDirection): Promise<boolean> {
   if (!capturedWindowId) return false;
 
-  const current = await readFrame(capturedWindowId);
+  const current = readFrame(capturedWindowId);
   if (!current) return false;
 
   const target = computeEdgeMove(direction, workAreaFor(current), current);
@@ -257,21 +193,10 @@ export async function restore(): Promise<boolean> {
   return writeFrame(capturedWindowId, previous);
 }
 
-/** EWMH `_NET_WM_STATE_FULLSCREEN`, via `wmctrl` — broadly supported across X11 window managers. */
+/** EWMH `_NET_WM_STATE_FULLSCREEN` — broadly supported across X11 window managers. */
 export async function toggleFullscreen(): Promise<boolean> {
   if (!capturedWindowId) return false;
-  try {
-    await execFileAsync(
-      "wmctrl",
-      ["-i", "-r", capturedWindowId, "-b", "toggle,fullscreen"],
-      {
-        timeout: 1000,
-      },
-    );
-    return true;
-  } catch (error) {
-    console.error("[window/linux] toggleFullscreen failed:", error);
-    notifyToolIssue();
-    return false;
-  }
+  const ok = loadNative()?.toggleFullscreen(capturedWindowId) ?? false;
+  if (!ok) notifyToolIssue();
+  return ok;
 }

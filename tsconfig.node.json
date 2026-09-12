@@ -8,6 +8,8 @@
     "strict": true,
     "paths": {
       "@benpocket/win": ["./native/win/index.d.ts"],
+      "@benpocket/mac": ["./native/mac/index.d.ts"],
+      "@benpocket/linux": ["./native/linux/index.d.ts"],
       "@core/*": ["./src/core/*"],
       "@main/*": ["./src/main/*"],
       "@shared/*": ["./src/shared/*"],
