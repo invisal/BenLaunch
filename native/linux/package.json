@@ -16,6 +16,7 @@
     "*.node"
   ],
   "scripts": {
+    "install": "napi build --platform --release",
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform"
   },
