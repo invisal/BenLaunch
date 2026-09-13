@@ -13,7 +13,11 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "*.node"
+    "*.node",
+    "Cargo.toml",
+    "Cargo.lock",
+    "build.rs",
+    "src"
   ],
   "scripts": {
     "install": "napi build --platform --release",
