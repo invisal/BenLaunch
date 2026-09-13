@@ -13,7 +13,14 @@
   /* Floating surfaces (menu / dropdown popups). Fully opaque and a touch
      lifted off the base: every window's own `--color-background` is
      translucent (acrylic / glass shows through), and a popup portals over
-     the app's own content, so a see-through menu bleeds the rows behind it. */
+     the app's own content, so a see-through menu bleeds the rows behind it.
+     Tried a translucent + `backdrop-filter: blur()` variant for macOS to read
+     as the same glass material as the window — don't reintroduce that.
+     `backdrop-filter` is long-broken in Electron windows that use vibrancy /
+     a native glass view over a transparent background (our exact setup):
+     Chromium either no-ops it or renders a glow instead of an actual blur,
+     and closed-as-not-planned upstream — see electron/electron#44720,
+     #39529, #30915. Opaque is the only reliable option here. */
   --color-popover: rgb(28 26 24);
 
   /* Calculator expression syntax highlighting — a faint accent on units,
@@ -24,7 +31,8 @@
 }
 
 /* On macOS the window is backed by an electron-liquid-glass surface, so let the
-   glass show through instead of painting a near-opaque panel over it. */
+   glass show through instead of painting a near-opaque panel over it. Popups
+   keep the base (opaque) `--color-popover` — see the comment on that token. */
 :root[data-platform="darwin"] {
   --color-background: rgb(10 9 8 / 45%);
 }
@@ -61,8 +69,11 @@ body {
 /* Standard scrollbar properties (not `::-webkit-scrollbar`) keep the overlay
    behavior enabled by the `OverlayScrollbar` switch in the main process: the
    thumb floats over the content and the list never reflows when it starts to
-   scroll. The overlay thumb already auto-hides when idle. */
-.result-scroll {
+   scroll. The overlay thumb already auto-hides when idle. Both properties are
+   inherited, so setting them once here covers every scrollable element —
+   including menu/combobox popups portaled into `body` — instead of the
+   default opaque white system scrollbar. */
+html {
   scrollbar-width: thin;
   scrollbar-color: rgb(255 255 255 / 22%) transparent;
 }
