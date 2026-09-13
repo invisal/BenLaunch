@@ -13,13 +13,16 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "*.node"
+    "*.node",
+    "Cargo.toml",
+    "Cargo.lock",
+    "build.rs",
+    "src",
+    "scripts"
   ],
   "scripts": {
-    "build": "napi build --platform --release",
-    "build:debug": "napi build --platform"
-  },
-  "devDependencies": {
-    "@napi-rs/cli": "^3.8.6"
+    "install": "node scripts/guard-build.js --release",
+    "build": "node scripts/guard-build.js --release",
+    "build:debug": "node scripts/guard-build.js"
   }
 }
