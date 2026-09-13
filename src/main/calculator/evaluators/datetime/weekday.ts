@@ -1,5 +1,5 @@
-import * as chrono from 'chrono-node'
-import type { Calculation } from '../../../../shared/types'
+import * as chrono from "chrono-node";
+import type { Calculation } from "../../../../shared/types";
 
 /**
  * "What day of the week does a date fall on?" — `day of 2026-12-25`,
@@ -16,30 +16,37 @@ const PHRASINGS: readonly RegExp[] = [
   /^(?:the\s+)?(?:weekday|day)\s+of\s+(?:the\s+week\s+)?(?:for\s+|is\s+)?(.+?)\s*\??$/i,
   // "X — what day (of the week)" / "X day of week"
   /^(.+?)\s+(?:is\s+)?(?:what\s+day(?:\s+of\s+(?:the\s+)?week)?|day\s+of\s+(?:the\s+)?week|weekday)\s*\??$/i,
-]
+];
 
 export function resolveWeekday(input: string, now: Date): Calculation | null {
   for (const re of PHRASINGS) {
-    const m = input.match(re)
-    if (!m) continue
+    const m = input.match(re);
+    if (!m) continue;
 
-    const dateText = m[1].trim()
-    const results = chrono.parse(dateText, now, {})
-    if (results.length !== 1) return null
+    const dateText = m[1].trim();
+    const results = chrono.parse(dateText, now, {});
+    if (results.length !== 1) return null;
 
-    const [result] = results
-    if (result.index !== 0 || result.text.length !== dateText.length) return null
+    const [result] = results;
+    if (result.index !== 0 || result.text.length !== dateText.length)
+      return null;
 
-    const date = result.start.date()
-    const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date)
-    const sameYear = date.getFullYear() === now.getFullYear()
-    const label = new Intl.DateTimeFormat('en-US', {
-      day: 'numeric',
-      month: 'short',
-      ...(sameYear ? {} : { year: 'numeric' }),
-    }).format(date)
+    const date = result.start.date();
+    const weekday = new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+    }).format(date);
+    const sameYear = date.getFullYear() === now.getFullYear();
+    const label = new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "short",
+      ...(sameYear ? {} : { year: "numeric" }),
+    }).format(date);
 
-    return { expression: input, value: `${weekday}, ${label}`, rawValue: weekday }
+    return {
+      expression: input,
+      value: `${weekday}, ${label}`,
+      rawValue: weekday,
+    };
   }
-  return null
+  return null;
 }

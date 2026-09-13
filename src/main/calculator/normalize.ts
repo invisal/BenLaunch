@@ -12,16 +12,16 @@
  */
 
 /** Question lead-ins people type before a query. */
-const LEAD_IN = /^(?:what'?s|what\s+is|calculate|compute|convert)\s+/i
+const LEAD_IN = /^(?:what'?s|what\s+is|calculate|compute|convert)\s+/i;
 
 /** A trailing "=", "equals" or "?" — "2 + 2 =", "5 * 5 equals", "time in tokyo?". */
-const TRAILING = /\s*(?:=|equals)?\s*\??\s*$/i
+const TRAILING = /\s*(?:=|equals)?\s*\??\s*$/i;
 
 export function normalize(raw: string): string {
   return raw
     .trim()
-    .replace(LEAD_IN, '')
-    .replace(TRAILING, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+    .replace(LEAD_IN, "")
+    .replace(TRAILING, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }

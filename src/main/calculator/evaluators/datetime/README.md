@@ -47,14 +47,14 @@ Hand-rolled (step day-by-day, skip Sat/Sun) — `chrono` has no concept of these
 
 ## 4. Ordinal period boundaries
 
-| #   | Input                        | Result             | ✓   |
-| --- | ---------------------------- | ------------------ | --- |
-| 4.1 | `first day of next month`    | `Thu, Oct 1`       |     |
-| 4.2 | `last day of this month`     | `Wed, Sep 30`      |     |
-| 4.3 | `first day of the year`      | `Thu, Jan 1`       |     |
-| 4.4 | `first day of 2029`          | `Mon, Jan 1, 2029` |     |
-| 4.5 | `last day of 2029`           | `Mon, Dec 31, 2029`|     |
-| 4.6 | `last day of february 2028`  | `Tue, Feb 29, 2028` (leap year) |  |
+| #   | Input                       | Result                          | ✓   |
+| --- | --------------------------- | ------------------------------- | --- |
+| 4.1 | `first day of next month`   | `Thu, Oct 1`                    |     |
+| 4.2 | `last day of this month`    | `Wed, Sep 30`                   |     |
+| 4.3 | `first day of the year`     | `Thu, Jan 1`                    |     |
+| 4.4 | `first day of 2029`         | `Mon, Jan 1, 2029`              |     |
+| 4.5 | `last day of 2029`          | `Mon, Dec 31, 2029`             |     |
+| 4.6 | `last day of february 2028` | `Tue, Feb 29, 2028` (leap year) |     |
 
 ## 5. Date / time arithmetic — `<date-or-time> ± <n> [unit]`
 
@@ -98,15 +98,15 @@ after a clock time. Month/year math is calendar-correct.
 
 ## 8. Date differences
 
-| #   | Input                                    | Result                                      | ✓   |
-| --- | ---------------------------------------- | ------------------------------------------- | --- |
-| 8.1 | `days between 1 Jan and 1 Apr`           | `90 days`                                   |     |
-| 8.2 | `between 1 Jan and 1 Apr`                | `13 weeks` (no unit ⇒ auto-picks)           |     |
-| 8.3 | `days between 1 Jan and 15 Mar`          | `73 days` (both chained to the same season) |     |
-| 8.4 | `days between 2024-01-15 and 2024-06-30` | `167 days`                                  |     |
-| 8.5 | `1990-05-01 to today`                    | `436 months`                                |     |
-| 8.6 | `1988-12-08 to today in days`            | `13785 days` (trailing `in <unit>` forces the unit) |  |
-| 8.7 | `1988-12-08 to today in weeks`           | `1969 weeks`                                |     |
+| #   | Input                                    | Result                                              | ✓   |
+| --- | ---------------------------------------- | --------------------------------------------------- | --- |
+| 8.1 | `days between 1 Jan and 1 Apr`           | `90 days`                                           |     |
+| 8.2 | `between 1 Jan and 1 Apr`                | `13 weeks` (no unit ⇒ auto-picks)                   |     |
+| 8.3 | `days between 1 Jan and 15 Mar`          | `73 days` (both chained to the same season)         |     |
+| 8.4 | `days between 2024-01-15 and 2024-06-30` | `167 days`                                          |     |
+| 8.5 | `1990-05-01 to today`                    | `436 months`                                        |     |
+| 8.6 | `1988-12-08 to today in days`            | `13785 days` (trailing `in <unit>` forces the unit) |     |
+| 8.7 | `1988-12-08 to today in weeks`           | `1969 weeks`                                        |     |
 
 ## 9. Sub-day differences — shown to the minute, never rounded to "1 day"
 
@@ -122,17 +122,17 @@ Answers with the spelled-out weekday plus the resolved date; `rawValue` is the
 bare weekday. A bare ISO date resolves the same way (house date format, which
 already carries the weekday).
 
-| #    | Input                               | Result              | ✓   |
-| ---- | ----------------------------------- | ------------------- | --- |
-| 10.1 | `day of 2026-12-25`                 | `Friday, Dec 25`    |     |
-| 10.2 | `weekday of 2026-12-25`             | `Friday, Dec 25`    |     |
-| 10.3 | `what day is 2026-12-25`            | `Friday, Dec 25`    |     |
-| 10.4 | `what day of the week is 2026-12-25`| `Friday, Dec 25`    |     |
-| 10.5 | `what day is 25 Dec 2026`           | `Friday, Dec 25`    |     |
-| 10.6 | `2026-12-25 what day`               | `Friday, Dec 25`    |     |
-| 10.7 | `what day is 1 Jan 2029`            | `Monday, Jan 1, 2029` |   |
-| 10.8 | `what day is tomorrow`              | `Sunday, Sep 6`     |     |
-| 10.9 | `2026-12-25` (bare)                 | `Fri, Dec 25`       |     |
+| #    | Input                                | Result                | ✓   |
+| ---- | ------------------------------------ | --------------------- | --- |
+| 10.1 | `day of 2026-12-25`                  | `Friday, Dec 25`      |     |
+| 10.2 | `weekday of 2026-12-25`              | `Friday, Dec 25`      |     |
+| 10.3 | `what day is 2026-12-25`             | `Friday, Dec 25`      |     |
+| 10.4 | `what day of the week is 2026-12-25` | `Friday, Dec 25`      |     |
+| 10.5 | `what day is 25 Dec 2026`            | `Friday, Dec 25`      |     |
+| 10.6 | `2026-12-25 what day`                | `Friday, Dec 25`      |     |
+| 10.7 | `what day is 1 Jan 2029`             | `Monday, Jan 1, 2029` |     |
+| 10.8 | `what day is tomorrow`               | `Sunday, Sep 6`       |     |
+| 10.9 | `2026-12-25` (bare)                  | `Fri, Dec 25`         |     |
 
 ## 11. Not claimed — nothing shown, query falls through
 

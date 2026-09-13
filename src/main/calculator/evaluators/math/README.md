@@ -169,19 +169,19 @@ fully read the string the panel falls back to plain text.
 
 ## 10. Not claimed — nothing shown, query falls through to app search
 
-| #     | Input                                                           | Why                                           | ✓   |
-| ----- | --------------------------------------------------------------- | --------------------------------------------- | --- |
-| 10.1  | `` (empty) / `   `                                              | nothing to evaluate                           |     |
-| 10.2  | `chrome`, `notepad`, `sin`, `pi`, `in`                          | no digit, no function call                    |     |
-| 10.3  | `42`, `1.5`, `-5`, `1000000`                                    | a bare number is not a _calculation_          |     |
-| 10.4  | `2 pi`, `2 pi extra`                                            | implicit multiply, no operator — a bare value |     |
-| 10.5  | `7zip`, `1password`                                             | digit then letters — undefined symbol         |     |
-| 10.6  | `notepad++`, `1 +`, `(1 + 2`                                    | doesn't parse                                 |     |
-| 10.7  | `1 / 0`                                                         | not finite                                    |     |
-| 10.8  | `import("fs")`, `createUnit("foo")`                             | meta-functions are disabled                   |     |
-| 10.9  | `2026-01-15 + 3`, `2026-12-25`                                  | an ISO date (with or without `±`) → `datetime` |    |
-| 10.10 | `in 3 hours`, `in 10 days`                                      | leading `in` + number → `datetime`            |     |
-| 10.11 | `sunny plus warm`, `what is love`, `today's news`, `monday.com` | not math                                      |     |
+| #     | Input                                                           | Why                                            | ✓   |
+| ----- | --------------------------------------------------------------- | ---------------------------------------------- | --- |
+| 10.1  | `` (empty) / `   `                                              | nothing to evaluate                            |     |
+| 10.2  | `chrome`, `notepad`, `sin`, `pi`, `in`                          | no digit, no function call                     |     |
+| 10.3  | `42`, `1.5`, `-5`, `1000000`                                    | a bare number is not a _calculation_           |     |
+| 10.4  | `2 pi`, `2 pi extra`                                            | implicit multiply, no operator — a bare value  |     |
+| 10.5  | `7zip`, `1password`                                             | digit then letters — undefined symbol          |     |
+| 10.6  | `notepad++`, `1 +`, `(1 + 2`                                    | doesn't parse                                  |     |
+| 10.7  | `1 / 0`                                                         | not finite                                     |     |
+| 10.8  | `import("fs")`, `createUnit("foo")`                             | meta-functions are disabled                    |     |
+| 10.9  | `2026-01-15 + 3`, `2026-12-25`                                  | an ISO date (with or without `±`) → `datetime` |     |
+| 10.10 | `in 3 hours`, `in 10 days`                                      | leading `in` + number → `datetime`             |     |
+| 10.11 | `sunny plus warm`, `what is love`, `today's news`, `monday.com` | not math                                       |     |
 
 ---
 

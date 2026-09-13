@@ -14,13 +14,13 @@ const evaluators = [math, currency, datetime, timezone]
 Backed by research in [pere-doc/calculation/](../../../../pere-doc/calculation/)
 (gitignored) — 24 Raycast calculator features mapped onto these ~5 engines.
 
-| Evaluator | Status | Feature #s (see pere-doc) |
-|---|:--:|---|
-| [math](math/) | ✅ | 1, 4 (partial), 5, 11, 14, 20, 22 |
-| [currency](currency/) | ✅ | 3 (crypto 19 = a second feed, not built) |
-| [datetime](datetime/) | ✅ | 10, 12, 16 (partial), 17, 24 |
-| [timezone](timezone/) | ✅ | 7, 8, 18 (not built — a second "time diff between two places" shortcut) |
-| units | — | folded into `math` rather than a standalone evaluator — `mathjs`'s own unit engine already covers most of #4/#9/#21, so this stayed a normalization step (`math/units.ts`) instead of a new pipeline stage |
+| Evaluator             | Status | Feature #s (see pere-doc)                                                                                                                                                                                  |
+| --------------------- | :----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [math](math/)         |   ✅   | 1, 4 (partial), 5, 11, 14, 20, 22                                                                                                                                                                          |
+| [currency](currency/) |   ✅   | 3 (crypto 19 = a second feed, not built)                                                                                                                                                                   |
+| [datetime](datetime/) |   ✅   | 10, 12, 16 (partial), 17, 24                                                                                                                                                                               |
+| [timezone](timezone/) |   ✅   | 7, 8, 18 (not built — a second "time diff between two places" shortcut)                                                                                                                                    |
+| units                 |   —    | folded into `math` rather than a standalone evaluator — `mathjs`'s own unit engine already covers most of #4/#9/#21, so this stayed a normalization step (`math/units.ts`) instead of a new pipeline stage |
 
 Features 2 (clipboard), 6 (history), 13 (number formatting), 15 (pinned) are
 UI / storage, not evaluators, and remain backlog.
@@ -60,7 +60,7 @@ assuming a `pere-doc` gap is still open.
 - A `Calculation` is never returned by more than one evaluator's own testing —
   when a later evaluator's grammar could plausibly overlap an earlier one's
   input shape (e.g. `datetime`'s bare `A to B` vs. `math`'s unit conversion
-  `10 ft to m`), the guard is *both* running order (earlier evaluators already
-  claimed what they understood) *and* the later evaluator independently
+  `10 ft to m`), the guard is _both_ running order (earlier evaluators already
+  claimed what they understood) _and_ the later evaluator independently
   verifying its own parse succeeded on both sides — never one relying on the
   other to have already rejected the string.

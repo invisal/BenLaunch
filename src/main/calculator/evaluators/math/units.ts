@@ -16,12 +16,12 @@
 
 /** Word/abbreviation forms with no built-in `mathjs` alias. */
 const UNIT_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\bpounds?\b/gi, 'lbs'],
-  [/\btbsp\b/gi, 'tablespoon'],
-  [/\btsp\b/gi, 'teaspoon'],
-  [/\bmph\b/gi, 'mi/h'],
-  [/\bk(?:m|p)h\b/gi, 'km/h'],
-]
+  [/\bpounds?\b/gi, "lbs"],
+  [/\btbsp\b/gi, "tablespoon"],
+  [/\btsp\b/gi, "teaspoon"],
+  [/\bmph\b/gi, "mi/h"],
+  [/\bk(?:m|p)h\b/gi, "km/h"],
+];
 
 /**
  * `in` is both the conversion connector ("10 ft in m") and the inch unit
@@ -30,26 +30,27 @@ const UNIT_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
  * `10 ft in m` → `10 ft to m` — so a bare `5 in` (nothing after) still means
  * inches.
  */
-const IN_AS_CONNECTOR = /\bin\b(?=\s+[a-zA-Z°/]+\s*$)/gi
+const IN_AS_CONNECTOR = /\bin\b(?=\s+[a-zA-Z°/]+\s*$)/gi;
 
 /**
  * A bare `C`/`F` only means Celsius/Fahrenheit when the whole expression is
  * "convert this temperature" — `23C to F`. Elsewhere `C`/`F` keep meaning
  * `mathjs`'s Coulomb/Farad, so this is deliberately narrow.
  */
-const TEMP_CONVERSION = /^(-?\d+(?:\.\d+)?)\s*°?([CF])\s*to\s*°?([CF])$/i
+const TEMP_CONVERSION = /^(-?\d+(?:\.\d+)?)\s*°?([CF])\s*to\s*°?([CF])$/i;
 
 export function rewriteUnits(expression: string): string {
-  let out = expression
+  let out = expression;
 
-  for (const [pattern, replacement] of UNIT_WORDS) out = out.replace(pattern, replacement)
-  out = out.replace(IN_AS_CONNECTOR, 'to')
+  for (const [pattern, replacement] of UNIT_WORDS)
+    out = out.replace(pattern, replacement);
+  out = out.replace(IN_AS_CONNECTOR, "to");
 
-  const temp = out.match(TEMP_CONVERSION)
+  const temp = out.match(TEMP_CONVERSION);
   if (temp) {
-    const [, amount, from, to] = temp
-    out = `${amount} deg${from.toUpperCase()} to deg${to.toUpperCase()}`
+    const [, amount, from, to] = temp;
+    out = `${amount} deg${from.toUpperCase()} to deg${to.toUpperCase()}`;
   }
 
-  return out
+  return out;
 }

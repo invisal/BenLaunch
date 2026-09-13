@@ -41,11 +41,19 @@ function ResultItems({ items }: { items: { label: string; value: string }[] }) {
             key={item.label}
             className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-md bg-item-hover px-2 py-1"
           >
-            <span className="text-[13px] text-foreground-subtle">{item.label}</span>
-            <span className="text-[13px] font-semibold text-foreground tabular-nums">{time}</span>
-            {offset && <span className="text-[11px] text-foreground-subtle">{offset}</span>}
+            <span className="text-[13px] text-foreground-subtle">
+              {item.label}
+            </span>
+            <span className="text-[13px] font-semibold text-foreground tabular-nums">
+              {time}
+            </span>
+            {offset && (
+              <span className="text-[11px] text-foreground-subtle">
+                {offset}
+              </span>
+            )}
           </div>
-        )
+        );
       })}
     </div>
   );
@@ -84,7 +92,7 @@ function CalculatorPanel({
     <div
       {...rest}
       className={cn(
-        "flex min-h-[146px] cursor-default flex-col justify-center gap-3 rounded-lg px-4 py-3.5",
+        "flex min-h-36.5 cursor-default flex-col justify-center gap-3 rounded-lg px-4 py-3.5",
         highlighted ? "bg-item-selected" : "bg-item-hover",
         className,
       )}
@@ -108,7 +116,9 @@ function CalculatorPanel({
           {calculation.items ? (
             <ResultItems items={calculation.items} />
           ) : (
-            <div className={`${VALUE} min-w-0 text-2xl font-semibold text-foreground`}>
+            <div
+              className={`${VALUE} min-w-0 text-2xl font-semibold text-foreground`}
+            >
               {calculation.value}
             </div>
           )}

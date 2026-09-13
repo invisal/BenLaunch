@@ -12,17 +12,17 @@
 
 /** `32% of 5` → `32% * 5`. Only touches `of` right after a `%`, so it never
  *  reaches for an unrelated "of" elsewhere in the string. */
-const PERCENT_OF = /%\s*of\s+/gi
+const PERCENT_OF = /%\s*of\s+/gi;
 
 /** `what percent(age) is A of B` / `what percentage of B is A`. */
 const PERCENT_OF_QUESTION =
-  /^what\s+percent(?:age)?\s+is\s+([\d.]+)\s+of\s+([\d.]+)$/i
+  /^what\s+percent(?:age)?\s+is\s+([\d.]+)\s+of\s+([\d.]+)$/i;
 const PERCENT_OF_QUESTION_ALT =
-  /^what\s+percent(?:age)?\s+of\s+([\d.]+)\s+is\s+([\d.]+)$/i
+  /^what\s+percent(?:age)?\s+of\s+([\d.]+)\s+is\s+([\d.]+)$/i;
 
 export interface PercentQuestion {
   /** The ratio as a percentage, e.g. `16` for "what percent is 32 of 200". */
-  percent: number
+  percent: number;
 }
 
 /**
@@ -31,7 +31,7 @@ export interface PercentQuestion {
  * `%` is directly followed by `of`.
  */
 export function rewritePercentOf(expression: string): string {
-  return expression.replace(PERCENT_OF, '% * ')
+  return expression.replace(PERCENT_OF, "% * ");
 }
 
 /**
@@ -39,28 +39,30 @@ export function rewritePercentOf(expression: string): string {
  * as a ratio, not routed through `mathjs` (the result is a `%`-suffixed
  * fraction, not a plain number or unit).
  */
-export function parsePercentQuestion(expression: string): PercentQuestion | null {
-  const direct = expression.match(PERCENT_OF_QUESTION)
+export function parsePercentQuestion(
+  expression: string,
+): PercentQuestion | null {
+  const direct = expression.match(PERCENT_OF_QUESTION);
   if (direct) {
-    const [, a, b] = direct
-    return ratioOf(Number(a), Number(b))
+    const [, a, b] = direct;
+    return ratioOf(Number(a), Number(b));
   }
 
-  const inverted = expression.match(PERCENT_OF_QUESTION_ALT)
+  const inverted = expression.match(PERCENT_OF_QUESTION_ALT);
   if (inverted) {
-    const [, b, a] = inverted
-    return ratioOf(Number(a), Number(b))
+    const [, b, a] = inverted;
+    return ratioOf(Number(a), Number(b));
   }
 
-  return null
+  return null;
 }
 
 function ratioOf(a: number, b: number): PercentQuestion | null {
-  if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return null
-  return { percent: (a / b) * 100 }
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return null;
+  return { percent: (a / b) * 100 };
 }
 
 /** `16.666...` → `16.67` — trims to a friendly percent, no trailing zeros. */
 export function formatPercent(percent: number): string {
-  return Number(percent.toFixed(2)).toString()
+  return Number(percent.toFixed(2)).toString();
 }

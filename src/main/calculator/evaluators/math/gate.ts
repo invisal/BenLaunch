@@ -12,16 +12,16 @@
  */
 
 /** A word immediately followed by `(` — `sin(`, `sqrt(`. */
-const FUNCTION_CALL = /[a-z_]\w*\s*\(/i
+const FUNCTION_CALL = /[a-z_]\w*\s*\(/i;
 
 /** Any binary/postfix operator (a leading unary +/- is stripped before testing). */
-const OPERATOR = /[+\-*/%^!]/
+const OPERATOR = /[+\-*/%^!]/;
 
 export function looksLikeMath(expression: string): boolean {
-  return /\d/.test(expression) || FUNCTION_CALL.test(expression)
+  return /\d/.test(expression) || FUNCTION_CALL.test(expression);
 }
 
 export function isCalculation(expression: string): boolean {
-  const withoutLeadingSign = expression.replace(/^\s*[-+]/, '')
-  return OPERATOR.test(withoutLeadingSign) || FUNCTION_CALL.test(expression)
+  const withoutLeadingSign = expression.replace(/^\s*[-+]/, "");
+  return OPERATOR.test(withoutLeadingSign) || FUNCTION_CALL.test(expression);
 }

@@ -1,11 +1,11 @@
-import type { Calculation } from '../../../../shared/types'
-import type { Evaluator } from '../../types.ts'
-import { looksLikeDate } from './gate.ts'
-import { resolveArithmetic } from './arithmetic.ts'
-import { resolveCountdown } from './countdown.ts'
-import { resolveDifference } from './difference.ts'
-import { resolveRelative } from './relative.ts'
-import { resolveWeekday } from './weekday.ts'
+import type { Calculation } from "../../../../shared/types";
+import type { Evaluator } from "../../types.ts";
+import { looksLikeDate } from "./gate.ts";
+import { resolveArithmetic } from "./arithmetic.ts";
+import { resolveCountdown } from "./countdown.ts";
+import { resolveDifference } from "./difference.ts";
+import { resolveRelative } from "./relative.ts";
+import { resolveWeekday } from "./weekday.ts";
 
 /**
  * The datetime evaluator — relative dates, countdowns, and date differences,
@@ -28,8 +28,8 @@ import { resolveWeekday } from './weekday.ts'
  * date-ish word ("today's news", "monday.com").
  */
 function run(now: () => Date, input: string): Calculation | null {
-  if (!looksLikeDate(input)) return null
-  const at = now()
+  if (!looksLikeDate(input)) return null;
+  const at = now();
 
   return (
     resolveCountdown(input, at) ??
@@ -37,15 +37,15 @@ function run(now: () => Date, input: string): Calculation | null {
     resolveArithmetic(input, at) ??
     resolveWeekday(input, at) ??
     resolveRelative(input, at)
-  )
+  );
 }
 
 export const datetime: Evaluator = {
-  id: 'datetime',
+  id: "datetime",
   evaluate: (input) => run(() => new Date(), input),
-}
+};
 
 /** Same evaluator bound to an explicit clock — for deterministic tests. */
 export function createDatetimeEvaluator(now: () => Date): Evaluator {
-  return { id: 'datetime', evaluate: (input) => run(now, input) }
+  return { id: "datetime", evaluate: (input) => run(now, input) };
 }
