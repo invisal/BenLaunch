@@ -42,6 +42,36 @@ test("bare time with no source place defaults to localZone", () => {
   );
 });
 
+test("a leading ISO date shows the destination's date", () => {
+  assert.equal(
+    resolveConvert("2026-03-15 14:00 UTC in Tokyo", NOW, UTC)?.value,
+    "23:00 Sun, Mar 15",
+  );
+});
+
+test("today / tomorrow / yesterday before or after the time", () => {
+  assert.equal(
+    resolveConvert("5pm tomorrow in tokyo", NOW, UTC)?.value,
+    "02:00 Wed, Jun 17 (next day)",
+  );
+  assert.equal(
+    resolveConvert("tomorrow 5pm ldn in sf", NOW, UTC)?.value,
+    "09:00 Tue, Jun 16",
+  );
+  assert.equal(
+    resolveConvert("5pm ldn tomorrow in sf", NOW, UTC)?.value,
+    "09:00 Tue, Jun 16",
+  );
+  assert.equal(
+    resolveConvert("yesterday midnight UTC in LA", NOW, UTC)?.value,
+    "17:00 Sat, Jun 13 (prev day)",
+  );
+  assert.equal(
+    resolveConvert("today noon Tokyo in London", NOW, UTC)?.value,
+    "04:00 Mon, Jun 15",
+  );
+});
+
 for (const input of [
   "", // empty
   "chrome", // no time token, no in/to

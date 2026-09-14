@@ -26,3 +26,8 @@ export function formatWeekday(instant: Date, zone: string): string {
 export function calendarDate(instant: Date, zone: string): string {
   return formatInTimeZone(instant, zone, "yyyy-MM-dd");
 }
+
+/** `"Mar 15"` — the calendar day in `zone`, for conversions that named a date. */
+export function formatShortDate(instant: Date, zone: string): string {
+  return formatInTimeZone(instant, zone, "MMM d");
+}

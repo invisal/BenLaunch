@@ -90,8 +90,32 @@ No GMT label (it's local); weekday appended if it rolls past midnight.
 | 7.4 | `midnight UTC in LA`   | `17:00 Sun (prev day)`                         |     |
 | 7.5 | `midnight in LA`       | `17:00 Sun (prev day)` (no source ⇒ your zone) |     |
 
+| 7.6 | `2026-03-15 14:00 UTC in Tokyo` | `23:00 Sun, Mar 15` (a named day shows the date) | |
+| 7.7 | `5pm tomorrow in tokyo` | `02:00 Wed, Jun 17 (next day)` | |
+| 7.8 | `tomorrow 5pm ldn in sf` / `5pm ldn tomorrow in sf` | `09:00 Tue, Jun 16` | |
+| 7.9 | `yesterday midnight UTC in LA` | `17:00 Sat, Jun 13 (prev day)` | |
+
 Time tokens accepted: `5pm`, `5PM`, `5am`, `12pm`, `12am`, `9:30am`, `17:00`,
-`0:00`, `noon`, `midnight`. Rejected: `13pm`, `0pm`, `25:00`, `5:70`.
+`0:00`, `noon`, `midnight`. Rejected: `13pm`, `0pm`, `25:00`, `5:70`. A date
+may lead (`2026-03-15`, `today`, `tomorrow`, `yesterday`) or a day word may
+follow the time.
+
+## 7b. Time difference between places
+
+DST-aware for _now_. One place compares against your zone; `rawValue` is the
+signed offset in hours. Exact names/aliases or a prefix (`toky`) — never a
+loose fuzzy match.
+
+| #    | Input                                         | Result                                  | Chips                      | ✓   |
+| ---- | --------------------------------------------- | --------------------------------------- | -------------------------- | --- |
+| 7b.1 | `time diff Paris`                             | `Paris is 2 hours ahead of you`         | `Paris GMT+2`, `You GMT+0` |     |
+| 7b.2 | `diff Tokyo`                                  | `Tokyo is 9 hours ahead of you`         | `Tokyo GMT+9`, `You GMT+0` |     |
+| 7b.3 | `time difference between London and New York` | `London is 5 hours ahead of New York`   |                            |     |
+| 7b.4 | `diff Honolulu`                               | `Honolulu is 10 hours behind you`       |                            |     |
+| 7b.5 | `diff mumbai and kathmandu`                   | `Mumbai is 15 minutes behind Kathmandu` |                            |     |
+| 7b.6 | `tokyo time difference` / `time diff toky`    | `Tokyo is 9 hours ahead of you`         |                            |     |
+| 7b.7 | `diff paris and berlin`                       | `Paris and Berlin are on the same time` |                            |     |
+| 7b.8 | `diff`, `time diff narnia`                    | _nothing_                               |                            |     |
 
 ## 8. Not claimed — nothing shown, query falls through
 

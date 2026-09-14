@@ -1,6 +1,7 @@
 import type { Calculation } from "../../../../shared/types";
 import type { Evaluator } from "../../types.ts";
 import { resolveConvert } from "./convert.ts";
+import { resolveDiff } from "./diff.ts";
 import { resolveClock, systemZone } from "./clock.ts";
 
 /**
@@ -10,7 +11,7 @@ import { resolveClock, systemZone } from "./clock.ts";
  * a timezone query, so `resolvePlace`'s fuzzy scan never runs for it.
  */
 const LOOKS_LIKE_TIME_QUERY =
-  /\btime\b|^(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midnight)\s/i;
+  /\btime\b|\bdiff|^(?:(?:\d{4}-\d{2}-\d{2}|today|tomorrow|yesterday)\s+)?(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midnight)\s/i;
 
 /**
  * The timezone evaluator — current time in a place, and converting a
@@ -19,7 +20,9 @@ const LOOKS_LIKE_TIME_QUERY =
  * `datetime` have already claimed anything they understood.
  *
  *   - current time — "time in Tokyo", "time at sf", "Tokyo time"
- *   - convert a time — "5pm ldn in sf", "9:30am NYC to Berlin", "noon Tokyo in London"
+ *   - convert a time — "5pm ldn in sf", "9:30am NYC to Berlin", "noon Tokyo in London",
+ *     with a date — "2026-03-15 14:00 UTC in Tokyo", "5pm tomorrow in tokyo"
+ *   - difference — "time diff Paris", "time difference between London and New York"
  *
  * `resolveConvert` is tried first (more specific: needs a leading time token
  * *and* an `in|to <place>`), then `resolveClock`.
@@ -33,7 +36,11 @@ function run(
   const at = now();
   const zone = localZone();
 
-  return resolveConvert(input, at, zone) ?? resolveClock(input, at, zone);
+  return (
+    resolveDiff(input, at, zone) ??
+    resolveConvert(input, at, zone) ??
+    resolveClock(input, at, zone)
+  );
 }
 
 export const timezone: Evaluator = {
