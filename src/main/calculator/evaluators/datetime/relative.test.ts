@@ -8,7 +8,20 @@ const NOW = new Date(2026, 8, 5, 10, 0, 0); // Sat 5 Sep 2026
 for (const { input, rawValue } of [
   { input: "tomorrow", rawValue: "2026-09-06" },
   { input: "35 days ago", rawValue: "2026-08-01" },
-  { input: "monday in 3 weeks", rawValue: "2026-09-26" },
+  { input: "monday in 3 weeks", rawValue: "2026-09-28" }, // the Monday nearest Sat 26 Sep
+  { input: "friday in 2 weeks", rawValue: "2026-09-18" },
+  { input: "sunday in a week", rawValue: "2026-09-13" },
+  { input: "wednesday in one week", rawValue: "2026-09-09" },
+  { input: "first friday of next month", rawValue: "2026-10-02" },
+  { input: "last monday of March 2027", rawValue: "2027-03-29" },
+  { input: "2nd tuesday in october", rawValue: "2026-10-13" },
+  { input: "third thursday of this month", rawValue: "2026-09-17" },
+  { input: "first monday of march", rawValue: "2027-03-01" }, // March is behind us → next year's
+  { input: "end of the quarter", rawValue: "2026-09-30" },
+  { input: "end of the year", rawValue: "2026-12-31" },
+  { input: "end of next month", rawValue: "2026-10-31" },
+  { input: "start of next month", rawValue: "2026-10-01" },
+  { input: "beginning of the week", rawValue: "2026-08-31" },
   { input: "2 weeks from now", rawValue: "2026-09-19" },
   { input: "next friday", rawValue: "2026-09-11" },
 ]) {
@@ -92,3 +105,7 @@ for (const input of ["chrome", "5 + 3", "", "photoshop"]) {
     assert.equal(resolveRelative(input, NOW), null);
   });
 }
+
+test("a missing fifth weekday returns null rather than spilling into the next month", () => {
+  assert.equal(resolveRelative("fifth monday of february 2026", NOW), null);
+});

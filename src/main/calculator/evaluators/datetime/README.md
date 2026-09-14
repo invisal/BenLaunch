@@ -17,14 +17,20 @@ times, `9 hours 45 minutes` for durations. Every row is covered by a test under
 
 ## 1. Relative dates
 
-| #   | Input               | Result                                      | ✓   |
-| --- | ------------------- | ------------------------------------------- | --- |
-| 1.1 | `tomorrow`          | `Sun, Sep 6`                                |     |
-| 1.2 | `35 days ago`       | `Sat, Aug 1`                                |     |
-| 1.3 | `monday in 3 weeks` | `Sat, Sep 26`                               |     |
-| 1.4 | `2 weeks from now`  | `Sat, Sep 19`                               |     |
-| 1.5 | `next friday`       | `Fri, Sep 11`                               |     |
-| 1.6 | `last friday`       | `Fri, Sep 4` (never pushed into the future) |     |
+| #    | Input                           | Result                                         | ✓   |
+| ---- | ------------------------------- | ---------------------------------------------- | --- |
+| 1.1  | `tomorrow`                      | `Sun, Sep 6`                                   |     |
+| 1.2  | `35 days ago`                   | `Sat, Aug 1`                                   |     |
+| 1.3  | `monday in 3 weeks`             | `Mon, Sep 28` (the Monday nearest 3 weeks out) |     |
+| 1.4  | `2 weeks from now`              | `Sat, Sep 19`                                  |     |
+| 1.5  | `next friday`                   | `Fri, Sep 11`                                  |     |
+| 1.6  | `last friday`                   | `Fri, Sep 4` (never pushed into the future)    |     |
+| 1.7  | `friday in 2 weeks`             | `Fri, Sep 18`                                  |     |
+| 1.8  | `first friday of next month`    | `Fri, Oct 2`                                   |     |
+| 1.9  | `last monday of March 2027`     | `Mon, Mar 29, 2027`                            |     |
+| 1.10 | `2nd tuesday in october`        | `Tue, Oct 13`                                  |     |
+| 1.11 | `first monday of march`         | `Mon, Mar 1, 2027` (March is behind us)        |     |
+| 1.12 | `fifth monday of february 2026` | _nothing — there isn't one_                    |     |
 
 ## 2. Phrases carrying a time-of-day → shown to the minute
 
@@ -47,14 +53,18 @@ Hand-rolled (step day-by-day, skip Sat/Sun) — `chrono` has no concept of these
 
 ## 4. Ordinal period boundaries
 
-| #   | Input                       | Result                          | ✓   |
-| --- | --------------------------- | ------------------------------- | --- |
-| 4.1 | `first day of next month`   | `Thu, Oct 1`                    |     |
-| 4.2 | `last day of this month`    | `Wed, Sep 30`                   |     |
-| 4.3 | `first day of the year`     | `Thu, Jan 1`                    |     |
-| 4.4 | `first day of 2029`         | `Mon, Jan 1, 2029`              |     |
-| 4.5 | `last day of 2029`          | `Mon, Dec 31, 2029`             |     |
-| 4.6 | `last day of february 2028` | `Tue, Feb 29, 2028` (leap year) |     |
+| #    | Input                       | Result                          | ✓   |
+| ---- | --------------------------- | ------------------------------- | --- |
+| 4.1  | `first day of next month`   | `Thu, Oct 1`                    |     |
+| 4.2  | `last day of this month`    | `Wed, Sep 30`                   |     |
+| 4.3  | `first day of the year`     | `Thu, Jan 1`                    |     |
+| 4.4  | `first day of 2029`         | `Mon, Jan 1, 2029`              |     |
+| 4.5  | `last day of 2029`          | `Mon, Dec 31, 2029`             |     |
+| 4.6  | `last day of february 2028` | `Tue, Feb 29, 2028` (leap year) |     |
+| 4.7  | `end of the quarter`        | `Wed, Sep 30`                   |     |
+| 4.8  | `end of next month`         | `Sat, Oct 31`                   |     |
+| 4.9  | `start of next month`       | `Thu, Oct 1`                    |     |
+| 4.10 | `beginning of the week`     | `Mon, Aug 31`                   |     |
 
 ## 5. Date / time arithmetic — `<date-or-time> ± <n> [unit]`
 
@@ -87,26 +97,36 @@ after a clock time. Month/year math is calendar-correct.
 
 ## 7. Countdowns
 
-| #   | Input                      | Result                          | ✓   |
-| --- | -------------------------- | ------------------------------- | --- |
-| 7.1 | `days until 25 Dec`        | `111 days`                      |     |
-| 7.2 | `weeks until 2026-12-01`   | `12 weeks`                      |     |
-| 7.3 | `days left in the month`   | `26 days`                       |     |
-| 7.4 | `days left in the quarter` | `26 days` (Q3 ends 30 Sep)      |     |
-| 7.5 | `days left in the year`    | `118 days`                      |     |
-| 7.6 | `days until 1 Jan 2020`    | _nothing — target already past_ |     |
+| #    | Input                      | Result                                                                 | ✓   |
+| ---- | -------------------------- | ---------------------------------------------------------------------- | --- |
+| 7.1  | `days until 25 Dec`        | `111 days`                                                             |     |
+| 7.2  | `weeks until 2026-12-01`   | `12 weeks`                                                             |     |
+| 7.3  | `days left in the month`   | `26 days`                                                              |     |
+| 7.4  | `days left in the quarter` | `26 days` (Q3 ends 30 Sep)                                             |     |
+| 7.5  | `days left in the year`    | `118 days`                                                             |     |
+| 7.6  | `days until 1 Jan 2020`    | _nothing — target already past_                                        |     |
+| 7.7  | `time until 2027`          | `3 months 26 days 14 hours` · chip On `Fri, Jan 1, 2027`               |     |
+| 7.8  | `how long until halloween` | `1 month 25 days 14 hours`                                             |     |
+| 7.9  | `months until 2027`        | `4 months`                                                             |     |
+| 7.10 | `weeks until Q4`           | `4 weeks`                                                              |     |
+| 7.11 | `days until Q1 2027`       | `118 days`                                                             |     |
+| 7.12 | `days until christmas`     | `111 days` (also xmas, new year, halloween, valentine's, thanksgiving) |     |
+| 7.13 | `time left in the year`    | `3 months 26 days 14 hours` · chip Ends `Thu, Dec 31`                  |     |
 
 ## 8. Date differences
 
-| #   | Input                                    | Result                                              | ✓   |
-| --- | ---------------------------------------- | --------------------------------------------------- | --- |
-| 8.1 | `days between 1 Jan and 1 Apr`           | `90 days`                                           |     |
-| 8.2 | `between 1 Jan and 1 Apr`                | `13 weeks` (no unit ⇒ auto-picks)                   |     |
-| 8.3 | `days between 1 Jan and 15 Mar`          | `73 days` (both chained to the same season)         |     |
-| 8.4 | `days between 2024-01-15 and 2024-06-30` | `167 days`                                          |     |
-| 8.5 | `1990-05-01 to today`                    | `436 months`                                        |     |
-| 8.6 | `1988-12-08 to today in days`            | `13785 days` (trailing `in <unit>` forces the unit) |     |
-| 8.7 | `1988-12-08 to today in weeks`           | `1969 weeks`                                        |     |
+| #    | Input                                     | Result                                                              | ✓   |
+| ---- | ----------------------------------------- | ------------------------------------------------------------------- | --- |
+| 8.1  | `days between 1 Jan and 1 Apr`            | `90 days`                                                           |     |
+| 8.2  | `between 1 Jan and 1 Apr`                 | `13 weeks` (no unit ⇒ auto-picks)                                   |     |
+| 8.3  | `days between 1 Jan and 15 Mar`           | `73 days` (both chained to the same season)                         |     |
+| 8.4  | `days between 2024-01-15 and 2024-06-30`  | `167 days`                                                          |     |
+| 8.5  | `1990-05-01 to today`                     | `36 years 4 months 4 days` (≥ 1 year, no unit ⇒ calendar breakdown) |     |
+| 8.5a | `1990-05-01 to today in months`           | `436 months`                                                        |     |
+| 8.5b | `2024-03-15 14:30 to now`                 | `2 years 5 months 20 days 19 hours 30 minutes`                      |     |
+| 8.5c | `years between 2020-01-01 and 2026-09-05` | `7 years`                                                           |     |
+| 8.6  | `1988-12-08 to today in days`             | `13785 days` (trailing `in <unit>` forces the unit)                 |     |
+| 8.7  | `1988-12-08 to today in weeks`            | `1969 weeks`                                                        |     |
 
 ## 9. Sub-day differences — shown to the minute, never rounded to "1 day"
 
@@ -133,6 +153,48 @@ already carries the weekday).
 | 10.7 | `what day is 1 Jan 2029`             | `Monday, Jan 1, 2029` |     |
 | 10.8 | `what day is tomorrow`               | `Sunday, Sep 6`       |     |
 | 10.9 | `2026-12-25` (bare)                  | `Fri, Dec 25`         |     |
+
+## 11a. ISO 8601 timestamps & epochs
+
+Local date & time; chips: UTC, how long ago/until, weekday, epoch seconds.
+Reference for this table: now = `2026-09-05 08:26:59 UTC`.
+
+| #     | Input                                                         | Result / chips                                                                     | ✓   |
+| ----- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- | --- |
+| 11a.1 | `2026-09-05T08:14:59Z`                                        | local time · `2026-09-05 08:14 UTC` · `12 minutes ago` · `Saturday` · `1788596099` |     |
+| 11a.2 | `2024-03-15T14:30:00Z`                                        | local time · `2 years 5 months ago` · `Friday` · `1710513000`                      |     |
+| 11a.3 | `2024-03-15T14:30:00+02:00` / `+0200`                         | `12:30 UTC`                                                                        |     |
+| 11a.4 | `epoch 1700000000` / `unix 1700000000000` / `1700000000 unix` | `2023-11-14 22:13 UTC`                                                             |     |
+| 11a.5 | `now to unix`                                                 | `1788596819` · Milliseconds chip                                                   |     |
+| 11a.6 | `2024-03-15T14:30:00Z to epoch`                               | `1710513000`                                                                       |     |
+| 11a.7 | `2026-01-01T00:00:00Z + 90 days`                              | date arithmetic (§5)                                                               |     |
+| 11a.8 | `1700000000` (no keyword)                                     | _nothing — stays a number_                                                         |     |
+
+## 11b. Work days & work hours (Mon–Fri, 8 h/day, no holidays)
+
+| #      | Input                                               | Result                       | Chips                | ✓   |
+| ------ | --------------------------------------------------- | ---------------------------- | -------------------- | --- |
+| 11b.1  | `workhours in 2026`                                 | `2,088 hours`                | Workdays `261`       |     |
+| 11b.2  | `workdays in March`                                 | `22 workdays`                | Work hours `176`     |     |
+| 11b.3  | `55h in workdays`                                   | `6.875 workdays`             | `6 workdays 7 hours` |     |
+| 11b.4  | `10 workdays from today`                            | `Fri, Sep 18`                |                      |     |
+| 11b.5  | `workdays between 1 Mar 2026 and 30 Jun 2026`       | `87 workdays`                | Work hours `696`     |     |
+| 11b.6  | `workdays in Q4` / `business days in february 2027` | `66` / `20 workdays`         |                      |     |
+| 11b.7  | `working hours in next month`                       | `176 hours`                  | Workdays `22`        |     |
+| 11b.8  | `2 workdays in hours`                               | `16 hours`                   |                      |     |
+| 11b.9  | `5 workdays ago` / `in 3 workdays`                  | `Mon, Aug 31` / `Wed, Sep 9` |                      |     |
+| 11b.10 | `3 business days after 2026-12-24`                  | `Tue, Dec 29`                |                      |     |
+| 11b.11 | `workdays until 25 Dec`                             | `80 workdays`                |                      |     |
+| 11b.12 | `workdays left in the quarter`                      | `18 workdays`                |                      |     |
+
+## 11c. Age
+
+| #     | Input                                                   | Result     | Chips                                                                            | ✓   |
+| ----- | ------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------- | --- |
+| 11c.1 | `age from 1990-05-01`                                   | `36 years` | Exact `36 years 4 months 4 days`, Next birthday `Sat, May 1, 2027 (in 238 days)` |     |
+| 11c.2 | `how old is someone born 8 Dec 1988`                    | `37 years` | Exact `37 years 8 months 28 days`, Next birthday `Tue, Dec 8 (in 94 days)`       |     |
+| 11c.3 | `age since 2025-09-05`                                  | `1 year`   | Next birthday `today 🎂`                                                         |     |
+| 11c.4 | `age of 2030-01-01`, `age from 8 Dec`, `age of empires` | _nothing_  |                                                                                  |     |
 
 ## 11. Not claimed — nothing shown, query falls through
 

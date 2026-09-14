@@ -73,3 +73,48 @@ export function shiftPeriod(period: Period, ref: Date, delta: number): Date {
   }
   return d;
 }
+
+export const WEEKDAYS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+] as const;
+
+/** `"mon"`, `"Monday"`, `"tues"` → `1`; `null` for anything else. */
+export function weekdayIndex(word: string): number | null {
+  // "mondays" → "monday", "tues"/"thurs" → "tue"/"thur" — every prefix still matches.
+  const w = word.toLowerCase().replace(/s$/, "");
+  if (w.length < 3) return null;
+  const index = WEEKDAYS.findIndex((day) => day.startsWith(w));
+  return index === -1 ? null : index;
+}
+
+/**
+ * The `n`th `weekday` (0 = Sunday) of `month` (0-based) in `year` — `n = -1`
+ * is the last one. `null` when the month has no such day (a 5th Monday).
+ */
+export function nthWeekday(
+  year: number,
+  month: number,
+  weekday: number,
+  n: number,
+): Date | null {
+  if (n === -1) {
+    const last = new Date(year, month + 1, 0);
+    last.setDate(last.getDate() - ((last.getDay() - weekday + 7) % 7));
+    return last;
+  }
+  const first = new Date(year, month, 1);
+  const date = 1 + ((weekday - first.getDay() + 7) % 7) + (n - 1) * 7;
+  const result = new Date(year, month, date);
+  return result.getMonth() === month ? result : null;
+}
+
+/** First day of quarter `q` (1–4) in `year`. */
+export function quarterStart(q: number, year: number): Date {
+  return new Date(year, (q - 1) * 3, 1);
+}

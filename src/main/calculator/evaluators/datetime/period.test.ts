@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { firstDayOfPeriod, lastDayOfPeriod, shiftPeriod } from "./period.ts";
+import {
+  firstDayOfPeriod,
+  lastDayOfPeriod,
+  nthWeekday,
+  quarterStart,
+  shiftPeriod,
+  weekdayIndex,
+} from "./period.ts";
 
 const REF = new Date(2026, 8, 5); // Sat 5 Sep 2026 — Q3, week of Aug 31 - Sep 6
 
@@ -47,4 +54,32 @@ test("shiftPeriod moves by whole periods", () => {
   assert.equal(shiftPeriod("month", REF, -1).getMonth(), 7); // August
   assert.equal(shiftPeriod("year", REF, 1).getFullYear(), 2027);
   assert.equal(shiftPeriod("quarter", REF, 1).getMonth(), 11); // December (Q4)
+});
+
+test("weekdayIndex accepts full, short and plural names", () => {
+  assert.equal(weekdayIndex("Monday"), 1);
+  assert.equal(weekdayIndex("mon"), 1);
+  assert.equal(weekdayIndex("tues"), 2);
+  assert.equal(weekdayIndex("thurs"), 4);
+  assert.equal(weekdayIndex("fridays"), 5);
+  assert.equal(weekdayIndex("su"), null);
+  assert.equal(weekdayIndex("month"), null);
+});
+
+test("nthWeekday: first, third, last, and a missing fifth", () => {
+  assert.equal(nthWeekday(2026, 9, 5, 1)?.getDate(), 2); // first Fri of Oct 2026
+  assert.equal(nthWeekday(2026, 10, 4, 4)?.getDate(), 26); // 4th Thu of Nov 2026 (Thanksgiving)
+  assert.equal(nthWeekday(2026, 8, 1, -1)?.getDate(), 28); // last Mon of Sep 2026
+  assert.equal(nthWeekday(2026, 1, 1, 5), null); // Feb 2026 has four Mondays
+});
+
+test("quarterStart", () => {
+  assert.equal(
+    quarterStart(4, 2026).toDateString(),
+    new Date(2026, 9, 1).toDateString(),
+  );
+  assert.equal(
+    quarterStart(1, 2027).toDateString(),
+    new Date(2027, 0, 1).toDateString(),
+  );
 });

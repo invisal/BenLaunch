@@ -32,10 +32,36 @@ test("explicit ISO dates", () => {
   assert.equal(calc.value, "167 days");
 });
 
-test('bare "A to B" form', () => {
+test('bare "A to B" form — a span over a year reads as years/months/days', () => {
   const calc = resolveDifference("1990-05-01 to today", NOW);
   assert.ok(calc);
-  assert.equal(calc.value, "436 months");
+  assert.equal(calc.value, "36 years 4 months 4 days");
+  assert.equal(calc.rawValue, "13276");
+});
+
+test("a long span with a time on either side keeps hours and minutes", () => {
+  assert.equal(
+    resolveDifference("2024-03-15 14:30 to now", NOW)?.value,
+    "2 years 5 months 20 days 19 hours 30 minutes",
+  );
+});
+
+test("an explicit unit still wins over the calendar breakdown", () => {
+  assert.equal(
+    resolveDifference("1990-05-01 to today in months", NOW)?.value,
+    "436 months",
+  );
+  assert.equal(
+    resolveDifference("years between 2020-01-01 and 2026-09-05", NOW)?.value,
+    "7 years",
+  );
+});
+
+test("under a year keeps the auto unit", () => {
+  assert.equal(
+    resolveDifference("2026-01-01 to today", NOW)?.value,
+    "8 months",
+  );
 });
 
 test('a trailing "in <unit>" forces the result unit', () => {

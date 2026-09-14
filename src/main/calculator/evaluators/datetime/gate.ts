@@ -10,10 +10,14 @@
  * words below regardless.
  */
 const DATE_KEYWORDS =
-  /\b(?:today|tomorrow|yesterday|now|ago|next|last|from|left|between|until|till|quarter|business|weekday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|days?|weeks?|months?|years?|hours?|minutes?|mins?)\b/i;
+  /\b(?:today|tomorrow|yesterday|now|ago|next|last|from|left|between|until|till|quarter|business|weekday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|days?|weeks?|months?|years?|hours?|minutes?|mins?|work\s*days?|work\s*hours?|working|age|old|born|epoch|unix|timestamp|end|start|beginning|christmas|xmas|halloween|thanksgiving|valentine'?s?)\b/i;
 
-/** A bare ISO date — `2026-12-25` on its own is a date (its weekday), not math. */
-const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/;
+/**
+ * An ISO date — `2026-12-25` on its own is a date (its weekday), not math —
+ * including the start of a timestamp (`2024-03-15T14:30:00Z`, where there's
+ * no word boundary before the `T`).
+ */
+const ISO_DATE = /\b\d{4}-\d{2}-\d{2}(?:\b|T)/;
 
 /**
  * Date/clock arithmetic — `3:45pm + 5`, `August 5 - 3`, `August 5 minus 3`,

@@ -45,3 +45,42 @@ for (const input of ["5 + 3", "chrome", "", "days between 1 Jan and 1 Apr"]) {
     assert.equal(resolveCountdown(input, NOW), null);
   });
 }
+
+test("time until a bare year → the exact calendar span", () => {
+  const calc = resolveCountdown("time until 2027", NOW);
+  assert.ok(calc);
+  assert.equal(calc.value, "3 months 26 days 14 hours");
+  assert.deepEqual(calc.details, [{ label: "On", value: "Fri, Jan 1, 2027" }]);
+});
+
+test("how long until a holiday", () => {
+  assert.equal(
+    resolveCountdown("how long until halloween", NOW)?.value,
+    "1 month 25 days 14 hours",
+  );
+  assert.equal(
+    resolveCountdown("how long is it until christmas", NOW)?.value,
+    "3 months 19 days 14 hours",
+  );
+});
+
+test("unit countdowns to years, quarters and holidays", () => {
+  assert.equal(resolveCountdown("months until 2027", NOW)?.value, "4 months");
+  assert.equal(resolveCountdown("weeks until Q4", NOW)?.value, "4 weeks");
+  assert.equal(resolveCountdown("days until Q1 2027", NOW)?.value, "118 days");
+  assert.equal(
+    resolveCountdown("days until christmas", NOW)?.value,
+    "111 days",
+  );
+  assert.equal(resolveCountdown("days until new year", NOW)?.value, "118 days");
+});
+
+test("time left in the period counts to the closing midnight", () => {
+  const calc = resolveCountdown("time left in the year", NOW);
+  assert.equal(calc?.value, "3 months 26 days 14 hours");
+  assert.deepEqual(calc?.details, [{ label: "Ends", value: "Thu, Dec 31" }]);
+  assert.equal(
+    resolveCountdown("time left in this month", NOW)?.value,
+    "25 days 14 hours",
+  );
+});

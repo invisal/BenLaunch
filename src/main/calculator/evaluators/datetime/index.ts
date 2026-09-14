@@ -1,7 +1,10 @@
 import type { Calculation } from "../../../../shared/types";
 import type { Evaluator } from "../../types.ts";
 import { looksLikeDate } from "./gate.ts";
+import { resolveAge } from "./age.ts";
 import { resolveArithmetic } from "./arithmetic.ts";
+import { resolveIso } from "./iso.ts";
+import { resolveWorkdays } from "./workdays.ts";
 import { resolveCountdown } from "./countdown.ts";
 import { resolveDifference } from "./difference.ts";
 import { resolveRelative } from "./relative.ts";
@@ -18,6 +21,10 @@ import { resolveWeekday } from "./weekday.ts";
  *     "1988-12-08 to today in days"
  *   - arithmetic — "August 5 + 5", "3:45pm + 90 min", "2026-01-15 + 3 weeks"
  *   - weekday — "what day is 2026-12-25", "day of 25 Dec", a bare "2026-12-25"
+ *   - ISO 8601 / epoch — "2024-03-15T14:30:00Z", "epoch 1700000000", "now to unix"
+ *   - work time — "workdays in March", "55h in workdays", "10 workdays from today"
+ *   - age — "age from 1990-05-01", "how old is someone born 8 Dec 1988"
+ *   - holidays & quarters as targets — "days until christmas", "weeks until Q4"
  *
  * `looksLikeDate` is a cheap keyword gate (the evaluator runs on every
  * keystroke) — only plausible candidates reach `chrono`. Beyond that, each
@@ -32,6 +39,9 @@ function run(now: () => Date, input: string): Calculation | null {
   const at = now();
 
   return (
+    resolveIso(input, at) ??
+    resolveWorkdays(input, at) ??
+    resolveAge(input, at) ??
     resolveCountdown(input, at) ??
     resolveDifference(input, at) ??
     resolveArithmetic(input, at) ??

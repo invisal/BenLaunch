@@ -23,6 +23,14 @@ for (const input of [
   "2026-12-25", // a bare ISO date
   "weekday of 2026-12-25",
   "day of 2026-12-25",
+  "2024-03-15T14:30:00Z", // no word boundary before the T
+  "epoch 1700000000",
+  "workdays in March",
+  "55h in workdays",
+  "age from 1990-05-01",
+  "how old is someone born 8 Dec 1988",
+  "days until christmas",
+  "end of the quarter",
 ]) {
   test(`looksLikeDate(${JSON.stringify(input)}) -> true`, () => {
     assert.equal(looksLikeDate(input), true);
