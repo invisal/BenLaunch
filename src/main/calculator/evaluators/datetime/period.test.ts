@@ -83,3 +83,23 @@ test("quarterStart", () => {
     new Date(2027, 0, 1).toDateString(),
   );
 });
+
+test("shiftPeriod never overflows a short target month", () => {
+  const march31 = new Date(2026, 2, 31, 10);
+  const month = (d: Date) => [d.getFullYear(), d.getMonth()];
+  assert.deepEqual(month(shiftPeriod("month", march31, 1)), [2026, 3]); // April, not May
+  assert.deepEqual(month(shiftPeriod("month", march31, -1)), [2026, 1]); // February, not March
+  assert.deepEqual(month(shiftPeriod("quarter", march31, 1)), [2026, 5]); // Q2 (June), not Q3
+  assert.deepEqual(
+    month(shiftPeriod("year", new Date(2024, 1, 29), 1)),
+    [2025, 1],
+  ); // Feb 2025, not Mar
+  const endOfNextMonth = lastDayOfPeriod(
+    "month",
+    shiftPeriod("month", march31, 1),
+  );
+  assert.equal(
+    endOfNextMonth.toDateString(),
+    new Date(2026, 3, 30).toDateString(),
+  );
+});

@@ -49,7 +49,14 @@ const FR = { decimal: ",", group: "\u202f" };
 const CH = { decimal: ".", group: "’" };
 
 for (const [raw, locale, expected] of [
-  ["1,234.5 * 2", EN, "1,234.5 * 2"], // en: untouched
+  ["1,234.5 * 2", EN, "1234.5 * 2"],
+  ["1,234,567.89", EN, "1234567.89"],
+  ["1,920:1,080", EN, "1920:1080"],
+  ["max(1,234)", EN, "max(1,234)"], // function arguments, not a group
+  ["max(2, 3)", EN, "max(2, 3)"],
+  ["(1,234 + 1) * 2", EN, "(1234 + 1) * 2"], // plain parens are not a call
+  ["3,5 + 1", EN, "3,5 + 1"], // not a 3-digit group, and `,` isn't en's decimal
+  ["1,2345", EN, "1,2345"],
   ["3,5 + 1", DE, "3.5 + 1"],
   ["1.234,5 * 2", DE, "1234.5 * 2"],
   ["1.234.567,89", DE, "1234567.89"],
@@ -62,7 +69,11 @@ for (const [raw, locale, expected] of [
   ["10:30", DE, "10:30"],
   ["1.5 + 1", DE, "1.5 + 1"], // not a 3-digit group — left alone
   ["1\u202f234,5", FR, "1234.5"],
-  ["1’234.5", CH, "1’234.5"], // dot-decimal locales are left to the evaluators
+  ["1’234.5", CH, "1234.5"],
+  ["1 234,5 + 1", FR, "1234.5 + 1"], // a typed space groups in a space-grouped locale
+  ["1\u00a0234,5", FR, "1234.5"],
+  ["10 usd", FR, "10 usd"],
+  ["1 234,5", DE, "1 234.5"], // a space is not a group separator in de
 ] as const) {
   test(`normalizeNumbers(${JSON.stringify(raw)}, decimal ${locale.decimal}) -> ${JSON.stringify(expected)}`, () => {
     assert.equal(normalizeNumbers(raw, locale), expected);

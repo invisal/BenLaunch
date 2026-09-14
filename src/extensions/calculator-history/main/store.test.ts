@@ -63,12 +63,25 @@ test("recording the same query again refreshes it instead of duplicating", () =>
   clock += 10;
   store.record(calc("2 + 2", "4"));
   clock += 10;
-  const again = store.record(calc("  10 USD  in eur ", "€8.70"))!;
+  const again = store.record(calc("  10 usd  in eur ", "€8.70"))!;
 
   assert.equal(again.id, first.id);
   assert.equal(store.list().length, 2);
   assert.equal(store.list()[0].value, "€8.70");
   assert.equal(store.list()[0].createdAt, clock);
+});
+
+test("queries differing only in case stay separate entries (units are case-sensitive)", () => {
+  const store = makeStore();
+  const bytes = store.record(calc("1 MB to B", "1,000,000 B"))!;
+  clock += 10;
+  const bits = store.record(calc("1 Mb to B", "125,000 B"))!;
+
+  assert.notEqual(bits.id, bytes.id);
+  assert.deepEqual(
+    store.list().map((e) => e.value),
+    ["125,000 B", "1,000,000 B"],
+  );
 });
 
 test("re-recording keeps a pinned entry pinned", () => {

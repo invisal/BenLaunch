@@ -34,9 +34,12 @@ function isHistoryEntry(value: unknown): value is HistoryEntry {
   );
 }
 
-/** Same query modulo case and spacing — `"1+1"` typed twice is one entry. */
+/**
+ * Same query modulo surrounding and repeated spaces. Case is kept: calculator
+ * input is case-sensitive (`1 MB to B` is bytes, `1 Mb to B` is bits).
+ */
 function queryKey(query: string): string {
-  return query.trim().replace(/\s+/g, " ").toLowerCase();
+  return query.trim().replace(/\s+/g, " ");
 }
 
 export class HistoryStore {

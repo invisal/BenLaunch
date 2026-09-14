@@ -49,7 +49,9 @@ const evaluators: Evaluator[] = [
  * otherwise `null`.
  */
 export function evaluate(query: string): Calculation | null {
-  const input = normalizeNumbers(normalize(query), numberLocale());
+  // Numbers first: `normalize` collapses whitespace, which would erase a
+  // space-grouped `1 234,5` before it could be read.
+  const input = normalize(normalizeNumbers(query, numberLocale()));
   if (!input) return null;
 
   for (const evaluator of evaluators) {

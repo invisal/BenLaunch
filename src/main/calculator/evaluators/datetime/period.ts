@@ -54,18 +54,23 @@ export function lastDayOfPeriod(period: Period, ref: Date): Date {
   }
 }
 
-/** Shift `ref` by one `period` — for "next month" / "last quarter" etc. */
+/**
+ * Shift `ref` by `delta` periods — for "next month" / "last quarter" etc.
+ * Month, quarter and year shifts land on the 1st of the target month: keeping
+ * the day would let a day the target month lacks overflow into the month
+ * after (31 Mar + 1 month = 1 May; 31 Mar + 1 quarter = 1 Jul).
+ */
 export function shiftPeriod(period: Period, ref: Date, delta: number): Date {
   const d = new Date(ref);
   switch (period) {
     case "year":
-      d.setFullYear(d.getFullYear() + delta);
+      d.setFullYear(d.getFullYear() + delta, d.getMonth(), 1);
       break;
     case "quarter":
-      d.setMonth(d.getMonth() + delta * 3);
+      d.setMonth(d.getMonth() + delta * 3, 1);
       break;
     case "month":
-      d.setMonth(d.getMonth() + delta);
+      d.setMonth(d.getMonth() + delta, 1);
       break;
     case "week":
       d.setDate(d.getDate() + delta * 7);

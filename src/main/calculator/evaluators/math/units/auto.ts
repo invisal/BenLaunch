@@ -119,10 +119,11 @@ function convert(
   from: string,
   to: string,
 ): { display: string; raw: string } {
-  const n = roundDisplay(mathjs.unit(amount, from).toNumber(to));
+  const exact = mathjs.unit(amount, from).toNumber(to);
   return {
-    display: `${formatNumber(n)} ${prettyUnit(to === "inch" ? "in" : to)}`,
-    raw: `${n} ${to}`,
+    display: `${formatNumber(roundDisplay(exact))} ${prettyUnit(to === "inch" ? "in" : to)}`,
+    // Full precision for "Copy Unformatted" — only the display is rounded.
+    raw: `${Number(exact.toPrecision(12))} ${to}`,
   };
 }
 

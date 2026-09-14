@@ -32,50 +32,53 @@ interface Separators {
   group: string;
 }
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Spaces people type (or paste) as a thousands separator in space-grouped locales. */
+const SPACE_GROUPS = [" ", "\u00a0", "\u202f"];
 
 /**
  * Numbers typed in the user's own format → the `.`-decimal, ungrouped form
- * every evaluator parses. A no-op for `1,234.5` locales (the evaluators
- * already accept `,` grouping); for `1.234,5` / `1 234,5` locales:
+ * every evaluator parses. Runs on the raw query, before `normalize` collapses
+ * whitespace (a French `1 234,5` uses a narrow no-break space as its group).
  *
- *  - a grouping separator is dropped only between digits and before exactly
- *    three digits (`1.234,5` → `1234,5`; `2026-01-15` and `10:30` untouched)
- *  - a decimal `,` between digits becomes `.` (`3,5 + 1` → `3.5 + 1`), except
- *    inside a function call's parentheses, where `,` separates arguments
- *    (`max(2,5)` stays two arguments)
+ *  - a grouping separator is dropped only between a digit and exactly three
+ *    more digits: `1,234.5` → `1234.5`, `1.234,5` → `1234,5`, `1’234.5`,
+ *    `1 234,5`; `2026-01-15`, `10:30` and `1.5` are untouched
+ *  - with a `,` decimal locale, a `,` between digits becomes `.`
+ *    (`3,5 + 1` → `3.5 + 1`)
+ *  - inside a function call's parentheses a `,` is always an argument
+ *    separator (`max(2,5)`, `max(1,234)` stay two arguments)
  */
 export function normalizeNumbers(input: string, locale: Separators): string {
-  if (locale.decimal === ".") return input;
-
-  let out = input;
-  if (locale.group && locale.group !== locale.decimal) {
-    const group = new RegExp(
-      `(\\d)${escape(locale.group)}(?=\\d{3}(?!\\d))`,
-      "g",
-    );
-    // Repeat so `1.234.567` loses both separators.
-    for (let prev = ""; prev !== out;) {
-      prev = out;
-      out = out.replace(group, "$1");
-    }
-  }
-
-  if (locale.decimal !== ",") return out;
+  const groups = SPACE_GROUPS.includes(locale.group)
+    ? SPACE_GROUPS
+    : locale.group && locale.group !== locale.decimal
+      ? [locale.group]
+      : [];
 
   let result = "";
   const callStack: boolean[] = [];
-  for (let i = 0; i < out.length; i++) {
-    const ch = out[i];
-    if (ch === "(") callStack.push(/[a-z_]\w*\s*$/i.test(out.slice(0, i)));
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (ch === "(") callStack.push(/[a-z_]\w*\s*$/i.test(input.slice(0, i)));
     else if (ch === ")") callStack.pop();
     const insideCall = callStack.includes(true);
-    const decimalComma =
+    const afterDigit = /\d/.test(input[i - 1] ?? "");
+    const commaInCall = ch === "," && insideCall;
+
+    const isGroup =
+      groups.includes(ch) &&
+      afterDigit &&
+      !commaInCall &&
+      /^\d{3}(?!\d)/.test(input.slice(i + 1));
+    if (isGroup) continue;
+
+    const isDecimalComma =
+      locale.decimal === "," &&
       ch === "," &&
-      !insideCall &&
-      /\d/.test(out[i - 1] ?? "") &&
-      /\d/.test(out[i + 1] ?? "");
-    result += decimalComma ? "." : ch;
+      afterDigit &&
+      !commaInCall &&
+      /\d/.test(input[i + 1] ?? "");
+    result += isDecimalComma ? "." : ch;
   }
   return result;
 }

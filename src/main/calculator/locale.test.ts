@@ -34,6 +34,18 @@ for (const { query, value } of [
   });
 }
 
+test("fr-FR: a space-grouped number survives the whitespace pass", () => {
+  setNumberLocale("fr-FR");
+  assert.equal(evaluate("1 234,5 + 1")?.rawValue, "1235.5");
+  assert.equal(evaluate("1\u202f234,5 * 2")?.rawValue, "2469");
+});
+
+test("en-US: grouped operands are read in every evaluator", () => {
+  assert.equal(evaluate("1,234.5 + 1")?.value, "1,235.5");
+  assert.equal(evaluate("1,920:1,080")?.value, "16 : 9");
+  assert.equal(evaluate("max(1,234)")?.value, "234");
+});
+
 test("rawValue stays dot-decimal and ungrouped for pasting into code", () => {
   setNumberLocale("de-DE");
   const calc = evaluate("1.234,5 * 2");
