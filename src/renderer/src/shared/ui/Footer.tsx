@@ -13,7 +13,8 @@ import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
 import { useShortcut } from "@renderer/lib/use-shortcut";
 
-const isImageIcon = (icon: string): boolean => /^(https?:|data:|file:)/.test(icon);
+const isImageIcon = (icon: string): boolean =>
+  /^(https?:|data:|file:)/.test(icon);
 
 /** A key-combo pill (e.g. ⌘⏎ / Ctrl+Enter). Decorative — hidden from a11y. */
 function Kbd({

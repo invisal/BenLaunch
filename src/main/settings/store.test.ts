@@ -44,6 +44,9 @@ test("missing, corrupt, and wrong-version files all yield the default without th
   assert.equal(new SettingsStore({ dir }).getGapSize(), 8);
 
   // Wrong version.
-  writeFileSync(join(dir, "settings.json"), JSON.stringify({ version: 999, savedAt: 0, gapPx: 20 }));
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ version: 999, savedAt: 0, gapPx: 20 }),
+  );
   assert.equal(new SettingsStore({ dir }).getGapSize(), 8);
 });

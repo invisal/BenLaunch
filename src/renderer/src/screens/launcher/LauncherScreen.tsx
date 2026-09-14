@@ -213,13 +213,18 @@ function LauncherScreen() {
       getId={(row) => row.key}
       renderItem={(row, { highlighted }) =>
         row.kind === "calc" ? (
-          <CalculatorPanel calculation={row.calculation} highlighted={highlighted} />
+          <CalculatorPanel
+            calculation={row.calculation}
+            highlighted={highlighted}
+          />
         ) : (
           <SearchItem
             action={row.action}
             highlighted={highlighted}
             forceRefreshToken={
-              forceRefresh?.id === row.action.id ? forceRefresh.token : undefined
+              forceRefresh?.id === row.action.id
+                ? forceRefresh.token
+                : undefined
             }
           />
         )

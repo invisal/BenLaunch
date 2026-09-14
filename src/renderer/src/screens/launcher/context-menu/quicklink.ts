@@ -89,8 +89,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           id: "edit",
           section: "Manage Quicklink",
           label: "Edit Quicklink",
-          onSelect: () =>
-            ctx.push({ name: "quicklink-edit", payload: { id } }),
+          onSelect: () => ctx.push({ name: "quicklink-edit", payload: { id } }),
         },
         {
           id: "duplicate",

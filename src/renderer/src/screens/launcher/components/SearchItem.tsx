@@ -73,7 +73,8 @@ function SearchItem({
   forceRefreshToken,
   ...rest
 }: SearchItemProps) {
-  const { id, icon, title, type, shortcut, keyword, isDeferredSubtitle } = action;
+  const { id, icon, title, type, shortcut, keyword, isDeferredSubtitle } =
+    action;
 
   // This row owns both its subtitle and loading state once it's deferred —
   // `requestSubtitle` resolves with the fresh value directly (there's no
@@ -125,7 +126,9 @@ function SearchItem({
       {...rest}
       className={cn(
         "flex h-10 cursor-default items-center gap-2 rounded px-1 py-1",
-        highlighted ? "bg-item-selected text-foreground" : "hover:bg-item-hover",
+        highlighted
+          ? "bg-item-selected text-foreground"
+          : "hover:bg-item-hover",
         className,
       )}
     >

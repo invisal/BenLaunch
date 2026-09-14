@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react'
-import { formatShortcut } from '@renderer/lib/shortcut'
-import { WindowFrame } from '@renderer/shared/ui'
+import { useEffect, useState } from "react";
+import { formatShortcut } from "@renderer/lib/shortcut";
+import { WindowFrame } from "@renderer/shared/ui";
 
 const TOGGLE_SHORTCUT =
-  window.api.platform === 'darwin' ? 'Command+Shift+Space' : 'Alt+Space'
+  window.api.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
 
 function Row({
   title,
   description,
-  children
+  children,
 }: {
-  title: string
-  description: string
-  children: React.ReactNode
+  title: string;
+  description: string;
+  children: React.ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border py-4">
@@ -22,19 +22,19 @@ function Row({
       </div>
       <div className="shrink-0">{children}</div>
     </div>
-  )
+  );
 }
 
 function AccessibilityRow() {
-  const [trusted, setTrusted] = useState<boolean | null>(null)
+  const [trusted, setTrusted] = useState<boolean | null>(null);
 
   useEffect(() => {
-    window.api.window.getAccessibilityStatus().then(setTrusted)
-  }, [])
+    window.api.window.getAccessibilityStatus().then(setTrusted);
+  }, []);
 
   async function grant(): Promise<void> {
-    const result = await window.api.window.requestAccessibility()
-    setTrusted(result)
+    const result = await window.api.window.requestAccessibility();
+    setTrusted(result);
   }
 
   return (
@@ -55,19 +55,19 @@ function AccessibilityRow() {
         </button>
       )}
     </Row>
-  )
+  );
 }
 
 function GapSizeRow() {
-  const [gapPx, setGapPx] = useState<number | null>(null)
+  const [gapPx, setGapPx] = useState<number | null>(null);
 
   useEffect(() => {
-    window.api.window.getGapSize().then(setGapPx)
-  }, [])
+    window.api.window.getGapSize().then(setGapPx);
+  }, []);
 
   async function save(value: number): Promise<void> {
-    setGapPx(value)
-    await window.api.window.setGapSize(value)
+    setGapPx(value);
+    await window.api.window.setGapSize(value);
   }
 
   return (
@@ -79,17 +79,17 @@ function GapSizeRow() {
         <input
           type="number"
           min={0}
-          value={gapPx ?? ''}
+          value={gapPx ?? ""}
           onChange={(e) => {
-            const n = Number(e.target.value)
-            if (Number.isFinite(n)) void save(Math.max(0, n))
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) void save(Math.max(0, n));
           }}
           className="w-16 rounded border border-border bg-transparent px-2 py-1 text-right text-xs outline-none"
         />
         <span className="text-xs text-foreground-subtle">px</span>
       </div>
     </Row>
-  )
+  );
 }
 
 function Settings() {
@@ -125,7 +125,7 @@ function Settings() {
           <h2 className="text-xs font-medium uppercase tracking-wide text-foreground-subtle">
             Window Management
           </h2>
-          {window.api.platform === 'darwin' && <AccessibilityRow />}
+          {window.api.platform === "darwin" && <AccessibilityRow />}
           <GapSizeRow />
         </section>
 
@@ -134,7 +134,7 @@ function Settings() {
         </p>
       </div>
     </WindowFrame>
-  )
+  );
 }
 
-export default Settings
+export default Settings;

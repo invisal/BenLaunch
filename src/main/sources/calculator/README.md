@@ -10,8 +10,8 @@ They're still `ActionSource`s so they ride the existing lifecycle in
 they contribute **no actions**: `provide()` returns `[]`. The fetched data is
 handed to a small module-level store that the evaluator reads synchronously.
 
-| Source | Feeds | Data |
-|---|---|---|
+| Source                           | Feeds                | Data                            |
+| -------------------------------- | -------------------- | ------------------------------- |
 | [exchange-rate/](exchange-rate/) | `currency` evaluator | fiat rates from open.er-api.com |
 
 ## Adding one

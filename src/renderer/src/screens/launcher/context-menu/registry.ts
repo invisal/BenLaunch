@@ -1,7 +1,11 @@
 import type { LauncherAction } from "@shared/types";
 import { widgetContextMenu } from "@extensions/widget/renderer/context-menu";
 import { windowContextMenu } from "@extensions/window/renderer/context-menu";
-import type { ContextMenuContext, ContextMenuContributor, MenuActionItem } from "./types";
+import type {
+  ContextMenuContext,
+  ContextMenuContributor,
+  MenuActionItem,
+} from "./types";
 import { defaultContextMenu } from "./default";
 import { quicklinkContextMenu } from "./quicklink";
 

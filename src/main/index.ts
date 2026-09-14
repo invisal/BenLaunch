@@ -1,10 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  globalShortcut,
-  ipcMain,
-} from "electron";
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain } from "electron";
 import type { QuicklinkDraft } from "../shared/quicklink";
 import { captureFocusedWindow } from "@extensions/window/main/control/control";
 import { IPC_CHANNELS, type RequestSubtitleOptions } from "../shared/types";
@@ -47,9 +41,7 @@ import {
 // fails for it, no matter what backend Electron runs on. Control+Alt+Space
 // isn't bound by any default GNOME keybinding.
 const TOGGLE_SHORTCUT =
-  process.platform === "darwin"
-    ? "Command+Shift+Space"
-    : "Alt+Space";
+  process.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
 
 // On top of the modifier conflict above, GNOME ≥ 49 stopped honoring global
 // key grabs from XWayland clients at all, and Electron's Wayland-native
@@ -140,16 +132,19 @@ app.whenReady().then(() => {
     return query(text);
   });
 
-  ipcMain.handle(IPC_CHANNELS.execute, async (_event, id: string, text: string) => {
-    // `text` is threaded through so usage tracking can learn "typed X, picked Y".
-    const result = await executeAction(id, text);
-    // Hide as soon as execute() resolves, rather than waiting for the launched
-    // app to grab focus and trigger `blur` — unless the action asked the
-    // launcher to navigate instead (`ctx.navigate`), in which case it stays
-    // open showing the pushed screen.
-    if (!result.navigate && !pinned) hideLauncher();
-    return result;
-  });
+  ipcMain.handle(
+    IPC_CHANNELS.execute,
+    async (_event, id: string, text: string) => {
+      // `text` is threaded through so usage tracking can learn "typed X, picked Y".
+      const result = await executeAction(id, text);
+      // Hide as soon as execute() resolves, rather than waiting for the launched
+      // app to grab focus and trigger `blur` — unless the action asked the
+      // launcher to navigate instead (`ctx.navigate`), in which case it stays
+      // open showing the pushed screen.
+      if (!result.navigate && !pinned) hideLauncher();
+      return result;
+    },
+  );
 
   ipcMain.on(IPC_CHANNELS.hide, () => {
     hideLauncher();
@@ -161,62 +156,77 @@ app.whenReady().then(() => {
       requestSubtitle(id, opts),
   );
 
-  ipcMain.handle(IPC_CHANNELS.quicklinkCreate, (_event, draft: QuicklinkDraft) => {
-    return createQuicklink(draft)
-  })
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkCreate,
+    (_event, draft: QuicklinkDraft) => {
+      return createQuicklink(draft);
+    },
+  );
 
-  ipcMain.handle(IPC_CHANNELS.quicklinkUpdate, (_event, id: string, draft: QuicklinkDraft) => {
-    return updateQuicklink(id, draft)
-  })
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkUpdate,
+    (_event, id: string, draft: QuicklinkDraft) => {
+      return updateQuicklink(id, draft);
+    },
+  );
 
-  ipcMain.handle(IPC_CHANNELS.quicklinkGet, (_event, id: string) => getQuicklink(id) ?? null)
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkGet,
+    (_event, id: string) => getQuicklink(id) ?? null,
+  );
 
   ipcMain.handle(IPC_CHANNELS.quicklinkDelete, (_event, id: string) => {
-    deleteQuicklink(id)
-  })
+    deleteQuicklink(id);
+  });
 
-  ipcMain.handle(IPC_CHANNELS.quicklinkSetPinned, (_event, id: string, pinned: boolean) => {
-    setQuicklinkPinned(id, pinned)
-  })
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkSetPinned,
+    (_event, id: string, pinned: boolean) => {
+      setQuicklinkPinned(id, pinned);
+    },
+  );
 
-  ipcMain.handle(IPC_CHANNELS.quicklinkSetHidden, (_event, id: string, hidden: boolean) => {
-    setQuicklinkHidden(id, hidden)
-  })
+  ipcMain.handle(
+    IPC_CHANNELS.quicklinkSetHidden,
+    (_event, id: string, hidden: boolean) => {
+      setQuicklinkHidden(id, hidden);
+    },
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.quicklinkOpenWith,
     (_event, id: string, text: string, appPath: string) => {
       // Mirror the main execute handler: hide first so the launcher vanishes at once.
-      if (!pinned) hideLauncher()
-      return openQuicklinkWith(id, text, appPath)
-    }
-  )
+      if (!pinned) hideLauncher();
+      return openQuicklinkWith(id, text, appPath);
+    },
+  );
 
   ipcMain.handle(
     IPC_CHANNELS.quicklinkPickPath,
-    async (_event, type: 'file' | 'directory'): Promise<string | null> => {
+    async (_event, type: "file" | "directory"): Promise<string | null> => {
       const options = {
-        properties: [type === 'directory' ? 'openDirectory' : 'openFile'] as Array<
-          'openDirectory' | 'openFile'
-        >
-      }
-      const launcherWindow = getLauncherWindow()
-      suppressAutoHide = true
+        properties: [
+          type === "directory" ? "openDirectory" : "openFile",
+        ] as Array<"openDirectory" | "openFile">,
+      };
+      const launcherWindow = getLauncherWindow();
+      suppressAutoHide = true;
       try {
         const result = launcherWindow
           ? await dialog.showOpenDialog(launcherWindow, options)
-          : await dialog.showOpenDialog(options)
-        return result.canceled ? null : (result.filePaths[0] ?? null)
+          : await dialog.showOpenDialog(options);
+        return result.canceled ? null : (result.filePaths[0] ?? null);
       } finally {
-        suppressAutoHide = false
+        suppressAutoHide = false;
         // The dialog took focus; hand it back so the form stays interactive and
         // a later real focus loss hides the launcher as usual.
-        launcherWindow?.focus()
+        launcherWindow?.focus();
       }
-    }
-  )
+    },
+  );
 
-  ipcMain.handle(IPC_CHANNELS.quicklinkOpenWithApps, () => listOpenWithApps())
+  ipcMain.handle(IPC_CHANNELS.quicklinkOpenWithApps, () => listOpenWithApps());
 
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
     pinned = !pinned;

@@ -1,8 +1,5 @@
 export type LauncherActionType =
-  | "application"
-  | "command"
-  | "quicklink"
-  | "widget";
+  "application" | "command" | "quicklink" | "widget";
 
 export interface LauncherAction {
   id: string;
@@ -17,13 +14,13 @@ export interface LauncherAction {
    * Short alias that invokes this action when typed as the query's first word
    * (e.g. "g" for a Google quicklink). Everything after it becomes the argument.
    */
-  keyword?: string
+  keyword?: string;
   /** Extra terms this action should also match on (e.g. a quicklink's tags). */
-  tags?: string[]
+  tags?: string[];
   /** Quicklink is pinned — sorts above unpinned actions in the root list. */
-  pinned?: boolean
+  pinned?: boolean;
   /** Quicklink is hidden from the root list (still returned for an explicit search). */
-  hidden?: boolean
+  hidden?: boolean;
   /**
    * The action is resolving a value in the background (e.g. a Widget running
    * its async function). The list shows a spinner instead of the subtitle.
