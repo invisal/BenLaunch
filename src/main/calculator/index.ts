@@ -2,6 +2,7 @@ import type { Calculation } from "../../shared/types";
 import type { Evaluator } from "./types.ts";
 import { normalize } from "./normalize.ts";
 import { timespan } from "./evaluators/timespan/index.ts";
+import { finance } from "./evaluators/finance/index.ts";
 import { math } from "./evaluators/math/index.ts";
 import { currency } from "./evaluators/currency/index.ts";
 import { datetime } from "./evaluators/datetime/index.ts";
@@ -20,7 +21,14 @@ import { timezone } from "./evaluators/timezone/index.ts";
  * specific evaluators are fine on either side of it — but a query nobody claims
  * returns `null` and falls through to the normal action search (`actions.ts`).
  */
-const evaluators: Evaluator[] = [timespan, math, currency, datetime, timezone];
+const evaluators: Evaluator[] = [
+  timespan,
+  finance,
+  math,
+  currency,
+  datetime,
+  timezone,
+];
 
 /**
  * Returns a `Calculation` when `query` is something the calculator understands,
