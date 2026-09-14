@@ -1,5 +1,10 @@
 export type LauncherActionType =
-  "application" | "command" | "quicklink" | "widget";
+  | "application"
+  | "command"
+  | "quicklink"
+  | "widget"
+  /** A pinned calculation (Calculator History) — a live value, like a Widget row. */
+  | "calculation";
 
 export interface LauncherAction {
   id: string;

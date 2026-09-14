@@ -1,4 +1,5 @@
 import type { LauncherAction } from "@shared/types";
+import { calculatorHistoryContextMenu } from "@extensions/calculator-history/renderer/context-menu";
 import { widgetContextMenu } from "@extensions/widget/renderer/context-menu";
 import { windowContextMenu } from "@extensions/window/renderer/context-menu";
 import type {
@@ -25,6 +26,7 @@ import { quicklinkContextMenu } from "./quicklink";
  */
 const contributors: ContextMenuContributor[] = [
   widgetContextMenu,
+  calculatorHistoryContextMenu,
   // Before `quicklinkContextMenu` so it claims the primary block for
   // `win:custom:*` rows; the quicklink contributor still appends its "Create
   // Quicklink" item to them, same as any other command row.

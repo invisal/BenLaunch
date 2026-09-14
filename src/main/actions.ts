@@ -23,6 +23,7 @@ import { WindowExtension } from "@extensions/window/main/source";
 import { Usage } from "./usage/store";
 import { configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
+import { CalculatorHistoryExtension } from "@extensions/calculator-history/main/source";
 
 // Point extensions at `<userData>/extensions/` before any is constructed below.
 configureExtensions(app.getPath("userData"));
@@ -49,6 +50,15 @@ const windowExtension = new WindowExtension(settings);
 export const windowLayoutStore = windowExtension.store;
 
 /**
+ * The Calculator History extension. It owns its `ExtensionStorage`
+ * (`<userData>/extensions/calculator-history.json`); `store` is exposed so
+ * `index.ts` can wire the record/list/pin IPC to the same instance. Pinned
+ * entries re-run through `evaluate` for their live value.
+ */
+const calculatorHistory = new CalculatorHistoryExtension(evaluate);
+export const calculatorHistoryStore = calculatorHistory.store;
+
+/**
  * Registry of action sources. Order matters: `query` keeps it, and the
  * stable sort below preserves it among equally-scored results (so built-in
  * commands rank ahead of applications on a tie).
@@ -59,6 +69,7 @@ const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   windowExtension,
   widgetSource,
+  calculatorHistory,
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),

@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import type { OpenWithApp } from "../../../../shared/quicklink";
 import type { Calculation, LauncherAction } from "../../../../shared/types";
 import { Footer, ListScreen } from "@renderer/shared/ui";
+import {
+  clipboardText,
+  type CopyKind,
+} from "@extensions/calculator-history/shared/format";
 import type { FooterMenuItem } from "@renderer/shared/ui";
 import SearchItem, { SEARCH_ITEM_HEIGHT } from "./components/SearchItem";
 import CalculatorPanel, {
@@ -110,10 +114,37 @@ function LauncherScreen() {
     if (!pinned) window.api.hide();
   }
 
-  function copyCalculation(): void {
+  /**
+   * Record `calc` in Calculator History. Only calculations the user *acts on*
+   * (copies, feeds back in, pins) are recorded — never every keystroke.
+   */
+  function recordCalculation(calc: Calculation) {
+    return window.api.calculatorHistory.record({
+      query,
+      expression: calc.expression,
+      value: calc.value,
+      rawValue: calc.rawValue,
+    });
+  }
+
+  /** `↵` (formatted), `⌥↵` (unformatted) and `⇧⌘↵` (question & answer). */
+  function copyCalculation(kind: CopyKind = "value"): void {
     if (!calculation) return;
-    void navigator.clipboard.writeText(calculation.value);
+    void navigator.clipboard.writeText(clipboardText(calculation, kind));
+    void recordCalculation(calculation);
     dismiss();
+  }
+
+  /** `⌘↵` — feed the answer back into the search box to keep calculating. */
+  function useCalculationAsInput(calc: Calculation): void {
+    void recordCalculation(calc);
+    setQuery(calc.rawValue);
+  }
+
+  async function pinCalculation(calc: Calculation): Promise<void> {
+    const entry = await recordCalculation(calc);
+    if (entry) await window.api.calculatorHistory.setPinned(entry.id, true);
+    reload();
   }
 
   function runRow(row: Row): void {
@@ -122,7 +153,7 @@ function LauncherScreen() {
       return;
     }
     const { action } = row;
-    if (action.type === "widget") {
+    if (action.type === "widget" || action.type === "calculation") {
       // The row is a value, not an action — Enter copies it, like the calc row.
       // Ask for the current value directly (cheap: a no-op refresh resolves
       // from cache instantly) rather than reading `row.action.subtitle`, which
@@ -157,13 +188,37 @@ function LauncherScreen() {
           id: "copy-result",
           label: "Copy Result",
           shortcut: "Enter",
-          onSelect: copyCalculation,
+          onSelect: () => copyCalculation("value"),
+        },
+        {
+          id: "copy-unformatted",
+          label: "Copy Unformatted",
+          shortcut: "Alt+Enter",
+          onSelect: () => copyCalculation("raw"),
+        },
+        {
+          id: "copy-question-and-answer",
+          label: "Copy Question & Answer",
+          shortcut: "CommandOrControl+Shift+Enter",
+          onSelect: () => copyCalculation("question-and-answer"),
         },
         {
           id: "use-as-input",
           label: "Use as Input",
           shortcut: "CommandOrControl+Enter",
-          onSelect: () => setQuery(calc.rawValue),
+          onSelect: () => useCalculationAsInput(calc),
+        },
+        {
+          id: "pin-calculation",
+          label: "Pin Calculation",
+          section: "Calculator History",
+          onSelect: () => void pinCalculation(calc),
+        },
+        {
+          id: "open-history",
+          label: "Open Calculator History",
+          section: "Calculator History",
+          onSelect: () => push({ name: "calculator-history" }),
         },
       ];
     }
@@ -192,15 +247,25 @@ function LauncherScreen() {
     e: KeyboardEvent<HTMLInputElement>,
     active: Row | null,
   ): void {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      // ⌘↵ on a calculation feeds the answer back into the search box to keep
-      // calculating, instead of copying + dismissing.
-      if (active?.kind === "calc") {
+    if (e.key === "Enter" && active?.kind === "calc") {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.shiftKey) {
+        // ⇧⌘↵ copies "question = answer".
         e.preventDefault();
-        setQuery(active.calculation.rawValue);
+        copyCalculation("question-and-answer");
+      } else if (mod) {
+        // ⌘↵ feeds the answer back into the search box to keep calculating,
+        // instead of copying + dismissing.
+        e.preventDefault();
+        useCalculationAsInput(active.calculation);
+      } else if (e.altKey) {
+        // ⌥↵ copies the unformatted answer (no grouping / symbol).
+        e.preventDefault();
+        copyCalculation("raw");
       }
       return;
     }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) return;
     if (e.key.toLowerCase() === "p" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       void togglePin();

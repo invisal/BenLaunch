@@ -11,6 +11,7 @@ import {
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
+import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
 import { windowApi } from "@extensions/window/ipc/preload";
 
@@ -69,6 +70,9 @@ const api = {
 
   /** Window management (OS-level control + the custom-layout manager) ↔ main. */
   window: windowApi,
+
+  /** Calculator History (record, list, pin) ↔ main. */
+  calculatorHistory: calculatorHistoryApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);

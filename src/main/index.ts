@@ -10,6 +10,7 @@ import {
   initActionSources,
   openQuicklinkWith,
   query,
+  calculatorHistoryStore,
   widgetRunner,
   widgetStore,
   windowLayoutStore,
@@ -20,6 +21,7 @@ import {
   settings,
   updateQuicklink,
 } from "./actions";
+import { registerCalculatorHistoryIpc } from "@extensions/calculator-history/ipc/handlers";
 import { registerWidgetIpc } from "@extensions/widget/ipc/handlers";
 import { registerWindowIpc } from "@extensions/window/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
@@ -126,6 +128,7 @@ app.whenReady().then(() => {
 
   registerWidgetIpc(widgetStore, widgetRunner);
   registerWindowIpc(windowLayoutStore, settings);
+  registerCalculatorHistoryIpc(calculatorHistoryStore);
   registerWindowControlsIpc();
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {

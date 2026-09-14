@@ -8,6 +8,7 @@ const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   command: "Command",
   quicklink: "Quicklink",
   widget: "Widget",
+  calculation: "Calculation",
 };
 
 function isImageIcon(icon: string): boolean {
