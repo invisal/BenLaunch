@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { rewriteUnits } from "./units.ts";
+import { rewriteUnits } from "./aliases.ts";
 
 const cases: ReadonlyArray<{ raw: string; expected: string }> = [
   // in-as-connector fix.
-  { raw: "5 in ft", expected: "5 to ft" },
+  { raw: "5 in ft", expected: "5 inch to ft" }, // no source unit → inches
   { raw: "10 ft in m", expected: "10 ft to m" },
   { raw: "3 teaspoon in ml", expected: "3 teaspoon to ml" },
   // "in" at end-of-string still means inches.
@@ -24,8 +24,16 @@ const cases: ReadonlyArray<{ raw: string; expected: string }> = [
   // Word/abbreviation aliases.
   { raw: "180 pounds to kg", expected: "180 lbs to kg" },
   { raw: "1 pound to kg", expected: "1 lbs to kg" },
-  { raw: "2 tbsp in ml", expected: "2 tablespoon to ml" },
-  { raw: "2 tsp in ml", expected: "2 teaspoon to ml" },
+  { raw: "2 tbsp in ml", expected: "2 tbsp to ml" }, // `tbsp` is a defined unit
+  { raw: "1 fl oz in ml", expected: "1 floz to ml" },
+  { raw: "1 fl. oz in ml", expected: "1 floz to ml" },
+  { raw: "2 fluid ounces to ml", expected: "2 floz to ml" },
+  { raw: '29" to cm', expected: "29 inch to cm" },
+  { raw: '29 " to cm', expected: "29 inch to cm" },
+  { raw: "29″ to cm", expected: "29 inch to cm" },
+  { raw: "3 GB / 25 mbps", expected: "3 GB / 25 Mbps" },
+  { raw: "1 GBPS to MBPS", expected: "1 Gbps to Mbps" },
+  { raw: "1 KBPS", expected: "1 kbps" },
   { raw: "100 kmh in mph", expected: "100 km/h to mi/h" },
   { raw: "100 kph in mph", expected: "100 km/h to mi/h" },
 

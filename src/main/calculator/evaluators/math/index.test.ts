@@ -31,6 +31,15 @@ const valueCases: ReadonlyArray<{
   { input: "sqrt(144)", value: "12" },
   { input: "sin(30 deg)", value: "0.5" },
   { input: "log(1000, 10)", value: "3" },
+  { input: "log(1000)", value: "3" }, // base 10, like Raycast / a calculator keypad
+  { input: "log(8, 2)", value: "3" },
+  { input: "ln(e)", value: "1" },
+  { input: "ln(2)", value: "0.69314718056" },
+  { input: "cot(1)", value: "0.642092615934" },
+  { input: "sinh(1)", value: "1.17520119364" },
+  { input: "acosh(2)", value: "1.31695789692" },
+  { input: "2 power 10", value: "1,024", expression: "2 ^ 10" },
+  { input: "5!", value: "120" },
   { input: "2 * pi", value: "6.28318530718" },
 
   // spoken / symbol forms (math normalize handles these)
@@ -61,34 +70,84 @@ for (const { input, value, expression } of valueCases) {
 // --- unit-aware --------------------------------------------------------
 
 for (const { input, value } of [
-  { input: "128 GB to MB", value: "128000 MB" },
-  { input: "20 degC to degF", value: "68 degF" },
+  // Raycast's explicit-conversion examples (pere-doc #4).
+  { input: "10 ft in m", value: "3.048 m" },
+  { input: "29 inches to cm", value: "73.66 cm" },
+  { input: "23C to F", value: "73.4 °F" },
+  { input: "3 teaspoon in ml", value: "14.79 ml" }, // US teaspoon
+  { input: "4 feet to cm", value: "121.92 cm" },
+  { input: "100 kmh in mph", value: "62.14 mph" },
+
+  { input: "128 GB to MB", value: "128,000 MB" },
+  { input: "500 MB in GB", value: "0.5 GB" },
+  { input: "20 degC to degF", value: "68 °F" },
   { input: "10 cm in mm", value: "100 mm" },
   { input: "1 kg + 2 g", value: "1.002 kg" },
+  { input: "2 kg + 300 g", value: "2.3 kg" },
+  { input: "1 KiB in B", value: "1,024 B" },
+  { input: "1000000 km to m", value: "1,000,000,000 m" },
+  { input: "1e-10 m", value: "100 pm" },
   // Bare temperature letters.
-  { input: "23C to F", value: "73.4 degF" },
-  { input: "0F to C", value: "-17.777778 degC" },
-  // Word/abbreviation aliases.
-  { input: "180 pounds to kg", value: "81.646627 kg" },
-  { input: "2 tbsp in ml", value: "30 ml" },
-  { input: "100 kmh in mph", value: "62.137119 mi / h" },
+  { input: "0F to C", value: "-17.78 °C" },
+  { input: "-40 C to F", value: "-40 °F" },
+  { input: "100 fahrenheit to celsius", value: "37.78 °C" },
+  // Word/abbreviation/symbol aliases.
+  { input: "180 pounds to kg", value: "81.65 kg" },
+  { input: "2 tbsp in ml", value: "29.57 ml" },
+  { input: "3 tsp in ml", value: "14.79 ml" },
+  { input: "1 fl oz in ml", value: "29.57 ml" },
+  { input: "29in to cm", value: "73.66 cm" },
+  { input: '29 " to cm', value: "73.66 cm" },
+  { input: '29" to cm', value: "73.66 cm" },
+  { input: "100 km/h in mph", value: "62.14 mph" },
+  // "5 in ft": no source unit, so the `in` can only be inches.
+  { input: "5 in ft", value: "0.4167 ft" },
+  { input: "5 m in ft", value: "16.4 ft" },
+  // Dimensioned arithmetic (pere-doc #20).
+  { input: "120 mi / 2 h", value: "60 mph" },
+  { input: "3 GB / 25 Mbps", value: "16 minutes" },
+  { input: "500 GB / 50 Mbps", value: "22 hours 13 minutes 20 seconds" },
+  { input: "19m + 47%", value: "27.93 m" },
+  // Calendar units are not fixed lengths — never broken down into days/hours.
+  { input: "2 months", value: "2 months" },
+  { input: "3 years", value: "3 years" },
+  // An explicit time target keeps the unit asked for.
+  { input: "90 minutes to seconds", value: "5,400 seconds" },
 ]) {
   test(`math.evaluate(${JSON.stringify(input)}) -> ${value}`, () => {
     assert.equal(evaluate(input)?.value, value);
   });
 }
 
-// "5 in ft" — `in` rewritten to the conversion connector, but a bare `5` has
-// no source unit to convert *from*, so this correctly fails rather than
-// silently reinterpreting it as "5 inches * ft" (an ft² area, which is what
-// happened before this fix).
-test('math.evaluate("5 in ft") -> null (no source unit to convert)', () => {
-  assert.equal(evaluate("5 in ft"), null);
+test("unit results keep a re-parseable rawValue", () => {
+  const calc = evaluate("100 kmh in mph");
+  assert.equal(calc?.rawValue, "62.137119 mi / h");
 });
 
-test('math.evaluate("5 m in ft") -> unaffected by the in-fix', () => {
-  assert.equal(evaluate("5 m in ft")?.value, "16.404199 ft");
-});
+// --- automatic conversion (pere-doc #9) --------------------------------
+
+for (const { input, value, details } of [
+  { input: "10 m", value: "32.81 ft", details: ["393.7 in"] },
+  { input: "5 kg", value: "11.02 lb" },
+  { input: "20 C", value: "68 °F" },
+  { input: "20 °C", value: "68 °F" },
+  { input: "1 mile", value: "1.609 km" },
+  { input: "100 km", value: "62.14 mi" },
+  { input: "6 ft", value: "1.829 m", details: ["182.88 cm"] },
+  { input: "180 lb", value: "81.65 kg" },
+  { input: "32 F", value: "0 °C" },
+]) {
+  test(`math.evaluate(${JSON.stringify(input)}) auto-converts -> ${value}`, () => {
+    const calc = evaluate(input);
+    assert.ok(calc);
+    assert.equal(calc.expression, input);
+    assert.equal(calc.value, value);
+    assert.deepEqual(
+      calc.details?.map((d) => d.value),
+      details,
+    );
+  });
+}
 
 // --- percentages ---------------------------------------------------------
 
@@ -107,6 +166,13 @@ for (const { input, value } of [
 for (const { input, value } of [
   { input: "what percent is 32 of 200", value: "16%" },
   { input: "what percentage of 4 is 1", value: "25%" },
+  { input: "what % is 20 of 80", value: "25%" },
+  { input: "20 is what percent of 80", value: "25%" },
+  { input: "percentage change from 50 to 75", value: "+50%" },
+  { input: "% change from 50 to 75", value: "+50%" },
+  { input: "% decrease from 80 to 60", value: "-25%" },
+  { input: "from 50 to 75 as percent", value: "+50%" },
+  { input: "52% of 900", value: "468" },
 ]) {
   test(`math.evaluate(${JSON.stringify(input)}) -> ${value}`, () => {
     assert.equal(evaluate(input)?.value, value);
@@ -145,6 +211,9 @@ for (const input of [
   "in 3 hours", // leading "in" + number ⇒ datetime, not `3 in hours`
   "in 45 minutes",
   "2026-12-25", // a bare ISO date is a date (→ datetime), not `2026 - 12 - 25`
+  "10 apps", // not a known unit — no auto-conversion
+  "20 c", // lowercase single letter is not Celsius
+  "percentage change from 0 to 5", // undefined change from zero
 ]) {
   test(`math.evaluate(${JSON.stringify(input)}) -> null`, () => {
     assert.equal(evaluate(input), null);

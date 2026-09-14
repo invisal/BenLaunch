@@ -1,4 +1,5 @@
 import { create, all, type Unit } from "mathjs";
+import { defineUnits } from "./units/definitions.ts";
 
 /**
  * The `mathjs` instance for the math evaluator.
@@ -9,6 +10,22 @@ import { create, all, type Unit } from "mathjs";
  * them on the instance too, for defence in depth.
  */
 const mathjs = create(all, { number: "number" });
+
+defineUnits(mathjs);
+
+// `log(x)` is base 10 (Raycast, and every calculator keypad) — `mathjs`'s own
+// `log` is natural. `log(x, b)` keeps an explicit base; `ln(x)` is natural.
+mathjs.import(
+  {
+    log: mathjs.typed("log", {
+      number: (x: number) => Math.log10(x),
+      "number, number": (x: number, base: number) =>
+        Math.log(x) / Math.log(base),
+    }),
+    ln: mathjs.typed("ln", { number: (x: number) => Math.log(x) }),
+  },
+  { override: true },
+);
 
 // Capture the real evaluator before neutering the meta-functions, so we keep a
 // working reference while making `import(...)` etc. throw if ever reached.

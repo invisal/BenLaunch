@@ -31,7 +31,7 @@ const resolves: ReadonlyArray<{
     value: "25",
     expression: "sqrt(625)",
   },
-  { query: "128 GB to MB", value: "128000 MB", expression: "128 GB to MB" },
+  { query: "128 GB to MB", value: "128,000 MB", expression: "128 GB to MB" },
 ];
 
 for (const { query, value, expression } of resolves) {

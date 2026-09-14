@@ -6,11 +6,12 @@ import { tryEvaluate } from "./evaluate.ts";
 import { formatResult } from "./format.ts";
 import { tokenize } from "./tokenize.ts";
 import {
-  formatPercent,
+  formatPercentAnswer,
   parsePercentQuestion,
   rewritePercentOf,
 } from "./percent.ts";
-import { rewriteUnits } from "./units.ts";
+import { rewriteUnits } from "./units/aliases.ts";
+import { autoConvert } from "./units/auto.ts";
 
 /**
  * The math evaluator — arithmetic and everything `mathjs` already understands.
@@ -18,7 +19,9 @@ import { rewriteUnits } from "./units.ts";
  *   - spoken operators — "5 plus 3", "100 divided by 4", "2 to the power of 8"
  *   - symbol variants — "12 × 3", "100 ÷ 4", "8 − 5"
  *   - precedence, parens, factorial, `sqrt(…)`, `sin(30 deg)`
- *   - unit math — "10 cm in mm", "128 GB to MB"
+ *   - unit math — "10 cm in mm", "128 GB to MB", "3 GB / 25 Mbps" (a timespan)
+ *   - automatic conversion — a lone "10 m" / "20 C" → "32.81 ft" / "68 °F"
+ *   - percent questions — "what % is 20 of 80", "percentage change from 50 to 75"
  *
  * Input arrives already framed by `calculator/normalize.ts` (no "what is …",
  * no trailing "="). Non-math queries fail the gate and return `null`, so they
@@ -44,8 +47,21 @@ export const math: Evaluator = {
 
     const question = parsePercentQuestion(expression);
     if (question) {
-      const value = `${formatPercent(question.percent)}%`;
+      const value = formatPercentAnswer(question);
       return { expression, value, rawValue: value };
+    }
+
+    // A lone quantity (`10 m`, `20 C`) → its metric/imperial counterpart.
+    const auto = autoConvert(expression);
+    if (auto) {
+      const tokens = tokenize(expression);
+      return {
+        expression,
+        value: auto.value,
+        rawValue: auto.rawValue,
+        ...(auto.details.length > 0 ? { details: auto.details } : {}),
+        ...(tokens.length > 0 ? { tokens } : {}),
+      };
     }
 
     expression = rewriteUnits(rewritePercentOf(expression));
