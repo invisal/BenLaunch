@@ -218,8 +218,11 @@ type ListScreenVirtualProps<T> =
        *  overlapping/gapped rows rather than an error. */
       itemHeight: (item: T) => number;
       /** Rows that can grow past `itemHeight`'s estimate (e.g. wrap onto
-       *  more than one line) opt into measurement via a ResizeObserver.
-       *  Omit if every row is truly fixed-height — cheaper. */
+       *  more than one line) opt into measurement via a ResizeObserver: they
+       *  render at their natural height and the list re-flows around it.
+       *  Sizes are cached per `getId`, so a measured row's height never
+       *  leaks onto a different row that later takes its position. Omit if
+       *  every row is truly fixed-height — cheaper. */
       measureItem?: (item: T) => boolean;
     };
 
@@ -299,6 +302,11 @@ function ListScreenRoot<T>({
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: (index) =>
       virtualized ? itemHeight!(visible[index]) : LIST_SCREEN_ITEM_HEIGHT,
+    // Key measured sizes by row identity, not position. Keyed by index (the
+    // default), a measured row's height sticks to its *slot*: when the
+    // launcher's calculator panel (index 0) goes away, whichever row slides
+    // into index 0 would inherit the panel's measured height.
+    getItemKey: (index) => (visible[index] ? getId(visible[index]) : index),
     overscan: 8,
     gap: 1,
   });
@@ -424,7 +432,11 @@ function ListScreenRoot<T>({
                       top: 0,
                       left: 0,
                       width: "100%",
-                      height: virtualRow.size,
+                      // A measured row must size to its own content — pinning
+                      // it to `virtualRow.size` would clip what grows past the
+                      // estimate and feed that same pinned height back into
+                      // the measurement, so it could never grow.
+                      height: measure ? undefined : virtualRow.size,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                     render={(props, state) =>
