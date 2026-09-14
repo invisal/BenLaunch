@@ -68,3 +68,13 @@ for (const input of nope) {
     assert.equal(parse(input, KNOWN), null);
   });
 }
+
+test("parse uses an injected resolver (the evaluator's crypto-aware one)", () => {
+  const resolve = (token: string) =>
+    ({ btc: "BTC", usd: "USD" })[token.toLowerCase() as "btc" | "usd"] ?? null;
+  assert.deepEqual(parse("5 btc in usd", KNOWN, resolve), {
+    amount: 5,
+    from: "BTC",
+    to: "USD",
+  });
+});

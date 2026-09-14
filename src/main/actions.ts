@@ -18,6 +18,7 @@ import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
 import { QuicklinkSource } from "./sources/quicklinks/source";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
+import { CryptoPriceSource } from "./sources/calculator/crypto-price/source.ts";
 import { WidgetSource } from "@extensions/widget/main/source";
 import { WindowExtension } from "@extensions/window/main/source";
 import { Usage } from "./usage/store";
@@ -58,6 +59,9 @@ export const windowLayoutStore = windowExtension.store;
 const calculatorHistory = new CalculatorHistoryExtension(evaluate);
 export const calculatorHistoryStore = calculatorHistory.store;
 
+/** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`. */
+const cryptoPriceSource = new CryptoPriceSource();
+
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
  * stable sort below preserves it among equally-scored results (so built-in
@@ -73,6 +77,7 @@ const sources: ActionSource[] = [
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),
+  cryptoPriceSource,
   new GroupExtension(),
 ];
 

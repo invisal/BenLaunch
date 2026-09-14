@@ -126,7 +126,8 @@ export abstract class CachedActionSource implements ActionSource {
     return this.staleLoad;
   }
 
-  private runFetch(): Promise<void> {
+  /** Fetch now, ignoring the refresh throttle (still de-duplicated with an in-flight fetch). */
+  protected runFetch(): Promise<void> {
     if (!this.fetchInFlight) {
       this.fetchInFlight = this.fetch()
         .then((list) => {

@@ -1,8 +1,8 @@
 # `sources/calculator/`
 
 Data sources for the **calculator** rather than the action list — external data
-an [evaluator](../../calculator/evaluators/) needs but can't compute (exchange
-rates today; time-zone / city tables, crypto prices later).
+an [evaluator](../../calculator/evaluators/) needs but can't compute (fiat
+exchange rates, crypto prices).
 
 They're still `ActionSource`s so they ride the existing lifecycle in
 [actions.ts](../../actions.ts) — `initActionSources()` warms them,
@@ -10,9 +10,10 @@ They're still `ActionSource`s so they ride the existing lifecycle in
 they contribute **no actions**: `provide()` returns `[]`. The fetched data is
 handed to a small module-level store that the evaluator reads synchronously.
 
-| Source                           | Feeds                | Data                            |
-| -------------------------------- | -------------------- | ------------------------------- |
-| [exchange-rate/](exchange-rate/) | `currency` evaluator | fiat rates from open.er-api.com |
+| Source                           | Feeds                | Data                                                                               |
+| -------------------------------- | -------------------- | ---------------------------------------------------------------------------------- |
+| [exchange-rate/](exchange-rate/) | `currency` evaluator | fiat rates from open.er-api.com (6 h, bundled seed)                                |
+| [crypto-price/](crypto-price/)   | `currency` evaluator | USD prices for ~40 tokens from CoinGecko (10 min, no seed, off switch in Settings) |
 
 ## Adding one
 

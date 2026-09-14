@@ -39,13 +39,16 @@ const SYMBOL_PREFIX = new RegExp(
 export function parse(
   input: string,
   known: ReadonlySet<string>,
+  /** Token → code. Defaults to fiat-only `resolveCurrency`; the evaluator passes one that also knows crypto. */
+  resolve: (token: string) => string | null = (token) =>
+    resolveCurrency(token, known),
 ): CurrencyQuery | null {
   const split = input.match(/^(.+?)\s+(?:in|to)\s+(\S.*)$/i);
   if (!split) return null;
 
   const [, left, rightRaw] = split;
 
-  const to = resolveCurrency(rightRaw.replace(/[.?!]+$/, ""), known);
+  const to = resolve(rightRaw.replace(/[.?!]+$/, ""));
   if (!to) return null;
 
   // Left side: optional leading symbol, a number, and/or a trailing currency token.
@@ -60,8 +63,8 @@ export function parse(
 
   const currencyToken = rest.replace(amountText, "").trim();
   const from =
-    (currencyToken && resolveCurrency(currencyToken, known)) ||
-    (leadingSymbol ? resolveCurrency(leadingSymbol, known) : null);
+    (currencyToken && resolve(currencyToken)) ||
+    (leadingSymbol ? resolve(leadingSymbol) : null);
   if (!from) return null;
 
   return { amount, from, to };
