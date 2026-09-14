@@ -1,4 +1,8 @@
 import type { Calculation } from "../../../../shared/types";
+import {
+  isValidCalendarDate,
+  isValidClockTime,
+} from "../../common/calendar.ts";
 import { formatDateTime, relativePhrase } from "./format.ts";
 
 /**
@@ -22,11 +26,24 @@ const EPOCH_SUFFIX = /^(\d{10}|\d{13})\s+(?:epoch|unix)(?:\s+time)?$/i;
 const TO_EPOCH =
   /^(.+?)\s+(?:to|in|as)\s+(?:epoch|unix(?:\s+time)?|timestamp)$/i;
 
-/** `new Date` for an ISO timestamp — normalises a `+0200` offset (no colon) first. */
+/**
+ * `new Date` for an ISO timestamp — normalises a `+0200` offset (no colon)
+ * first. The calendar and clock fields are validated before `Date` sees them:
+ * `Date` would silently roll `2024-02-31` over to 2 March.
+ */
 export function parseIso(text: string): Date | null {
   const match = text.trim().match(ISO);
   if (!match) return null;
   const [, date, time, zone] = match;
+  const [year, month, day] = date.split("-").map(Number);
+  const [hours, minutes, seconds = 0] = time.split(":").map(Number);
+  if (!isValidCalendarDate(year, month, day)) return null;
+  if (!isValidClockTime(hours, minutes, seconds)) return null;
+  if (zone && zone.toUpperCase() !== "Z") {
+    const offsetHours = Number(zone.slice(1, 3));
+    const offsetMinutes = Number(zone.replace(":", "").slice(3, 5));
+    if (offsetHours > 23 || offsetMinutes > 59) return null;
+  }
   const offset =
     zone && /^[+-]\d{4}$/.test(zone)
       ? `${zone.slice(0, 3)}:${zone.slice(3)}`

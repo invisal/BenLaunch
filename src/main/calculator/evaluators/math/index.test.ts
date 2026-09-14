@@ -121,7 +121,8 @@ for (const { input, value } of [
 
 test("unit results keep a re-parseable rawValue", () => {
   const calc = evaluate("100 kmh in mph");
-  assert.equal(calc?.rawValue, "62.137119 mi / h");
+  assert.equal(calc?.value, "62.14 mph");
+  assert.equal(calc?.rawValue, "62.137119223733 mi / h"); // full precision, display rounded
 });
 
 // --- automatic conversion (pere-doc #9) --------------------------------

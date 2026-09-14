@@ -39,11 +39,11 @@ const SCALE = new RegExp(
   "i",
 );
 const SOLVE_SECOND = new RegExp(
-  String.raw`^${NUM}\s*:\s*${NUM}\s*=\s*${NUM}\s*:\s*[x?]$`,
+  String.raw`^${NUM}\s*:\s*${NUM}\s*=\s*${NUM}\s*:\s*x$`,
   "i",
 );
 const SOLVE_FIRST = new RegExp(
-  String.raw`^${NUM}\s*:\s*${NUM}\s*=\s*[x?]\s*:\s*${NUM}$`,
+  String.raw`^${NUM}\s*:\s*${NUM}\s*=\s*x\s*:\s*${NUM}$`,
   "i",
 );
 

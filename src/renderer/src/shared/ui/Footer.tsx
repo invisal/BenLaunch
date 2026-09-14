@@ -415,13 +415,15 @@ function Menu({
                     )}
                     <Autocomplete.Item
                       value={item}
+                      disabled={item.disabled}
                       onClick={(event) => {
-                        // An arming hit must skip Base UI's own item press:
-                        // it would select the item — closing the popup and
-                        // writing the label into the search box — and either
-                        // one disarms the confirm before its second hit. (↵
+                        // Only a hit that actually ran the action may go on to
+                        // Base UI's own item press: it selects the item —
+                        // closing the popup and writing the label into the
+                        // search box — which would disarm a confirm before its
+                        // second hit, or close the menu on a disabled row. (↵
                         // on a highlighted row arrives here as a click too.)
-                        if (choose(item) === "armed")
+                        if (choose(item) !== "ran")
                           event.preventBaseUIHandler();
                       }}
                       className={cn(

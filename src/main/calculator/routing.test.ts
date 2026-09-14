@@ -44,6 +44,7 @@ const rows: ReadonlyArray<{ query: string; expect: string | RegExp | null }> = [
   { query: "ratio of 3 to 5", expect: "3 : 5" },
   { query: "16:9", expect: "16 : 9" },
   { query: "3/5", expect: "0.6" },
+  { query: "3:5 = 9:x", expect: "15" },
   // pixels
   { query: "2 inches in px at 72 ppi", expect: "144 px" },
   { query: "12pt in px", expect: "16 px" },
@@ -78,6 +79,8 @@ const rows: ReadonlyArray<{ query: string; expect: string | RegExp | null }> = [
     expect: "London is 5 hours ahead of New York",
   },
   { query: "2026-03-15 14:00 UTC in Tokyo", expect: "23:00 Sun, Mar 15" },
+  { query: "2026-02-31 14:00 UTC in Tokyo", expect: null }, // impossible date — no guessed answer
+  { query: "2024-02-31T14:30:00Z", expect: null },
   { query: "5pm tomorrow in tokyo", expect: /^\d{2}:\d{2} \w{3}, / },
 
   // plain searches — never a calculator row

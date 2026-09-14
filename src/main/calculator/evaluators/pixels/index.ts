@@ -28,14 +28,14 @@ function run(input: string): Calculation | null {
     query.from === "px"
       ? query.amount / ppi
       : query.amount * INCHES_PER[query.from];
-  const result = roundDisplay(
-    query.to === "px" ? inches * ppi : inches / INCHES_PER[query.to],
-  );
+  const exact =
+    query.to === "px" ? inches * ppi : inches / INCHES_PER[query.to];
 
   return {
     expression: input,
-    value: `${formatNumber(result)} ${query.to}`,
-    rawValue: String(result),
+    value: `${formatNumber(roundDisplay(exact))} ${query.to}`,
+    // Full precision for "Copy Unformatted" — only the display is rounded.
+    rawValue: String(Number(exact.toPrecision(12))),
     details: [
       {
         label: "Density",

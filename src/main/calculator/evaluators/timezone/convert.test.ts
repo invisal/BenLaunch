@@ -49,6 +49,15 @@ test("a leading ISO date shows the destination's date", () => {
   );
 });
 
+test("an impossible leading date is rejected, not rolled into the next month", () => {
+  assert.equal(resolveConvert("2026-02-31 14:00 UTC in Tokyo", NOW, UTC), null);
+  assert.equal(resolveConvert("2026-04-31 9am ldn in sf", NOW, UTC), null);
+  assert.equal(
+    resolveConvert("2024-02-29 14:00 UTC in Tokyo", NOW, UTC)?.value,
+    "23:00 Thu, Feb 29",
+  );
+});
+
 test("today / tomorrow / yesterday before or after the time", () => {
   assert.equal(
     resolveConvert("5pm tomorrow in tokyo", NOW, UTC)?.value,

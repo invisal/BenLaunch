@@ -114,7 +114,17 @@ const cases: ReadonlyArray<{
     value: "1280 : 720",
     details: ["Ratio 16 : 9"],
   },
-  { input: "16:9 to 1366", value: "1366 : 768.38", details: ["Ratio 16 : 9"] },
+  {
+    input: "16:9 to 1366",
+    value: "1366 : 768.38",
+    rawValue: "1366:768.375",
+    details: ["Ratio 16 : 9"],
+  },
+  {
+    input: "ratio of 0.0000001 to 0.0000002",
+    value: "1 : 2",
+    details: ["Decimal 0.5", "Percent 50%"],
+  },
   // proportions
   {
     input: "3:5 = 9:x",
@@ -150,6 +160,8 @@ for (const input of [
   "3/5", // plain division → math
   "0:9 to 1280", // zero side can't scale
   "3:5 = 9:y",
+  "3:5 = 9:?", // only `x` marks the unknown — a trailing `?` is stripped as framing anyway
+  "ratio of 0.000000000000000001 to 1", // beyond exact precision — no answer rather than a wrong one
 ]) {
   test(`ratio.evaluate(${JSON.stringify(input)}) -> null`, () => {
     assert.equal(ratio.evaluate(input), null);

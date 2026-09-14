@@ -32,3 +32,14 @@ test("aspectName: exact, equivalent, approximate, unknown", () => {
   assert.equal(aspectName(64, 27), null);
   assert.equal(aspectName(0, 1), null);
 });
+
+test("simplifyRatio keeps the typed precision of tiny decimals", () => {
+  assert.deepEqual(simplifyRatio(0.0000001, 0.0000002), [1, 2]);
+  assert.deepEqual(simplifyRatio(0.00000015, 0.0000003), [1, 2]);
+  assert.deepEqual(simplifyRatio(1.25, 0.5), [5, 2]);
+});
+
+test("simplifyRatio refuses ratios it can't scale to exact integers", () => {
+  assert.equal(simplifyRatio(1e-20, 1), null);
+  assert.equal(simplifyRatio(12345678901.123456, 1), null); // > safe integer once scaled
+});

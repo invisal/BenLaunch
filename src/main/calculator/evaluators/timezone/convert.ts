@@ -1,4 +1,5 @@
 import { fromZonedTime } from "date-fns-tz";
+import { isValidIsoDate } from "../../common/calendar.ts";
 import type { Calculation } from "../../../../shared/types";
 import { parseTimeOfDay } from "./time.ts";
 import { resolvePlace } from "./places.ts";
@@ -90,6 +91,10 @@ export function resolveConvert(
 
   const dest = resolvePlace(destText, { fuzzy: false });
   if (!dest) return null;
+
+  // `new Date` would roll a typo like `2026-02-31` over into March.
+  if (dateText && /^\d/.test(dateText) && !isValidIsoDate(dateText))
+    return null;
 
   const todaySrc = calendarDate(now, srcZone);
   const baseDate = !dateText

@@ -16,7 +16,12 @@ const cases: ReadonlyArray<{
     rawValue: "144",
     density: "72 ppi",
   },
-  { input: "1 cm in px at 96 dpi", value: "37.8 px", density: "96 ppi" },
+  {
+    input: "1 cm in px at 96 dpi",
+    value: "37.8 px",
+    rawValue: "37.7952755906",
+    density: "96 ppi",
+  },
   {
     input: "300 px in mm at 300 dpi",
     value: "25.4 mm",
@@ -29,6 +34,7 @@ const cases: ReadonlyArray<{
   {
     input: "1024 px in inches at 220 ppi",
     value: "4.655 in",
+    rawValue: "4.65454545455",
     density: "220 ppi",
   },
   { input: "16 px to pt", value: "12 pt", density: "96 ppi (default)" },

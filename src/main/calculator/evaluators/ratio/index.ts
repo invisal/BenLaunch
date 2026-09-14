@@ -25,11 +25,14 @@ const term = (n: number) =>
   formatNumber(n, { useGrouping: false, maximumFractionDigits: 12 });
 const num = (n: number) => term(roundDisplay(n));
 
+/** Full precision for "Copy Unformatted" — float noise trimmed, never display-rounded. */
+const exact = (n: number) => Number(n.toPrecision(12));
+
 function ratioDetails(
   a: number,
   b: number,
+  [p, q]: [number, number],
 ): { label: string; value: string }[] {
-  const [p, q] = simplifyRatio(a, b);
   const details: { label: string; value: string }[] = [];
   if (b !== 0) {
     details.push({ label: "Decimal", value: num(a / b) });
@@ -50,12 +53,14 @@ function run(input: string): Calculation | null {
   if (query.a === 0 && query.b === 0) return null;
 
   if (query.kind === "ratio") {
-    const [p, q] = simplifyRatio(query.a, query.b);
+    const simplified = simplifyRatio(query.a, query.b);
+    if (!simplified) return null;
+    const [p, q] = simplified;
     return {
       expression: input,
       value: `${term(p)} : ${term(q)}`,
       rawValue: `${p}:${q}`,
-      details: ratioDetails(query.a, query.b),
+      details: ratioDetails(query.a, query.b, simplified),
     };
   }
 
@@ -66,11 +71,13 @@ function run(input: string): Calculation | null {
       side === "first"
         ? [target, (target * b) / a]
         : [(target * a) / b, target];
-    const [p, q] = simplifyRatio(a, b);
+    const simplified = simplifyRatio(a, b);
+    if (!simplified) return null;
+    const [p, q] = simplified;
     return {
       expression: input,
       value: `${num(first)} : ${num(second)}`,
-      rawValue: `${roundDisplay(first)}:${roundDisplay(second)}`,
+      rawValue: `${exact(first)}:${exact(second)}`,
       details: [{ label: "Ratio", value: `${term(p)} : ${term(q)}` }],
     };
   }
@@ -85,7 +92,7 @@ function run(input: string): Calculation | null {
   return {
     expression: input,
     value: num(x),
-    rawValue: String(roundDisplay(x)),
+    rawValue: String(exact(x)),
     details: [{ label: "Proportion", value: proportion }],
   };
 }

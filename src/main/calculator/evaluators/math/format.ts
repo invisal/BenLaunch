@@ -33,10 +33,11 @@ export function formatResult(result: EvalResult): FormattedResult {
   }
 
   const unit = result.value;
-  // `rawValue` stays in `mathjs`'s own syntax so "Use as Input" re-parses it.
+  // `rawValue` stays in `mathjs`'s own syntax so "Use as Input" re-parses it,
+  // at full precision — only the display is rounded.
   const rawValue = mathjs.format(unit, {
     notation: "auto",
-    precision: 8,
+    precision: 14,
     lowerExp: -9,
     upperExp: 15,
   });

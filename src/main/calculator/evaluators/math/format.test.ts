@@ -44,7 +44,7 @@ const unitCases: ReadonlyArray<{
   {
     expr: "100 km/h to mi/h",
     value: "62.14 mph",
-    rawValue: "62.137119 mi / h",
+    rawValue: "62.137119223733 mi / h",
   },
   { expr: "10 m / 2 s", value: "5 m/s", rawValue: "5 m / s" },
   { expr: "1e-10 m to m", value: "1e-10 m", rawValue: "1e-10 m" },

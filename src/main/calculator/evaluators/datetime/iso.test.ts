@@ -93,3 +93,18 @@ test("now / a timestamp to epoch", () => {
   );
   assert.equal(resolveIso("tomorrow to epoch", NOW), null);
 });
+
+test("impossible calendar dates, clock times and offsets are rejected, not rolled over", () => {
+  assert.equal(parseIso("2024-02-31T14:30:00Z"), null);
+  assert.equal(parseIso("2023-02-29T10:00:00Z"), null);
+  assert.equal(parseIso("2026-04-31 09:00"), null);
+  assert.equal(parseIso("2024-03-15T24:00:00Z"), null);
+  assert.equal(parseIso("2024-03-15T14:60Z"), null);
+  assert.equal(parseIso("2024-03-15T14:30:60Z"), null);
+  assert.equal(parseIso("2024-03-15T14:30:00+24:00"), null);
+  assert.equal(
+    parseIso("2024-02-29T10:00:00Z")?.toISOString(),
+    "2024-02-29T10:00:00.000Z",
+  ); // leap day
+  assert.equal(resolveIso("2024-02-31T14:30:00Z", NOW), null);
+});
