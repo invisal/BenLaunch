@@ -67,8 +67,18 @@ export interface Calculation {
   rawValue: string;
   /** `expression` split for syntax highlighting; absent when it could not be tokenized. */
   tokens?: CalcToken[];
-  /** Small print shown bottom-right of the result — e.g. currency's "Updated 2 days ago". */
+  /**
+   * Replaces `value` with a row of label/value chips — timezone's multi-zone
+   * country listing (`time in Australia`).
+   */
   items?: { label: string; value: string }[];
+  /**
+   * Secondary label/value chips shown *under* `value` — the extras a result
+   * carries beyond its headline number: "You save £16", "Total 48.30", a
+   * ratio's decimal/percent, other unit conversions.
+   */
+  details?: { label: string; value: string }[];
+  /** Small print shown bottom-right of the result — e.g. currency's "Updated 2 days ago". */
   footnote?: string;
 }
 

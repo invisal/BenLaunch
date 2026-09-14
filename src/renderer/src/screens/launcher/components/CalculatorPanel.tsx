@@ -10,6 +10,8 @@ const SELECTABLE = "cursor-text select-text";
  *  horizontal scrollbar when a value is too wide for the panel. */
 const VALUE = `${SELECTABLE} whitespace-pre-wrap break-words`;
 
+type CalculationChip = { label: string; value: string };
+
 function Label({ children }: { children: string }) {
   return (
     <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.08em] text-foreground-subtle">
@@ -19,7 +21,9 @@ function Label({ children }: { children: string }) {
 }
 
 /**
- * A `Calculation.items` result (every zone a multi-zone country spans, one
+ * A row of label/value chips — `Calculation.items` (every zone a multi-zone
+ * country spans) or `Calculation.details` (a result's extras: "You save 16",
+ * "Clock 2:30:00"; an empty label shows just the value). For `items`: one
  * `{ city, "HH:MM · GMT±N" }` pair each) — a single horizontally-scrolling
  * row of chips at a smaller size, rather than cramming N cities into the
  * single-value line at `text-2xl` or wrapping the panel to N/4 lines tall.
@@ -29,7 +33,7 @@ function Label({ children }: { children: string }) {
  * purely for styling — the string itself is still one selectable unit)
  * stays visually secondary to the time.
  */
-function ResultItems({ items }: { items: { label: string; value: string }[] }) {
+function ResultItems({ items }: { items: CalculationChip[] }) {
   return (
     <div
       className={`${SELECTABLE} flex min-w-0 flex-nowrap gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden`}
@@ -38,12 +42,14 @@ function ResultItems({ items }: { items: { label: string; value: string }[] }) {
         const [time, offset] = item.value.split(" · ");
         return (
           <div
-            key={item.label}
+            key={`${item.label}|${item.value}`}
             className="flex shrink-0 items-baseline gap-1.5 whitespace-nowrap rounded-md bg-item-hover px-2 py-1"
           >
-            <span className="text-[13px] text-foreground-subtle">
-              {item.label}
-            </span>
+            {item.label && (
+              <span className="text-[13px] text-foreground-subtle">
+                {item.label}
+              </span>
+            )}
             <span className="text-[13px] font-semibold text-foreground tabular-nums">
               {time}
             </span>
@@ -116,10 +122,15 @@ function CalculatorPanel({
           {calculation.items ? (
             <ResultItems items={calculation.items} />
           ) : (
-            <div
-              className={`${VALUE} min-w-0 text-2xl font-semibold text-foreground`}
-            >
-              {calculation.value}
+            <div className="flex min-w-0 flex-col gap-2">
+              <div
+                className={`${VALUE} min-w-0 text-2xl font-semibold text-foreground`}
+              >
+                {calculation.value}
+              </div>
+              {calculation.details && calculation.details.length > 0 && (
+                <ResultItems items={calculation.details} />
+              )}
             </div>
           )}
           {calculation.footnote && (
