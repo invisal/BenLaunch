@@ -8,22 +8,45 @@ ambiguous cases (a fail-fast evaluator earlier in the list is harmless; see
 each evaluator's own README for why its position is safe).
 
 ```
-const evaluators = [math, currency, datetime, timezone]
+const evaluators = [timespan, finance, ratio, pixels, math, currency, datetime, timezone]
 ```
 
+The four keyword-gated phrase evaluators run before `math`, which would
+otherwise mangle them (`16:9`, `1h 30m + 45m`, `20% off 80`, `12pt in px`).
+[`../routing.test.ts`](../routing.test.ts) pins every hand-off, including
+bare trigger words (`ratio`, `tip`, `time`) that must fall through to search.
+
 Backed by research in [pere-doc/calculation/](../../../../pere-doc/calculation/)
-(gitignored) — 24 Raycast calculator features mapped onto these ~5 engines.
+(gitignored) — 24 Raycast calculator features.
 
-| Evaluator             | Status | Feature #s (see pere-doc)                                                                                                                                                                                  |
-| --------------------- | :----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [math](math/)         |   ✅   | 1, 4 (partial), 5, 11, 14, 20, 22                                                                                                                                                                          |
-| [currency](currency/) |   ✅   | 3 (crypto 19 = a second feed, not built)                                                                                                                                                                   |
-| [datetime](datetime/) |   ✅   | 10, 12, 16 (partial), 17, 24                                                                                                                                                                               |
-| [timezone](timezone/) |   ✅   | 7, 8, 18 (not built — a second "time diff between two places" shortcut)                                                                                                                                    |
-| units                 |   —    | folded into `math` rather than a standalone evaluator — `mathjs`'s own unit engine already covers most of #4/#9/#21, so this stayed a normalization step (`math/units.ts`) instead of a new pipeline stage |
+| Evaluator             | Status | Feature #s (see pere-doc)                                                                                                                                |
+| --------------------- | :----: | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [timespan](timespan/) |   ✅   | 16 — break down / add / convert durations                                                                                                                |
+| [finance](finance/)   |   ✅   | 14 — discount, tip, markup/margin, VAT; 20 — interest & growth                                                                                           |
+| [ratio](ratio/)       |   ✅   | 22 — simplify, scale, solve; aspect names                                                                                                                |
+| [pixels](pixels/)     |   ✅   | 21 — in/cm/mm/pt/pc ↔ px at a ppi                                                                                                                        |
+| [math](math/)         |   ✅   | 1, 4 (units, US kitchen units, `Mbps`), 5 (percent questions, % change), 9 (automatic conversion), 11 (`log` base 10, `ln`), 20 (dimensioned arithmetic) |
+| [currency](currency/) |   ✅   | 3 (fiat, `USD1K` shorthand), 19 (crypto via the `crypto-price` feed), 20 (rates per unit)                                                                |
+| [datetime](datetime/) |   ✅   | 10 (countdowns, holidays, quarters, calendar spans, age), 12 (nth weekday, period ends), 17, 23 (ISO 8601, epoch), 24 (workdays)                         |
+| [timezone](timezone/) |   ✅   | 7, 8 (with a date), 18 (time difference)                                                                                                                 |
 
-Features 2 (clipboard), 6 (history), 13 (number formatting), 15 (pinned) are
-UI / storage, not evaluators, and remain backlog.
+Shared helpers used by several evaluators live in [`../common/`](../common/):
+`locale.ts` (the number format), `precision.ts` (display rounding),
+`timespan.ts` (duration parsing/formatting).
+
+UI / storage features:
+
+- **2 — clipboard**: `↵` copy, `⌥↵` copy unformatted, `⇧⌘↵` copy question &
+  answer, `⌘↵` use as input (launcher calculator row).
+- **6 — Calculator History** and **15 — pinned calculations**: the
+  [`calculator-history` extension](../../../extensions/calculator-history/).
+- **13 — number formatting**: Settings → Calculator → Number format
+  (System / `1,234.5` / `1.234,5`); input is read and output written in it.
+  Dates keep the house `Mon, Aug 10` format.
+
+Not supported: historical currency rates (the free feed has no history and
+`evaluate()` stays synchronous); picking among same-named places (`places.ts`
+has no population data).
 
 ## Why "mostly already worked" shows up a lot
 
@@ -38,14 +61,15 @@ assuming a `pere-doc` gap is still open.
 
 ## Shared shape
 
-- `Calculation { expression, value, rawValue, tokens?, footnote?, items? }` in
+- `Calculation { expression, value, rawValue, tokens?, footnote?, items?, details? }` in
   [src/shared/types.ts](../../../shared/types.ts); attached to
   `QueryResult.calculation` by `query()` in
   [src/main/actions.ts](../../actions.ts); rendered by
   [CalculatorPanel.tsx](../../../renderer/src/screens/launcher/components/CalculatorPanel.tsx).
-  `items` (label/value pairs, rendered as wrapped chips instead of one line)
-  exists only for `timezone`'s multi-zone country listing so far — every
-  other evaluator leaves it unset.
+  `items` (label/value chips that replace the value) is timezone's
+  multi-zone country listing; `details` (chips under the value) carries a
+  result's extras — "You save", "Total", a ratio's decimal, other unit
+  conversions, an ISO timestamp's UTC/epoch.
 - `evaluate()` stays **synchronous**, even where the underlying data or logic
   isn't trivial:
   - `currency` reads an in-memory rate table kept fresh by a background
