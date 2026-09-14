@@ -1,5 +1,5 @@
 import type { LauncherAction } from "@shared/types";
-import type { OpenWithApp } from "@shared/quicklink";
+import type { OpenWithApp } from "@extensions/quicklink/shared/types";
 import type { FooterMenuItem } from "@renderer/shared/ui";
 import type { Route } from "../router/types";
 

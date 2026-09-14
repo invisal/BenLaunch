@@ -1,63 +1,18 @@
 import { Activity } from "react";
-import CreateQuicklink from "../../../components/CreateQuicklink";
 import LauncherScreen from "../LauncherScreen";
-import { useLauncherHost } from "../host";
 import { useRouteStack } from "./context";
 import { extensionScreens } from "./registry";
 import type { ScreenComponent } from "./createScreen";
 
 /**
- * Adapter that connects the prop-driven `CreateQuicklink` form to the navigation
- * stack and the launcher host. Keeping the router knowledge here means the form
- * itself stays a plain component that's trivial to render in isolation; the
- * three `quicklink-*` routes below just pick which of these props to fill in
- * from their payload.
- */
-function QuicklinkFormScreen({
-  seed,
-  editId,
-  duplicateId,
-}: {
-  seed?: string;
-  editId?: string;
-  duplicateId?: string;
-}) {
-  const { pop } = useRouteStack();
-  const { setQuery, reload } = useLauncherHost();
-
-  return (
-    <CreateQuicklink
-      seed={seed}
-      editId={editId}
-      duplicateId={duplicateId}
-      onCancel={pop}
-      onCreated={(name) => {
-        pop();
-        setQuery(name);
-        reload();
-      }}
-    />
-  );
-}
-
-/**
- * Every screen the launcher's router knows about: the core routes here, plus
- * every extension's `renderer/screen.ts` (see `registry.ts`) — dropping one
- * in is the entire wiring an extension needs; nothing here has to change.
+ * Every screen the launcher's router knows about: the core `launcher` route
+ * here, plus every extension's `screen.tsx` (see `registry.ts`, e.g.
+ * `extensions/quicklink/screen.tsx` for the Create/Edit/Duplicate Quicklink
+ * routes) — dropping one in is the entire wiring an extension needs; nothing
+ * here has to change.
  */
 const SCREENS: Record<string, ScreenComponent> = {
   launcher: () => <LauncherScreen />,
-  "quicklink-create": (payload) => (
-    <QuicklinkFormScreen
-      seed={(payload as { seed?: string } | undefined)?.seed}
-    />
-  ),
-  "quicklink-edit": (payload) => (
-    <QuicklinkFormScreen editId={(payload as { id: string }).id} />
-  ),
-  "quicklink-duplicate": (payload) => (
-    <QuicklinkFormScreen duplicateId={(payload as { id: string }).id} />
-  ),
   ...extensionScreens,
 };
 

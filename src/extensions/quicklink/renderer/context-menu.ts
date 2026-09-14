@@ -3,7 +3,7 @@ import type {
   ContextMenuContext,
   ContextMenuContributor,
   MenuActionItem,
-} from "./types";
+} from "@renderer/screens/launcher/context-menu/types";
 
 /** The "Open With" rows: the system default plus every resolved app, as one
  *  flat `section` (there are no submenus). */
@@ -17,7 +17,7 @@ function openWithItems(
       section: "Open With",
       label: "Default App",
       onSelect: () => {
-        void window.api.openQuicklinkWith(actionId, ctx.query, "");
+        void window.api.quicklink.openQuicklinkWith(actionId, ctx.query, "");
         ctx.dismiss();
       },
     },
@@ -27,7 +27,7 @@ function openWithItems(
       label: app.name,
       icon: app.icon,
       onSelect: () => {
-        void window.api.openQuicklinkWith(actionId, ctx.query, app.path);
+        void window.api.quicklink.openQuicklinkWith(actionId, ctx.query, app.path);
         ctx.dismiss();
       },
     })),
@@ -82,7 +82,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           section: "Manage Quicklink",
           label: isPinned ? "Unpin Quicklink" : "Pin Quicklink",
           onSelect: async () => {
-            await window.api.setQuicklinkPinned(id, !isPinned);
+            await window.api.quicklink.setQuicklinkPinned(id, !isPinned);
             ctx.reload();
           },
         },
@@ -104,7 +104,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           section: "Manage Quicklink",
           label: isHidden ? "Show in Root Search" : "Hide in Root Search",
           onSelect: async () => {
-            await window.api.setQuicklinkHidden(id, !isHidden);
+            await window.api.quicklink.setQuicklinkHidden(id, !isHidden);
             ctx.reload();
           },
         },
@@ -120,7 +120,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           section: "Copy",
           label: "Copy Link",
           onSelect: async () => {
-            const ql = await window.api.getQuicklink(id);
+            const ql = await window.api.quicklink.getQuicklink(id);
             if (ql) await navigator.clipboard.writeText(ql.link);
           },
         },
@@ -141,7 +141,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           confirmLabel: `Click again to delete "${action.title}"`,
           danger: true,
           onSelect: async () => {
-            await window.api.deleteQuicklink(id);
+            await window.api.quicklink.deleteQuicklink(id);
             ctx.reload();
           },
         },

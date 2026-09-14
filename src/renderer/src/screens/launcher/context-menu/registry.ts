@@ -1,5 +1,6 @@
 import type { LauncherAction } from "@shared/types";
 import { calculatorHistoryContextMenu } from "@extensions/calculator-history/renderer/context-menu";
+import { quicklinkContextMenu } from "@extensions/quicklink/renderer/context-menu";
 import { widgetContextMenu } from "@extensions/widget/renderer/context-menu";
 import { windowContextMenu } from "@extensions/window/renderer/context-menu";
 import type {
@@ -8,7 +9,6 @@ import type {
   MenuActionItem,
 } from "./types";
 import { defaultContextMenu } from "./default";
-import { quicklinkContextMenu } from "./quicklink";
 
 /**
  * The Ctrl+K menu is built by an ordered chain of contributors. Each is a plain

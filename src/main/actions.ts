@@ -5,11 +5,6 @@ import type {
   QueryResult,
   RequestSubtitleOptions,
 } from "../shared/types";
-import type {
-  Quicklink,
-  QuicklinkCreateResult,
-  QuicklinkDraft,
-} from "../shared/quicklink";
 import { evaluate } from "./calculator";
 import { matchAction } from "./search";
 import { takePendingNavigate } from "./navigate";
@@ -17,7 +12,7 @@ import { SettingsStore } from "./settings/store";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
-import { QuicklinkSource } from "./sources/quicklinks/source";
+import { QuicklinkSource } from "@extensions/quicklink/main/source";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
 import { CryptoPriceSource } from "./sources/calculator/crypto-price/source.ts";
 import { setCryptoEnabled } from "./sources/calculator/crypto-price/store.ts";
@@ -94,12 +89,16 @@ export function updateCalculatorSettings(
 }
 
 /**
+ * The Quicklinks extension. Exposed so `index.ts` can wire the Create/Edit
+ * form's and the Ctrl+K menu's IPC to the same instance.
+ */
+export const quicklinkSource = new QuicklinkSource();
+
+/**
  * Registry of action sources. Order matters: `query` keeps it, and the
  * stable sort below preserves it among equally-scored results (so built-in
  * commands rank ahead of applications on a tie).
  */
-const quicklinkSource = new QuicklinkSource();
-
 const sources: ActionSource[] = [
   new BuiltinCommandSource(),
   windowExtension,
@@ -111,39 +110,6 @@ const sources: ActionSource[] = [
   cryptoPriceSource,
   new GroupExtension(),
 ];
-
-/** Persist a quicklink from the renderer's Create form. */
-export function createQuicklink(draft: QuicklinkDraft): QuicklinkCreateResult {
-  return quicklinkSource.create(draft);
-}
-
-/** Apply the renderer's Edit form to an existing quicklink. */
-export function updateQuicklink(
-  id: string,
-  draft: QuicklinkDraft,
-): QuicklinkCreateResult {
-  return quicklinkSource.update(id, draft);
-}
-
-/** The quicklink `id`, for the renderer's Edit / Duplicate form. */
-export function getQuicklink(id: string): Quicklink | undefined {
-  return quicklinkSource.get(id);
-}
-
-/** Delete the quicklink `id`. */
-export function deleteQuicklink(id: string): void {
-  quicklinkSource.remove(id);
-}
-
-/** Pin or unpin the quicklink `id`. */
-export function setQuicklinkPinned(id: string, pinned: boolean): void {
-  quicklinkSource.setPinned(id, pinned);
-}
-
-/** Hide the quicklink `id` from the root list, or reveal it. */
-export function setQuicklinkHidden(id: string, hidden: boolean): void {
-  quicklinkSource.setHidden(id, hidden);
-}
 
 /** Open the quicklink `id` now with a specific app ("" = the system default). */
 export async function openQuicklinkWith(

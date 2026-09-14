@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { cn } from "cnfast";
 import { Combobox } from "@base-ui/react/combobox";
-import type { OpenWithApp } from "../../../shared/quicklink";
+import type { OpenWithApp } from "../shared/types";
 
 interface AppOption {
   value: string;
@@ -20,9 +20,74 @@ interface AppPickerProps {
 
 const isImageIcon = (icon: string): boolean => /^(https?:|data:|file:)/.test(icon);
 
+/** Fallback for an app with no icon (the "Default browser" entry). */
+function GlobeIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  );
+}
+
+/** Selected-item indicator inside the list. */
+function CheckIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+/** Trigger's dropdown affordance — rotates when the popup is open. */
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={cn("shrink-0 transition-transform", className)}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 function AppIcon({ icon, className }: { icon?: string; className?: string }) {
   const cls = cn("flex shrink-0 items-center justify-center", className);
-  if (!icon) return <span className={cn(cls, "text-foreground-subtle")}>🌐</span>;
+  if (!icon)
+    return (
+      <span className={cn(cls, "text-foreground-subtle")}>
+        <GlobeIcon />
+      </span>
+    );
   return isImageIcon(icon) ? (
     <img src={icon} alt="" className={cn(cls, "object-contain")} />
   ) : (
@@ -56,8 +121,8 @@ function AppPicker({ apps, value, onChange, defaultLabel }: AppPickerProps) {
     >
       <Combobox.Trigger
         className={cn(
-          "flex w-full items-center gap-2 rounded-md border border-border bg-item-hover",
-          "px-2.5 py-1.5 text-left text-sm outline-none focus:border-foreground-subtle",
+          "group flex w-full items-center gap-2 rounded border border-border bg-input",
+          "px-2.5 py-1.5 text-left text-[13px] outline-none focus:border-foreground-subtle",
         )}
       >
         <AppIcon icon={selected?.icon} className="h-4 w-4 text-sm" />
@@ -66,7 +131,7 @@ function AppPicker({ apps, value, onChange, defaultLabel }: AppPickerProps) {
             {(item: AppOption | null) => item?.label ?? defaultLabel}
           </Combobox.Value>
         </span>
-        <span className="shrink-0 text-xs text-foreground-subtle">▾</span>
+        <ChevronDownIcon className="text-foreground-subtle group-data-[popup-open]:rotate-180" />
       </Combobox.Trigger>
 
       <Combobox.Portal>
@@ -80,13 +145,19 @@ function AppPicker({ apps, value, onChange, defaultLabel }: AppPickerProps) {
             <div className="border-b border-border p-1">
               <Combobox.Input
                 placeholder="Search apps…"
-                className="w-full bg-transparent px-1.5 py-1 text-sm outline-none placeholder:text-foreground-subtle"
+                className="w-full bg-transparent px-1.5 py-1 text-[13px] outline-none placeholder:text-foreground-subtle"
               />
             </div>
-            <Combobox.Empty className="px-3 py-4 text-center text-xs text-foreground-subtle">
-              No matching apps
+            {/* Base UI keeps this root element mounted at all times (for
+                screen-reader announcements), so its padding must live on an
+                inner wrapper — otherwise it's dead space above the list even
+                when there's nothing to show. */}
+            <Combobox.Empty>
+              <div className="px-3 py-4 text-center text-xs text-foreground-subtle">
+                No matching apps
+              </div>
             </Combobox.Empty>
-            <Combobox.List className="overflow-y-auto p-1">
+            <Combobox.List className="flex flex-col gap-0.5 overflow-y-auto p-1">
               {(item: AppOption) => (
                 <Combobox.Item
                   key={item.value || "__default"}
@@ -99,7 +170,7 @@ function AppPicker({ apps, value, onChange, defaultLabel }: AppPickerProps) {
                   <AppIcon icon={item.icon} className="h-4 w-4 text-sm" />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   <Combobox.ItemIndicator className="shrink-0 text-foreground-subtle">
-                    ✓
+                    <CheckIcon />
                   </Combobox.ItemIndicator>
                 </Combobox.Item>
               )}
