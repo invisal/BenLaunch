@@ -1,13 +1,12 @@
 import { app, clipboard, shell } from "electron";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { Extension } from "@core/base";
+import type { ActionDefinition } from "@main/types";
 import type {
   QuicklinkCreateResult,
   QuicklinkDraft,
-} from "../../../shared/quicklink";
-import type { ActionDefinition } from "../../types";
-import type { ActionSource } from "../base";
-import { navigate } from "../../navigate";
+} from "../shared/types";
 import {
   QuicklinkStore,
   expandDynamic,
@@ -18,7 +17,7 @@ import {
   prettyLink,
   resolveLink,
   type Quicklink,
-} from "./quicklinks";
+} from "./store";
 
 /** Ids of the built-in management actions this source also provides. */
 const EDIT_ACTION_ID = "ql:__edit";
@@ -32,10 +31,12 @@ const CREATE_ACTION_ID = "ql:__create";
  * (`ql:<id>`) so usage-ranking still works. The argument is re-parsed from the
  * query at execution time.
  */
-export class QuicklinkSource implements ActionSource {
-  readonly id = "ql";
-
+export class QuicklinkSource extends Extension {
   private readonly store = new QuicklinkStore({ dir: app.getPath("userData") });
+
+  constructor() {
+    super("ql");
+  }
 
   init(): void {
     this.store.list();
@@ -122,10 +123,6 @@ export class QuicklinkSource implements ActionSource {
     this.store.setHidden(id, hidden);
   }
 
-  owns(actionId: string): boolean {
-    return actionId.startsWith(`${this.id}:`);
-  }
-
   /**
    * Run a quicklink or the built-in "Edit Quicklinks" action. `openWithOverride`
    * comes from the Ctrl+K menu's "Open With" rows: a path forces that app,
@@ -138,7 +135,7 @@ export class QuicklinkSource implements ActionSource {
     openWithOverride?: string,
   ): Promise<void> {
     if (actionId === CREATE_ACTION_ID) {
-      navigate("quicklink-create", { seed: query });
+      this.ctx.navigate("quicklink-create", { seed: query });
       return;
     }
 

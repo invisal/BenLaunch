@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 import { cn } from "cnfast";
 import { Footer } from "./Footer";
+import { Header } from "./Header";
 
 /**
- * A vertical page layout for framed-window screens: a scrolling content region
- * above a footer that stays pinned to the bottom of the window.
+ * A vertical page layout for framed-window screens: an optional header, a
+ * scrolling content region, and a footer that stays pinned to the bottom of
+ * the window.
  *
  *   <Layout>
+ *     <Layout.Header title="Create Widget" onBack={onCancel} />
  *     <Layout.Content>…form…</Layout.Content>
  *     <Layout.Footer>
  *       <button>Cancel</button>
@@ -46,4 +49,4 @@ function Content({
   );
 }
 
-export const Layout = Object.assign(LayoutRoot, { Content, Footer });
+export const Layout = Object.assign(LayoutRoot, { Header, Content, Footer });

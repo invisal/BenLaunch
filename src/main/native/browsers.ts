@@ -8,7 +8,7 @@
  * "Default browser").
  */
 import { execFile } from 'node:child_process'
-import type { OpenWithApp } from '../../shared/quicklink.ts'
+import type { OpenWithApp } from '@extensions/quicklink/shared/types.ts'
 
 const PS_SCRIPT = `
 $ErrorActionPreference = 'SilentlyContinue'

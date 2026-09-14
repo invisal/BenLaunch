@@ -8,7 +8,7 @@ import {
   normalizeTags,
   slugify,
   validateDraft,
-} from "../../../shared/quicklink.ts";
+} from "../shared/types.ts";
 import {
   DEFAULT_QUICKLINKS,
   QuicklinkStore,
@@ -21,7 +21,7 @@ import {
   prettyLink,
   resolveLink,
   sanitize,
-} from "./quicklinks.ts";
+} from "./store.ts";
 
 let dir: string;
 

@@ -1,5 +1,4 @@
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain } from "electron";
-import type { QuicklinkDraft } from "../shared/quicklink";
+import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
 import { captureFocusedWindow } from "@extensions/window/main/control/control";
 import {
   IPC_CHANNELS,
@@ -7,31 +6,26 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import {
-  createQuicklink,
-  deleteQuicklink,
   executeAction,
   getCalculatorSettings,
   updateCalculatorSettings,
-  getQuicklink,
   initActionSources,
   openQuicklinkWith,
   query,
   calculatorHistoryStore,
+  quicklinkSource,
   widgetRunner,
   widgetStore,
   windowLayoutStore,
   refreshActionSources,
   requestSubtitle,
-  setQuicklinkHidden,
-  setQuicklinkPinned,
   settings,
-  updateQuicklink,
 } from "./actions";
 import { registerCalculatorHistoryIpc } from "@extensions/calculator-history/ipc/handlers";
+import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
 import { registerWidgetIpc } from "@extensions/widget/ipc/handlers";
 import { registerWindowIpc } from "@extensions/window/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
-import { listOpenWithApps } from "./sources/apps/open-with";
 import {
   createLauncherWindow,
   getLauncherWindow,
@@ -136,6 +130,15 @@ app.whenReady().then(() => {
   registerWindowIpc(windowLayoutStore, settings);
   registerCalculatorHistoryIpc(calculatorHistoryStore);
   registerWindowControlsIpc();
+  registerQuicklinkIpc(quicklinkSource, openQuicklinkWith, {
+    getLauncherWindow,
+    setSuppressAutoHide: (value) => {
+      suppressAutoHide = value;
+    },
+    hideAfterOpen: () => {
+      if (!pinned) hideLauncher();
+    },
+  });
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
     return query(text);
@@ -164,78 +167,6 @@ app.whenReady().then(() => {
     (_event, id: string, opts?: RequestSubtitleOptions) =>
       requestSubtitle(id, opts),
   );
-
-  ipcMain.handle(
-    IPC_CHANNELS.quicklinkCreate,
-    (_event, draft: QuicklinkDraft) => {
-      return createQuicklink(draft);
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.quicklinkUpdate,
-    (_event, id: string, draft: QuicklinkDraft) => {
-      return updateQuicklink(id, draft);
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.quicklinkGet,
-    (_event, id: string) => getQuicklink(id) ?? null,
-  );
-
-  ipcMain.handle(IPC_CHANNELS.quicklinkDelete, (_event, id: string) => {
-    deleteQuicklink(id);
-  });
-
-  ipcMain.handle(
-    IPC_CHANNELS.quicklinkSetPinned,
-    (_event, id: string, pinned: boolean) => {
-      setQuicklinkPinned(id, pinned);
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.quicklinkSetHidden,
-    (_event, id: string, hidden: boolean) => {
-      setQuicklinkHidden(id, hidden);
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.quicklinkOpenWith,
-    (_event, id: string, text: string, appPath: string) => {
-      // Mirror the main execute handler: hide first so the launcher vanishes at once.
-      if (!pinned) hideLauncher();
-      return openQuicklinkWith(id, text, appPath);
-    },
-  );
-
-  ipcMain.handle(
-    IPC_CHANNELS.quicklinkPickPath,
-    async (_event, type: "file" | "directory"): Promise<string | null> => {
-      const options = {
-        properties: [
-          type === "directory" ? "openDirectory" : "openFile",
-        ] as Array<"openDirectory" | "openFile">,
-      };
-      const launcherWindow = getLauncherWindow();
-      suppressAutoHide = true;
-      try {
-        const result = launcherWindow
-          ? await dialog.showOpenDialog(launcherWindow, options)
-          : await dialog.showOpenDialog(options);
-        return result.canceled ? null : (result.filePaths[0] ?? null);
-      } finally {
-        suppressAutoHide = false;
-        // The dialog took focus; hand it back so the form stays interactive and
-        // a later real focus loss hides the launcher as usual.
-        launcherWindow?.focus();
-      }
-    },
-  );
-
-  ipcMain.handle(IPC_CHANNELS.quicklinkOpenWithApps, () => listOpenWithApps());
 
   ipcMain.handle(IPC_CHANNELS.calculatorSettingsGet, () =>
     getCalculatorSettings(),

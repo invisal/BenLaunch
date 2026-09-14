@@ -12,7 +12,7 @@
  * session.
  */
 import { app } from 'electron'
-import type { OpenWithApp } from '../../../shared/quicklink.ts'
+import type { OpenWithApp } from '@extensions/quicklink/shared/types.ts'
 import { listBrowsers } from '../../native'
 import { readAppsCache } from './cache'
 

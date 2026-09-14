@@ -141,13 +141,4 @@ export const IPC_CHANNELS = {
   /** Settings window ↔ main: read / patch `CalculatorSettings`. */
   calculatorSettingsGet: "settings:calculator-get",
   calculatorSettingsSet: "settings:calculator-set",
-  quicklinkCreate: "quicklink:create",
-  quicklinkUpdate: "quicklink:update",
-  quicklinkDelete: "quicklink:delete",
-  quicklinkGet: "quicklink:get",
-  quicklinkSetPinned: "quicklink:set-pinned",
-  quicklinkSetHidden: "quicklink:set-hidden",
-  quicklinkOpenWith: "quicklink:open-with",
-  quicklinkPickPath: "quicklink:pick-path",
-  quicklinkOpenWithApps: "quicklink:open-with-apps",
 } as const;

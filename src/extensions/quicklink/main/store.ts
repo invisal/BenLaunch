@@ -20,14 +20,14 @@ import {
   validateDraft,
   type Quicklink,
   type QuicklinkDraft,
-} from "../../../shared/quicklink.ts";
+} from "../shared/types.ts";
 
 export { monogramIcon };
 export type {
   Quicklink,
   QuicklinkDraft,
   QuicklinkCreateResult,
-} from "../../../shared/quicklink.ts";
+} from "../shared/types.ts";
 
 /** Seeded into `quicklinks.json` on first run so the feature is discoverable. */
 export const DEFAULT_QUICKLINKS: Quicklink[] = [

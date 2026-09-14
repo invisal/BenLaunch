@@ -107,153 +107,140 @@ function CustomLayoutFormScreen({
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2 [-webkit-app-region:drag]">
-        <button
-          type="button"
-          onClick={onCancel}
-          title="Back — Esc"
-          className="rounded px-1.5 py-0.5 text-foreground-subtle hover:bg-item-hover [-webkit-app-region:no-drag]"
-        >
-          ←
-        </button>
-        <span className="text-sm font-medium">{heading}</span>
-      </div>
-
-      <div className="min-h-0 flex-1">
-        <Layout>
-          {/* `Layout.Content` defaults to `p-6 overflow-y-auto`; the panes own
+      <Layout>
+        <Layout.Header title={heading} onBack={onCancel} />
+        {/* `Layout.Content` defaults to `p-6 overflow-y-auto`; the panes own
               their own padding and the sidebar owns the only scroller.
               `overflow-y-hidden` (not `overflow-hidden`) is what actually
               overrides the default — tailwind-merge treats `overflow` and
               `overflow-y` as separate groups, so the latter would survive. */}
-          <Layout.Content className="flex min-h-0 overflow-y-hidden p-0">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-border p-3">
-              <LayoutPreview draft={draft} display={display} />
-            </div>
+        <Layout.Content className="flex min-h-0 overflow-y-hidden p-0">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r border-border p-3">
+            <LayoutPreview draft={draft} display={display} />
+          </div>
 
-            {/* Height budget: the launcher is a fixed 640×420 and can't resize,
+          {/* Height budget: the launcher is a fixed 640×420 and can't resize,
                 which leaves 339px inside this pane. The form measures 318px —
                 only ~5px spare, and that is what pays for the `h-8` position
                 grid. It is why the rows sit on `gap-1.5` and the text controls
                 on `py-1`; anything added here has to find its space first.
                 `overflow-y-auto` is the graceful fallback for an OS text-scale
                 bump, not somewhere a default setup should land. */}
-            <aside className="flex w-[248px] min-h-0 shrink-0 flex-col overflow-y-auto px-3 py-2">
-              {!loaded ? (
-                <p className="text-xs text-foreground-subtle">Loading…</p>
-              ) : (
-                <Form
-                  variant="stacked"
-                  className="gap-1.5"
-                  onSubmit={() => void save()}
-                >
-                  <Form.Field label="Name">
-                    <Form.Input
-                      value={draft.name}
-                      onChange={(e) => set("name", e.target.value)}
-                      placeholder="Command Name"
-                      autoFocus
-                      className="px-2 py-1"
-                    />
-                  </Form.Field>
-
-                  <Form.Field label="Size">
-                    <div className="flex gap-1.5">
-                      <PercentOrAutoInput
-                        label="W"
-                        value={draft.widthPercent}
-                        onChange={(v) => set("widthPercent", v)}
-                      />
-                      <PercentOrAutoInput
-                        label="H"
-                        value={draft.heightPercent}
-                        onChange={(v) => set("heightPercent", v)}
-                      />
-                    </div>
-                  </Form.Field>
-
-                  <Form.Field label="Offset">
-                    <div className="flex gap-1.5">
-                      <NumberInput
-                        label="X"
-                        unit="%"
-                        value={draft.offsetXPercent}
-                        onChange={(v) => set("offsetXPercent", v)}
-                      />
-                      <NumberInput
-                        label="Y"
-                        unit="pt"
-                        value={draft.offsetYPoints}
-                        onChange={(v) => set("offsetYPoints", v)}
-                      />
-                    </div>
-                  </Form.Field>
-
-                  <Form.Switch
-                    size="sm"
-                    label="Use preferred gap setting"
-                    checked={draft.useGap}
-                    onCheckedChange={(checked) => set("useGap", checked)}
+          <aside className="flex w-[248px] min-h-0 shrink-0 flex-col overflow-y-auto px-3 py-2">
+            {!loaded ? (
+              <p className="text-xs text-foreground-subtle">Loading…</p>
+            ) : (
+              <Form
+                variant="stacked"
+                className="gap-1.5"
+                onSubmit={() => void save()}
+              >
+                <Form.Field label="Name">
+                  <Form.Input
+                    value={draft.name}
+                    onChange={(e) => set("name", e.target.value)}
+                    placeholder="Command Name"
+                    autoFocus
+                    className="px-2 py-1"
                   />
+                </Form.Field>
 
-                  <Form.Field label="Position">
-                    {/* Spans the column: the cells share the width evenly and
+                <Form.Field label="Size">
+                  <div className="flex gap-1.5">
+                    <PercentOrAutoInput
+                      label="W"
+                      value={draft.widthPercent}
+                      onChange={(v) => set("widthPercent", v)}
+                    />
+                    <PercentOrAutoInput
+                      label="H"
+                      value={draft.heightPercent}
+                      onChange={(v) => set("heightPercent", v)}
+                    />
+                  </div>
+                </Form.Field>
+
+                <Form.Field label="Offset">
+                  <div className="flex gap-1.5">
+                    <NumberInput
+                      label="X"
+                      unit="%"
+                      value={draft.offsetXPercent}
+                      onChange={(v) => set("offsetXPercent", v)}
+                    />
+                    <NumberInput
+                      label="Y"
+                      unit="pt"
+                      value={draft.offsetYPoints}
+                      onChange={(v) => set("offsetYPoints", v)}
+                    />
+                  </div>
+                </Form.Field>
+
+                <Form.Switch
+                  size="sm"
+                  label="Use preferred gap setting"
+                  checked={draft.useGap}
+                  onCheckedChange={(checked) => set("useGap", checked)}
+                />
+
+                <Form.Field label="Position">
+                  {/* Spans the column: the cells share the width evenly and
                         each button fills its cell, so the row reads as one grid
                         rather than three small glyphs adrift in wide cells. */}
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {POSITIONS.map((position) => (
-                        <button
-                          key={position}
-                          type="button"
-                          onClick={() => set("position", position)}
-                          className={cn(
-                            "flex h-8 w-full items-center justify-center rounded border",
-                            draft.position === position
-                              ? "border-foreground bg-item-selected"
-                              : "border-border hover:bg-item-hover",
-                          )}
-                          title={position}
-                        >
-                          <PositionGlyph
-                            position={position}
-                            selected={draft.position === position}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </Form.Field>
-                </Form>
-              )}
-            </aside>
-          </Layout.Content>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {POSITIONS.map((position) => (
+                      <button
+                        key={position}
+                        type="button"
+                        onClick={() => set("position", position)}
+                        className={cn(
+                          "flex h-8 w-full items-center justify-center rounded border",
+                          draft.position === position
+                            ? "border-foreground bg-item-selected"
+                            : "border-border hover:bg-item-hover",
+                        )}
+                        title={position}
+                      >
+                        <PositionGlyph
+                          position={position}
+                          selected={draft.position === position}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </Form.Field>
+              </Form>
+            )}
+          </aside>
+        </Layout.Content>
 
-          <Layout.Footer>
-            <Layout.Footer.Left>
-              <Layout.Footer.Button shortcut="Escape" onClick={onCancel}>
-                Cancel
-              </Layout.Footer.Button>
-              <Layout.Footer.Label>
-                {display
-                  ? `${display.label} · ${display.width} × ${display.height}`
-                  : ""}
-              </Layout.Footer.Label>
-            </Layout.Footer.Left>
+        <Layout.Footer>
+          <Layout.Footer.Left>
+            <Layout.Footer.Button shortcut="Escape" onClick={onCancel}>
+              Cancel
+            </Layout.Footer.Button>
+            <Layout.Footer.Label>
+              {display
+                ? `${display.label} · ${display.width} × ${display.height}`
+                : ""}
+            </Layout.Footer.Label>
+          </Layout.Footer.Left>
 
-            <Layout.Footer.Right>
-              <Layout.Footer.Button
-                variant="primary"
-                shortcut="CommandOrControl+Enter"
-                loading={busy}
-                loadingLabel="Saving…"
-                disabled={!name}
-                onClick={() => void save()}
-              >
-                {editId ? "Save Changes" : "Create"}
-              </Layout.Footer.Button>
-            </Layout.Footer.Right>
-          </Layout.Footer>
-        </Layout>
-      </div>
+          <Layout.Footer.Right>
+            <Layout.Footer.Button
+              variant="primary"
+              shortcut="CommandOrControl+Enter"
+              loading={busy}
+              loadingLabel="Saving…"
+              disabled={!name}
+              onClick={() => void save()}
+            >
+              {editId ? "Save Changes" : "Create"}
+            </Layout.Footer.Button>
+          </Layout.Footer.Right>
+        </Layout.Footer>
+      </Layout>
     </div>
   );
 }

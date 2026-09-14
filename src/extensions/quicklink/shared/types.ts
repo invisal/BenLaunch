@@ -147,3 +147,16 @@ export function monogramIcon(label: string): string {
     `</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
+
+/** IPC channels between the Create/Edit form (and the Ctrl+K menu) and main. */
+export const QUICKLINK_CHANNELS = {
+  create: "quicklink:create",
+  update: "quicklink:update",
+  delete: "quicklink:delete",
+  get: "quicklink:get",
+  setPinned: "quicklink:set-pinned",
+  setHidden: "quicklink:set-hidden",
+  openWith: "quicklink:open-with",
+  pickPath: "quicklink:pick-path",
+  openWithApps: "quicklink:open-with-apps",
+} as const;

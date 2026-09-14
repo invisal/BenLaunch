@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import type { OpenWithApp } from "../../../../shared/quicklink";
+import type { OpenWithApp } from "@extensions/quicklink/shared/types";
 import type { Calculation, LauncherAction } from "../../../../shared/types";
 import { Footer, ListScreen } from "@renderer/shared/ui";
 import {
@@ -66,7 +66,7 @@ function LauncherScreen() {
 
   useEffect(() => {
     let live = true;
-    void window.api.openWithApps().then((list) => {
+    void window.api.quicklink.openWithApps().then((list) => {
       if (live) setApps(list);
     });
     return () => {

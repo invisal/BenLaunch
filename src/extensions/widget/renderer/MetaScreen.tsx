@@ -3,6 +3,10 @@ import { Form, Layout } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
 import { DEFAULT_CODE } from "../shared/default-code";
 
+/** Shared sizing for `Form.Input` / `Form.TextArea` — tighter than the
+ *  default so this form's fields match Create Quicklink's. */
+const inputPadding = "px-2.5 py-1.5 text-[13px]";
+
 /**
  * The metadata for a Widget — name, description, "expose as command" — as a
  * screen pushed onto the launcher's navigation stack (not a framed window). The
@@ -94,97 +98,88 @@ function MetaScreen({
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2 [-webkit-app-region:drag]">
-        <button
-          type="button"
-          onClick={onDone}
-          title="Back — Esc"
-          className="rounded px-1.5 py-0.5 text-foreground-subtle hover:bg-item-hover [-webkit-app-region:no-drag]"
-        >
-          ←
-        </button>
-        <span className="text-sm font-medium">
-          {isCreate ? "Create Widget" : name || "Edit Widget"}
-        </span>
-      </div>
-
-      <div className="min-h-0 flex-1">
-        <Layout>
-          <Layout.Content>
-            {!loaded ? (
-              <p className="text-sm text-foreground-subtle">Loading…</p>
-            ) : (
-              <Form>
-                <Form.Field
-                  label="Name"
-                  description="What you see and type when searching the launcher."
-                >
-                  <Form.Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Node stars"
-                    autoFocus
-                  />
-                </Form.Field>
-
-                <Form.Field
-                  label="Description"
-                  description="Optional. A note to yourself — not shown in the launcher."
-                >
-                  <Form.TextArea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What this value is, where it comes from"
-                  />
-                </Form.Field>
-
-                {!isCreate && (
-                  <>
-                    <Form.Field
-                      label="Code"
-                      description="Runs in a background Node process. Opens in the editor window."
-                    >
-                      <Form.Trigger
-                        onClick={() => void saveThen(true)}
-                        disabled={busy || !name.trim()}
-                      >
-                        TypeScript
-                      </Form.Trigger>
-                    </Form.Field>
-
-                    <Form.Switch
-                      label="Expose as a launcher command"
-                      checked={exposed}
-                      onCheckedChange={setExposed}
-                    />
-                  </>
-                )}
-              </Form>
-            )}
-          </Layout.Content>
-
-          <Layout.Footer>
-            <Layout.Footer.Left>
-              <Layout.Footer.Button shortcut="Escape" onClick={onDone}>
-                Cancel
-              </Layout.Footer.Button>
-            </Layout.Footer.Left>
-
-            <Layout.Footer.Right>
-              <Layout.Footer.Button
-                variant="primary"
-                shortcut="CommandOrControl+Enter"
-                loading={busy}
-                loadingLabel="Saving…"
-                disabled={!name.trim()}
-                onClick={() => void save()}
+      <Layout>
+        <Layout.Header
+          title={isCreate ? "Create Widget" : name || "Edit Widget"}
+          onBack={onDone}
+        />
+        <Layout.Content className="p-4">
+          {!loaded ? (
+            <p className="text-sm text-foreground-subtle">Loading…</p>
+          ) : (
+            <Form labelWidth={90} controlWidth={420} className="mt-0 gap-3">
+              <Form.Field
+                label="Name"
+                description="What you see and type when searching the launcher."
               >
-                {isCreate ? "Create & Edit Code" : "Save"}
-              </Layout.Footer.Button>
-            </Layout.Footer.Right>
-          </Layout.Footer>
-        </Layout>
-      </div>
+                <Form.Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Node stars"
+                  autoFocus
+                  className={inputPadding}
+                />
+              </Form.Field>
+
+              <Form.Field
+                label="Description"
+                description="Optional. A note to yourself — not shown in the launcher."
+              >
+                <Form.TextArea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What this value is, where it comes from"
+                  className={inputPadding}
+                />
+              </Form.Field>
+
+              {!isCreate && (
+                <>
+                  <Form.Field
+                    label="Code"
+                    description="Runs in a background Node process. Opens in the editor window."
+                  >
+                    <Form.Trigger
+                      onClick={() => void saveThen(true)}
+                      disabled={busy || !name.trim()}
+                      className={inputPadding}
+                    >
+                      TypeScript
+                    </Form.Trigger>
+                  </Form.Field>
+
+                  <Form.Switch
+                    label="Expose as a launcher command"
+                    checked={exposed}
+                    onCheckedChange={setExposed}
+                  />
+                </>
+              )}
+            </Form>
+          )}
+        </Layout.Content>
+
+        <Layout.Footer>
+          <Layout.Footer.Left>
+            <Layout.Footer.Button shortcut="Escape" onClick={onDone}>
+              Cancel
+            </Layout.Footer.Button>
+          </Layout.Footer.Left>
+
+          <Layout.Footer.Right>
+            <Layout.Footer.Button
+              variant="primary"
+              shortcut="CommandOrControl+Enter"
+              loading={busy}
+              loadingLabel="Saving…"
+              disabled={!name.trim()}
+              onClick={() => void save()}
+            >
+              {isCreate ? "Create & Edit Code" : "Save"}
+            </Layout.Footer.Button>
+          </Layout.Footer.Right>
+        </Layout.Footer>
+      </Layout>
     </div>
   );
 }
