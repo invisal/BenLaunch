@@ -4,6 +4,7 @@ import { normalize } from "./normalize.ts";
 import { timespan } from "./evaluators/timespan/index.ts";
 import { finance } from "./evaluators/finance/index.ts";
 import { ratio } from "./evaluators/ratio/index.ts";
+import { pixels } from "./evaluators/pixels/index.ts";
 import { math } from "./evaluators/math/index.ts";
 import { currency } from "./evaluators/currency/index.ts";
 import { datetime } from "./evaluators/datetime/index.ts";
@@ -18,14 +19,24 @@ import { timezone } from "./evaluators/timezone/index.ts";
  * engines differ (mathjs, currency rates, date parsing, time zones), so each is
  * its own `Evaluator`. Detection is not a separate classifier: each evaluator's
  * parser decides whether the input is "its kind" and returns `null` if not.
- * `math` is the most permissive (it will try to parse almost anything), so more
- * specific evaluators are fine on either side of it — but a query nobody claims
- * returns `null` and falls through to the normal action search (`actions.ts`).
+ * `math` is the most permissive (it will try to parse almost anything), so the
+ * keyword-gated phrase evaluators that `math` would otherwise mangle run
+ * before it:
+ *
+ *  - `timespan` — `1h 30m + 45m`, `9000 seconds` (and before `datetime`, which
+ *    would read a bare `90 min` as "in 90 minutes")
+ *  - `finance` — `20% off 80`, `15% tip on 42`, `1500 at 6% for 5 years`
+ *  - `ratio` — `16:9`, `ratio of 3 to 5` (`math` would read `3/5` as division)
+ *  - `pixels` — `2 inches in px at 72 ppi` (`mathjs` has no `px`)
+ *
+ * A query nobody claims returns `null` and falls through to the normal action
+ * search (`actions.ts`). `routing.test.ts` pins the hand-offs.
  */
 const evaluators: Evaluator[] = [
   timespan,
   finance,
   ratio,
+  pixels,
   math,
   currency,
   datetime,
