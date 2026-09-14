@@ -87,6 +87,16 @@ export interface Calculation {
   footnote?: string;
 }
 
+/** How calculator numbers are written: follow the OS locale, or force `1,234.5` / `1.234,5`. */
+export type NumberFormatPreference = "system" | "dot" | "comma";
+
+/** The calculator's user preferences (Settings → Calculator). */
+export interface CalculatorSettings {
+  /** Fetch live crypto prices for `5 btc in gbp`. Off = no crypto network call. */
+  cryptoEnabled: boolean;
+  numberFormat: NumberFormatPreference;
+}
+
 /** What a query resolves to: the ranked actions, plus an optional inline answer. */
 export interface QueryResult {
   result: LauncherAction[];
@@ -128,6 +138,9 @@ export const IPC_CHANNELS = {
   windowMinimize: "window:minimize",
   windowToggleMaximize: "window:toggle-maximize",
   windowClose: "window:close",
+  /** Settings window ↔ main: read / patch `CalculatorSettings`. */
+  calculatorSettingsGet: "settings:calculator-get",
+  calculatorSettingsSet: "settings:calculator-set",
   quicklinkCreate: "quicklink:create",
   quicklinkUpdate: "quicklink:update",
   quicklinkDelete: "quicklink:delete",

@@ -7,6 +7,7 @@ import type {
 } from "../shared/quicklink";
 import {
   IPC_CHANNELS,
+  type CalculatorSettings,
   type ExecuteResult,
   type QueryResult,
   type RequestSubtitleOptions,
@@ -48,6 +49,14 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkPickPath, type),
   openWithApps: (): Promise<OpenWithApp[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWithApps),
+
+  /** Settings → Calculator: crypto prices on/off, number format. */
+  calculatorSettings: {
+    get: (): Promise<CalculatorSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsGet),
+    set: (patch: Partial<CalculatorSettings>): Promise<CalculatorSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsSet, patch),
+  },
 
   /** Launcher: a deferred-subtitle row rendered (or force-refreshed) — resolves with the fresh subtitle. */
   requestSubtitle: (

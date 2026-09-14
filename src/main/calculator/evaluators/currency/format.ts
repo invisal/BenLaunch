@@ -1,3 +1,5 @@
+import { numberLocale } from "../../common/locale.ts";
+
 export interface FormattedMoney {
   /** For display: currency symbol + locale grouping, e.g. "£7.42", "¥1,596". */
   value: string;
@@ -12,7 +14,7 @@ export interface FormattedMoney {
  */
 export function formatMoney(value: number, code: string): FormattedMoney {
   try {
-    const nf = new Intl.NumberFormat("en-US", {
+    const nf = new Intl.NumberFormat(numberLocale().tag, {
       style: "currency",
       currency: code,
       currencyDisplay: "narrowSymbol",

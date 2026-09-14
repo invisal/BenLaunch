@@ -1,11 +1,17 @@
 import { app, BrowserWindow, dialog, globalShortcut, ipcMain } from "electron";
 import type { QuicklinkDraft } from "../shared/quicklink";
 import { captureFocusedWindow } from "@extensions/window/main/control/control";
-import { IPC_CHANNELS, type RequestSubtitleOptions } from "../shared/types";
+import {
+  IPC_CHANNELS,
+  type CalculatorSettings,
+  type RequestSubtitleOptions,
+} from "../shared/types";
 import {
   createQuicklink,
   deleteQuicklink,
   executeAction,
+  getCalculatorSettings,
+  updateCalculatorSettings,
   getQuicklink,
   initActionSources,
   openQuicklinkWith,
@@ -230,6 +236,15 @@ app.whenReady().then(() => {
   );
 
   ipcMain.handle(IPC_CHANNELS.quicklinkOpenWithApps, () => listOpenWithApps());
+
+  ipcMain.handle(IPC_CHANNELS.calculatorSettingsGet, () =>
+    getCalculatorSettings(),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.calculatorSettingsSet,
+    (_event, patch: Partial<CalculatorSettings>) =>
+      updateCalculatorSettings(patch),
+  );
 
   ipcMain.handle(IPC_CHANNELS.togglePin, () => {
     pinned = !pinned;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { CalculatorSettings, NumberFormatPreference } from "@shared/types";
 import { formatShortcut } from "@renderer/lib/shortcut";
 import { WindowFrame } from "@renderer/shared/ui";
 
@@ -92,6 +93,64 @@ function GapSizeRow() {
   );
 }
 
+const NUMBER_FORMATS: ReadonlyArray<{
+  value: NumberFormatPreference;
+  label: string;
+}> = [
+  { value: "system", label: "System" },
+  { value: "dot", label: "1,234.5" },
+  { value: "comma", label: "1.234,5" },
+];
+
+function CalculatorRows() {
+  const [prefs, setPrefs] = useState<CalculatorSettings | null>(null);
+
+  useEffect(() => {
+    window.api.calculatorSettings.get().then(setPrefs);
+  }, []);
+
+  async function update(patch: Partial<CalculatorSettings>): Promise<void> {
+    setPrefs(await window.api.calculatorSettings.set(patch));
+  }
+
+  return (
+    <>
+      <Row
+        title="Crypto prices"
+        description="Fetch live prices every 10 minutes so conversions like 5 btc in gbp work."
+      >
+        <input
+          type="checkbox"
+          checked={prefs?.cryptoEnabled ?? false}
+          disabled={!prefs}
+          onChange={(e) => void update({ cryptoEnabled: e.target.checked })}
+        />
+      </Row>
+      <Row
+        title="Number format"
+        description="Decimal and thousands separators for calculator input and results."
+      >
+        <select
+          value={prefs?.numberFormat ?? "system"}
+          disabled={!prefs}
+          onChange={(e) =>
+            void update({
+              numberFormat: e.target.value as NumberFormatPreference,
+            })
+          }
+          className="rounded border border-border bg-transparent px-2 py-1 text-xs outline-none"
+        >
+          {NUMBER_FORMATS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </Row>
+    </>
+  );
+}
+
 function Settings() {
   return (
     <WindowFrame title="Settings" contentClassName="overflow-y-auto">
@@ -127,6 +186,13 @@ function Settings() {
           </h2>
           {window.api.platform === "darwin" && <AccessibilityRow />}
           <GapSizeRow />
+        </section>
+
+        <section className="mt-6">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-foreground-subtle">
+            Calculator
+          </h2>
+          <CalculatorRows />
         </section>
 
         <p className="mt-8 text-xs text-foreground-subtle">

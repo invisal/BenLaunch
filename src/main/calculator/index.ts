@@ -1,6 +1,7 @@
 import type { Calculation } from "../../shared/types";
 import type { Evaluator } from "./types.ts";
-import { normalize } from "./normalize.ts";
+import { normalize, normalizeNumbers } from "./normalize.ts";
+import { numberLocale } from "./common/locale.ts";
 import { timespan } from "./evaluators/timespan/index.ts";
 import { finance } from "./evaluators/finance/index.ts";
 import { ratio } from "./evaluators/ratio/index.ts";
@@ -13,7 +14,7 @@ import { timezone } from "./evaluators/timezone/index.ts";
 /**
  * The calculator pipeline.
  *
- *   query ─▶ normalize (shared framing) ─▶ try evaluators in order ─▶ Calculation
+ *   query ─▶ normalize (shared framing + the user's number format) ─▶ try evaluators in order ─▶ Calculation
  *
  * It's all one feature — "type something, get an answer" — but the compute
  * engines differ (mathjs, currency rates, date parsing, time zones), so each is
@@ -48,7 +49,7 @@ const evaluators: Evaluator[] = [
  * otherwise `null`.
  */
 export function evaluate(query: string): Calculation | null {
-  const input = normalize(query);
+  const input = normalizeNumbers(normalize(query), numberLocale());
   if (!input) return null;
 
   for (const evaluator of evaluators) {

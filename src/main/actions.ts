@@ -1,5 +1,6 @@
 import { app } from "electron";
 import type {
+  CalculatorSettings,
   ExecuteResult,
   QueryResult,
   RequestSubtitleOptions,
@@ -19,6 +20,11 @@ import { BuiltinCommandSource } from "./sources/builtin/source";
 import { QuicklinkSource } from "./sources/quicklinks/source";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
 import { CryptoPriceSource } from "./sources/calculator/crypto-price/source.ts";
+import { setCryptoEnabled } from "./sources/calculator/crypto-price/store.ts";
+import {
+  numberLocaleTag,
+  setNumberLocale,
+} from "./calculator/common/locale.ts";
 import { WidgetSource } from "@extensions/widget/main/source";
 import { WindowExtension } from "@extensions/window/main/source";
 import { Usage } from "./usage/store";
@@ -59,8 +65,33 @@ export const windowLayoutStore = windowExtension.store;
 const calculatorHistory = new CalculatorHistoryExtension(evaluate);
 export const calculatorHistoryStore = calculatorHistory.store;
 
-/** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`. */
+/** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`, gated by a setting. */
 const cryptoPriceSource = new CryptoPriceSource();
+
+/**
+ * Push the calculator settings into the calculator's module-level state: the
+ * crypto feed's on/off switch and the number format. Called at startup and
+ * whenever Settings changes them.
+ */
+function applyCalculatorSettings(value: CalculatorSettings): void {
+  setCryptoEnabled(value.cryptoEnabled);
+  setNumberLocale(numberLocaleTag(value.numberFormat, app.getLocale()));
+}
+
+export function getCalculatorSettings(): CalculatorSettings {
+  return settings.getCalculatorSettings();
+}
+
+/** Persist a Settings change and apply it right away. */
+export function updateCalculatorSettings(
+  patch: Partial<CalculatorSettings>,
+): CalculatorSettings {
+  const wasEnabled = settings.getCalculatorSettings().cryptoEnabled;
+  const next = settings.setCalculatorSettings(patch);
+  applyCalculatorSettings(next);
+  if (next.cryptoEnabled && !wasEnabled) void cryptoPriceSource.refreshNow();
+  return next;
+}
 
 /**
  * Registry of action sources. Order matters: `query` keeps it, and the
@@ -131,6 +162,7 @@ const usage = new Usage({ dir: app.getPath("userData") });
 export function initActionSources(): void {
   usage.init();
   settings.init();
+  applyCalculatorSettings(settings.getCalculatorSettings());
   for (const source of sources) source.init?.();
 }
 

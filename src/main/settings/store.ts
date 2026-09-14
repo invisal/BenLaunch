@@ -10,6 +10,10 @@
  */
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type {
+  CalculatorSettings,
+  NumberFormatPreference,
+} from "../../shared/types";
 
 /** Bumped when the persisted shape changes, to invalidate old files. */
 const SETTINGS_VERSION = 1;
@@ -26,22 +30,43 @@ interface SettingsFile {
    * existed still validates — a missing value just falls back to `DEFAULT_GAP_PX`.
    */
   gapPx?: number;
+  /** Calculator: fetch live crypto prices. Optional — missing means the default (on). */
+  cryptoEnabled?: boolean;
+  /** Calculator: number format. Optional — missing means `system`. */
+  numberFormat?: NumberFormatPreference;
 }
 
-/** In-memory state — unlike `SettingsFile`, `gapPx` is always populated (defaulted on load). */
-interface State {
+/** In-memory state — unlike `SettingsFile`, every field is populated (defaulted on load). */
+interface State extends CalculatorSettings {
   gapPx: number;
 }
 
+const DEFAULT_CALCULATOR: CalculatorSettings = {
+  cryptoEnabled: true,
+  numberFormat: "system",
+};
+
+const NUMBER_FORMATS: readonly NumberFormatPreference[] = [
+  "system",
+  "dot",
+  "comma",
+];
+
 function emptyState(): State {
-  return { gapPx: DEFAULT_GAP_PX };
+  return { gapPx: DEFAULT_GAP_PX, ...DEFAULT_CALCULATOR };
 }
 
 function isSettingsFile(value: unknown): value is SettingsFile {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<SettingsFile>;
   if (candidate.version !== SETTINGS_VERSION) return false;
-  return candidate.gapPx === undefined || typeof candidate.gapPx === "number";
+  return (
+    (candidate.gapPx === undefined || typeof candidate.gapPx === "number") &&
+    (candidate.cryptoEnabled === undefined ||
+      typeof candidate.cryptoEnabled === "boolean") &&
+    (candidate.numberFormat === undefined ||
+      NUMBER_FORMATS.includes(candidate.numberFormat))
+  );
 }
 
 export class SettingsStore {
@@ -60,7 +85,12 @@ export class SettingsStore {
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path(), "utf8"));
       if (isSettingsFile(parsed)) {
-        this.state = { gapPx: parsed.gapPx ?? DEFAULT_GAP_PX };
+        this.state = {
+          gapPx: parsed.gapPx ?? DEFAULT_GAP_PX,
+          cryptoEnabled:
+            parsed.cryptoEnabled ?? DEFAULT_CALCULATOR.cryptoEnabled,
+          numberFormat: parsed.numberFormat ?? DEFAULT_CALCULATOR.numberFormat,
+        };
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
@@ -82,6 +112,28 @@ export class SettingsStore {
     this.persist();
   }
 
+  getCalculatorSettings(): CalculatorSettings {
+    this.init();
+    return {
+      cryptoEnabled: this.state.cryptoEnabled,
+      numberFormat: this.state.numberFormat,
+    };
+  }
+
+  /** Merge `patch` (invalid fields ignored), persist, and return the result. */
+  setCalculatorSettings(
+    patch: Partial<CalculatorSettings>,
+  ): CalculatorSettings {
+    this.init();
+    if (typeof patch.cryptoEnabled === "boolean")
+      this.state.cryptoEnabled = patch.cryptoEnabled;
+    if (patch.numberFormat && NUMBER_FORMATS.includes(patch.numberFormat)) {
+      this.state.numberFormat = patch.numberFormat;
+    }
+    this.persist();
+    return this.getCalculatorSettings();
+  }
+
   private path(): string {
     return join(this.dir, "settings.json");
   }
@@ -94,6 +146,8 @@ export class SettingsStore {
       version: SETTINGS_VERSION,
       savedAt: Date.now(),
       gapPx: this.state.gapPx,
+      cryptoEnabled: this.state.cryptoEnabled,
+      numberFormat: this.state.numberFormat,
     };
     try {
       writeFileSync(tmp, JSON.stringify(payload));
