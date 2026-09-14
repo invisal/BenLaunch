@@ -1,28 +1,31 @@
-import { getAllCountries, getCountryForTimezone } from 'countries-and-timezones'
-import { getTimezoneOffset } from 'date-fns-tz'
-import { fuzzyMatch } from '../../../search.ts'
+import {
+  getAllCountries,
+  getCountryForTimezone,
+} from "countries-and-timezones";
+import { getTimezoneOffset } from "date-fns-tz";
+import { fuzzyMatch } from "../../../search.ts";
 
 export interface PlaceEntry {
   /** Display name, e.g. "New York". */
-  name: string
+  name: string;
   /** Extra lookup keys: abbreviations, alternate spellings, airport codes. */
-  aliases: string[]
+  aliases: string[];
   /** IANA zone, e.g. "America/New_York". */
-  timezone: string
-  country: string
+  timezone: string;
+  country: string;
 }
 
 /** Strip accents so "São Paulo" and "sao paulo" hit the same index key. */
 function foldKey(text: string): string {
   return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
-    .toLowerCase()
+    .toLowerCase();
 }
 
 function countryOf(timezone: string): string {
-  return getCountryForTimezone(timezone)?.name ?? ''
+  return getCountryForTimezone(timezone)?.name ?? "";
 }
 
 /**
@@ -31,7 +34,7 @@ function countryOf(timezone: string): string {
  * own zone list into a place name for (almost) free.
  */
 function displayName(timezone: string): string {
-  return timezone.split('/').pop()!.replace(/_/g, ' ')
+  return timezone.split("/").pop()!.replace(/_/g, " ");
 }
 
 /**
@@ -44,55 +47,55 @@ function displayName(timezone: string): string {
  * name people actually type today as the *display* name.
  */
 const RENAME: Record<string, string> = {
-  'Asia/Calcutta': 'Kolkata',
-  'Asia/Katmandu': 'Kathmandu',
-  'Asia/Saigon': 'Ho Chi Minh City',
-  'Europe/Kiev': 'Kyiv',
-  'America/Godthab': 'Nuuk',
-}
+  "Asia/Calcutta": "Kolkata",
+  "Asia/Katmandu": "Kathmandu",
+  "Asia/Saigon": "Ho Chi Minh City",
+  "Europe/Kiev": "Kyiv",
+  "America/Godthab": "Nuuk",
+};
 
 /** Extra searchable words layered onto an auto-generated zone entry — abbreviations, airport codes, old names, and cities a zone's own name doesn't surface. */
 const ALIASES: Record<string, string[]> = {
-  'Asia/Calcutta': ['calcutta'],
-  'Asia/Katmandu': ['katmandu'],
-  'Asia/Saigon': ['saigon', 'hcmc', 'ho chi minh'],
-  'Europe/Kiev': ['kiev'],
-  'America/Godthab': ['godthab'],
-  'Asia/Jerusalem': ['tel aviv', 'telaviv'],
-  'America/New_York': ['nyc', 'ny', 'jfk'],
-  'America/Los_Angeles': ['la', 'lax'],
-  'America/Chicago': ['ord'],
-  'America/Denver': ['den'],
-  'America/Phoenix': ['phx'],
-  'Pacific/Honolulu': ['hnl', 'hawaii'],
-  'America/Anchorage': ['alaska'],
-  'America/Toronto': ['yyz'],
-  'America/Vancouver': ['yvr'],
-  'America/Mexico_City': ['cdmx', 'mexico'],
-  'America/Buenos_Aires': ['bsas'],
-  'Europe/London': ['ldn', 'uk'],
-  'Asia/Dubai': ['dxb', 'uae'],
-  'Asia/Qatar': ['doha'],
-  'Asia/Hong_Kong': ['hkg'],
-  'Asia/Tokyo': ['nrt', 'hnd'],
-  'Asia/Seoul': ['icn'],
-  'Asia/Shanghai': ['pek'],
-  'Asia/Taipei': ['tpe'],
-  'Asia/Singapore': ['sin', 'sg'],
-  'Asia/Kuala_Lumpur': ['kl'],
-  'Asia/Bangkok': ['bkk'],
-  'Asia/Jakarta': ['cgk'],
-  'Asia/Manila': ['mnl'],
-  'Australia/Sydney': ['syd'],
-  'Australia/Melbourne': ['mel'],
-  'Australia/Brisbane': ['bne'],
-  'Australia/Perth': ['per'],
-  'Pacific/Auckland': ['akl'],
-  'Europe/Paris': ['cdg'],
-  'Europe/Amsterdam': ['ams'],
-  'Europe/Moscow': ['msk'],
-  'Asia/Vladivostok': ['vvo'],
-}
+  "Asia/Calcutta": ["calcutta"],
+  "Asia/Katmandu": ["katmandu"],
+  "Asia/Saigon": ["saigon", "hcmc", "ho chi minh"],
+  "Europe/Kiev": ["kiev"],
+  "America/Godthab": ["godthab"],
+  "Asia/Jerusalem": ["tel aviv", "telaviv"],
+  "America/New_York": ["nyc", "ny", "jfk"],
+  "America/Los_Angeles": ["la", "lax"],
+  "America/Chicago": ["ord"],
+  "America/Denver": ["den"],
+  "America/Phoenix": ["phx"],
+  "Pacific/Honolulu": ["hnl", "hawaii"],
+  "America/Anchorage": ["alaska"],
+  "America/Toronto": ["yyz"],
+  "America/Vancouver": ["yvr"],
+  "America/Mexico_City": ["cdmx", "mexico"],
+  "America/Buenos_Aires": ["bsas"],
+  "Europe/London": ["ldn", "uk"],
+  "Asia/Dubai": ["dxb", "uae"],
+  "Asia/Qatar": ["doha"],
+  "Asia/Hong_Kong": ["hkg"],
+  "Asia/Tokyo": ["nrt", "hnd"],
+  "Asia/Seoul": ["icn"],
+  "Asia/Shanghai": ["pek"],
+  "Asia/Taipei": ["tpe"],
+  "Asia/Singapore": ["sin", "sg"],
+  "Asia/Kuala_Lumpur": ["kl"],
+  "Asia/Bangkok": ["bkk"],
+  "Asia/Jakarta": ["cgk"],
+  "Asia/Manila": ["mnl"],
+  "Australia/Sydney": ["syd"],
+  "Australia/Melbourne": ["mel"],
+  "Australia/Brisbane": ["bne"],
+  "Australia/Perth": ["per"],
+  "Pacific/Auckland": ["akl"],
+  "Europe/Paris": ["cdg"],
+  "Europe/Amsterdam": ["ams"],
+  "Europe/Moscow": ["msk"],
+  "Asia/Vladivostok": ["vvo"],
+};
 
 /**
  * One entry per real IANA zone — `Intl.supportedValuesOf('timeZone')`, the
@@ -101,12 +104,14 @@ const ALIASES: Record<string, string[]> = {
  * so every IANA zone (including old names tzdb kept as pure aliases, like
  * `Asia/Phnom_Penh`) is resolvable by its own name for free.
  */
-const BASE_PLACES: readonly PlaceEntry[] = Intl.supportedValuesOf('timeZone').map((timezone) => ({
+const BASE_PLACES: readonly PlaceEntry[] = Intl.supportedValuesOf(
+  "timeZone",
+).map((timezone) => ({
   name: RENAME[timezone] ?? displayName(timezone),
   aliases: ALIASES[timezone] ?? [],
   timezone,
   country: countryOf(timezone),
-}))
+}));
 
 /**
  * Cities that share another city's zone — IANA only creates a new zone id
@@ -117,48 +122,48 @@ const BASE_PLACES: readonly PlaceEntry[] = Intl.supportedValuesOf('timeZone').ma
  */
 const EXTRA_PLACES: readonly PlaceEntry[] = (
   [
-    ['San Francisco', ['sf', 'sfo', 'bay area'], 'America/Los_Angeles'],
-    ['Seattle', ['sea'], 'America/Los_Angeles'],
-    ['Portland', ['pdx'], 'America/Los_Angeles'],
-    ['Las Vegas', ['vegas', 'las'], 'America/Los_Angeles'],
-    ['Austin', [], 'America/Chicago'],
-    ['Dallas', ['dfw'], 'America/Chicago'],
-    ['Houston', ['iah'], 'America/Chicago'],
-    ['Miami', ['mia'], 'America/New_York'],
-    ['Boston', ['bos'], 'America/New_York'],
-    ['Washington DC', ['dc', 'washington'], 'America/New_York'],
-    ['Atlanta', ['atl'], 'America/New_York'],
-    ['Montreal', ['yul'], 'America/Toronto'],
-    ['Rio de Janeiro', ['rio'], 'America/Sao_Paulo'],
-    ['Munich', [], 'Europe/Berlin'],
-    ['Frankfurt', ['fra'], 'Europe/Berlin'],
-    ['Barcelona', ['bcn'], 'Europe/Madrid'],
-    ['Milan', [], 'Europe/Rome'],
-    ['Geneva', [], 'Europe/Zurich'],
-    ['Abu Dhabi', [], 'Asia/Dubai'],
-    ['Cape Town', [], 'Africa/Johannesburg'],
-    ['Mumbai', ['bombay'], 'Asia/Calcutta'],
-    ['Delhi', ['new delhi'], 'Asia/Calcutta'],
-    ['Bengaluru', ['bangalore', 'blr'], 'Asia/Calcutta'],
-    ['Hyderabad', [], 'Asia/Calcutta'],
-    ['Chennai', ['madras'], 'Asia/Calcutta'],
-    ['Pune', [], 'Asia/Calcutta'],
-    ['Osaka', [], 'Asia/Tokyo'],
-    ['Beijing', [], 'Asia/Shanghai'],
-    ['Shenzhen', [], 'Asia/Shanghai'],
-    ['Guangzhou', [], 'Asia/Shanghai'],
+    ["San Francisco", ["sf", "sfo", "bay area"], "America/Los_Angeles"],
+    ["Seattle", ["sea"], "America/Los_Angeles"],
+    ["Portland", ["pdx"], "America/Los_Angeles"],
+    ["Las Vegas", ["vegas", "las"], "America/Los_Angeles"],
+    ["Austin", [], "America/Chicago"],
+    ["Dallas", ["dfw"], "America/Chicago"],
+    ["Houston", ["iah"], "America/Chicago"],
+    ["Miami", ["mia"], "America/New_York"],
+    ["Boston", ["bos"], "America/New_York"],
+    ["Washington DC", ["dc", "washington"], "America/New_York"],
+    ["Atlanta", ["atl"], "America/New_York"],
+    ["Montreal", ["yul"], "America/Toronto"],
+    ["Rio de Janeiro", ["rio"], "America/Sao_Paulo"],
+    ["Munich", [], "Europe/Berlin"],
+    ["Frankfurt", ["fra"], "Europe/Berlin"],
+    ["Barcelona", ["bcn"], "Europe/Madrid"],
+    ["Milan", [], "Europe/Rome"],
+    ["Geneva", [], "Europe/Zurich"],
+    ["Abu Dhabi", [], "Asia/Dubai"],
+    ["Cape Town", [], "Africa/Johannesburg"],
+    ["Mumbai", ["bombay"], "Asia/Calcutta"],
+    ["Delhi", ["new delhi"], "Asia/Calcutta"],
+    ["Bengaluru", ["bangalore", "blr"], "Asia/Calcutta"],
+    ["Hyderabad", [], "Asia/Calcutta"],
+    ["Chennai", ["madras"], "Asia/Calcutta"],
+    ["Pune", [], "Asia/Calcutta"],
+    ["Osaka", [], "Asia/Tokyo"],
+    ["Beijing", [], "Asia/Shanghai"],
+    ["Shenzhen", [], "Asia/Shanghai"],
+    ["Guangzhou", [], "Asia/Shanghai"],
     // Not an Area/City zone, so `Intl.supportedValuesOf` never lists it,
     // even though it's always a valid `timeZone` value.
-    ['UTC', ['gmt'], 'UTC'],
+    ["UTC", ["gmt"], "UTC"],
   ] as const
 ).map(([name, aliases, timezone]) => ({
   name,
   aliases: [...aliases],
   timezone,
-  country: timezone === 'UTC' ? '' : countryOf(timezone),
-}))
+  country: timezone === "UTC" ? "" : countryOf(timezone),
+}));
 
-export const PLACES: readonly PlaceEntry[] = [...BASE_PLACES, ...EXTRA_PLACES]
+export const PLACES: readonly PlaceEntry[] = [...BASE_PLACES, ...EXTRA_PLACES];
 
 /**
  * Zones flagged elsewhere in this file as worth recognizing by their own
@@ -171,11 +176,12 @@ export const PLACES: readonly PlaceEntry[] = [...BASE_PLACES, ...EXTRA_PLACES]
 const WELL_KNOWN_ZONES = new Set<string>([
   ...Object.keys(ALIASES),
   ...EXTRA_PLACES.map((entry) => entry.timezone),
-])
+]);
 
-const INDEX = new Map<string, PlaceEntry>()
+const INDEX = new Map<string, PlaceEntry>();
 for (const entry of PLACES) {
-  for (const key of [entry.name, ...entry.aliases]) INDEX.set(foldKey(key), entry)
+  for (const key of [entry.name, ...entry.aliases])
+    INDEX.set(foldKey(key), entry);
 }
 
 /**
@@ -193,15 +199,18 @@ for (const entry of PLACES) {
  * norway" say Oslo instead of Frankfurt (Berlin's own zone belongs to
  * Germany, not Norway, in this grouping).
  */
-const ZONES_BY_COUNTRY = new Map<string, PlaceEntry[]>()
+const ZONES_BY_COUNTRY = new Map<string, PlaceEntry[]>();
 for (const entry of BASE_PLACES) {
-  if (!entry.country) continue
-  if (!ZONES_BY_COUNTRY.has(entry.country)) ZONES_BY_COUNTRY.set(entry.country, [])
-  ZONES_BY_COUNTRY.get(entry.country)!.push(entry)
+  if (!entry.country) continue;
+  if (!ZONES_BY_COUNTRY.has(entry.country))
+    ZONES_BY_COUNTRY.set(entry.country, []);
+  ZONES_BY_COUNTRY.get(entry.country)!.push(entry);
 }
 
 /** `BASE_PLACES` keyed by zone id — for resolving a capital-zone override to its entry. */
-const ENTRY_BY_ZONE = new Map(BASE_PLACES.map((entry) => [entry.timezone, entry]))
+const ENTRY_BY_ZONE = new Map(
+  BASE_PLACES.map((entry) => [entry.timezone, entry]),
+);
 
 /**
  * Countries with more than one *own* zone (per `ZONES_BY_COUNTRY` above) —
@@ -213,76 +222,88 @@ const ENTRY_BY_ZONE = new Map(BASE_PLACES.map((entry) => [entry.timezone, entry]
  * on purpose.
  */
 const CAPITAL_ZONE_OVERRIDES: Record<string, string> = {
-  US: 'America/New_York',
-  RU: 'Europe/Moscow',
-  CA: 'America/Toronto',
-  BR: 'America/Sao_Paulo',
-  AR: 'America/Buenos_Aires',
-  MX: 'America/Mexico_City',
-  AU: 'Australia/Sydney',
-  KZ: 'Asia/Almaty',
-  CL: 'America/Santiago',
-  GL: 'America/Godthab', // Nuuk
-  ID: 'Asia/Jakarta',
-  ES: 'Europe/Madrid',
-  PT: 'Europe/Lisbon',
-  KI: 'Pacific/Tarawa',
-  PF: 'Pacific/Tahiti',
-  FM: 'Pacific/Ponape', // Pohnpei — capital Palikir
-  CD: 'Africa/Kinshasa',
-  EC: 'America/Guayaquil',
-  CY: 'Asia/Nicosia',
-  PS: 'Asia/Hebron',
-  MN: 'Asia/Ulaanbaatar',
-  MY: 'Asia/Kuala_Lumpur',
-  UZ: 'Asia/Tashkent',
-  CN: 'Asia/Shanghai',
-  DE: 'Europe/Berlin',
-  NZ: 'Pacific/Auckland',
-  PG: 'Pacific/Port_Moresby',
-  MH: 'Pacific/Majuro',
-}
+  US: "America/New_York",
+  RU: "Europe/Moscow",
+  CA: "America/Toronto",
+  BR: "America/Sao_Paulo",
+  AR: "America/Buenos_Aires",
+  MX: "America/Mexico_City",
+  AU: "Australia/Sydney",
+  KZ: "Asia/Almaty",
+  CL: "America/Santiago",
+  GL: "America/Godthab", // Nuuk
+  ID: "Asia/Jakarta",
+  ES: "Europe/Madrid",
+  PT: "Europe/Lisbon",
+  KI: "Pacific/Tarawa",
+  PF: "Pacific/Tahiti",
+  FM: "Pacific/Ponape", // Pohnpei — capital Palikir
+  CD: "Africa/Kinshasa",
+  EC: "America/Guayaquil",
+  CY: "Asia/Nicosia",
+  PS: "Asia/Hebron",
+  MN: "Asia/Ulaanbaatar",
+  MY: "Asia/Kuala_Lumpur",
+  UZ: "Asia/Tashkent",
+  CN: "Asia/Shanghai",
+  DE: "Europe/Berlin",
+  NZ: "Pacific/Auckland",
+  PG: "Pacific/Port_Moresby",
+  MH: "Pacific/Majuro",
+};
 
 /** Common short/alternate forms of a `countries-and-timezones` country name. */
 const COUNTRY_NAME_ALIASES: Record<string, string[]> = {
-  'United States of America': ['united states', 'usa', 'us', 'america'],
-  'United Kingdom': ['uk', 'britain', 'great britain'],
-  'South Korea': ['korea'],
-  'United Arab Emirates': ['uae'],
-}
+  "United States of America": ["united states", "usa", "us", "america"],
+  "United Kingdom": ["uk", "britain", "great britain"],
+  "South Korea": ["korea"],
+  "United Arab Emirates": ["uae"],
+};
 
-const COUNTRY_INDEX = new Map<string, PlaceEntry>()
+const COUNTRY_INDEX = new Map<string, PlaceEntry>();
 for (const country of Object.values(getAllCountries())) {
-  const owned = ZONES_BY_COUNTRY.get(country.name) ?? []
+  const owned = ZONES_BY_COUNTRY.get(country.name) ?? [];
   const entry =
     owned.length === 1
       ? owned[0]
       : owned.length > 1
-        ? ENTRY_BY_ZONE.get(CAPITAL_ZONE_OVERRIDES[country.id] ?? '')
-        : undefined
-  if (!entry) continue
+        ? ENTRY_BY_ZONE.get(CAPITAL_ZONE_OVERRIDES[country.id] ?? "")
+        : undefined;
+  if (!entry) continue;
 
-  for (const key of [country.name, ...(COUNTRY_NAME_ALIASES[country.name] ?? [])]) {
-    COUNTRY_INDEX.set(foldKey(key), entry)
+  for (const key of [
+    country.name,
+    ...(COUNTRY_NAME_ALIASES[country.name] ?? []),
+  ]) {
+    COUNTRY_INDEX.set(foldKey(key), entry);
   }
 }
 
 /** Country name/alias → *every* zone it owns (not just the capital) — for `resolveCountryZones`. */
-const COUNTRY_ZONES_INDEX = new Map<string, { country: string; zones: PlaceEntry[] }>()
+const COUNTRY_ZONES_INDEX = new Map<
+  string,
+  { country: string; zones: PlaceEntry[] }
+>();
 for (const country of Object.values(getAllCountries())) {
-  const owned = ZONES_BY_COUNTRY.get(country.name)
-  if (!owned || owned.length < 2) continue
+  const owned = ZONES_BY_COUNTRY.get(country.name);
+  if (!owned || owned.length < 2) continue;
 
-  for (const key of [country.name, ...(COUNTRY_NAME_ALIASES[country.name] ?? [])]) {
-    COUNTRY_ZONES_INDEX.set(foldKey(key), { country: country.name, zones: owned })
+  for (const key of [
+    country.name,
+    ...(COUNTRY_NAME_ALIASES[country.name] ?? []),
+  ]) {
+    COUNTRY_ZONES_INDEX.set(foldKey(key), {
+      country: country.name,
+      zones: owned,
+    });
   }
 }
 
 export interface CountryZones {
   /** The country's display name, e.g. "United States of America". */
-  country: string
+  country: string;
   /** One entry per *distinct current offset* the country spans, west to east. */
-  zones: readonly PlaceEntry[]
+  zones: readonly PlaceEntry[];
 }
 
 /**
@@ -299,18 +320,21 @@ export interface CountryZones {
  * all its zones at this particular moment — `resolvePlace`'s single-entry
  * answer covers all of those already.
  */
-export function resolveCountryZones(text: string, now: Date): CountryZones | null {
-  const key = foldKey(text)
-  const found = COUNTRY_ZONES_INDEX.get(key)
-  if (!found) return null
+export function resolveCountryZones(
+  text: string,
+  now: Date,
+): CountryZones | null {
+  const key = foldKey(text);
+  const found = COUNTRY_ZONES_INDEX.get(key);
+  if (!found) return null;
 
-  const byOffset = new Map<number, PlaceEntry[]>()
+  const byOffset = new Map<number, PlaceEntry[]>();
   for (const entry of found.zones) {
-    const offset = getTimezoneOffset(entry.timezone, now)
-    if (!byOffset.has(offset)) byOffset.set(offset, [])
-    byOffset.get(offset)!.push(entry)
+    const offset = getTimezoneOffset(entry.timezone, now);
+    if (!byOffset.has(offset)) byOffset.set(offset, []);
+    byOffset.get(offset)!.push(entry);
   }
-  if (byOffset.size < 2) return null
+  if (byOffset.size < 2) return null;
 
   // Same-offset zones happen a lot (the US's 29 ids resolve to ~7 offsets),
   // and picking whichever sorts first (`Adak`, `Boise`, `Detroit`) reads far
@@ -319,11 +343,15 @@ export function resolveCountryZones(text: string, now: Date): CountryZones | nul
   // elsewhere in this file as well-known (see `WELL_KNOWN_ZONES`) — that's
   // existing signal, not a second list to maintain.
   const distinct = [...byOffset.values()].map(
-    (candidates) => candidates.find((c) => WELL_KNOWN_ZONES.has(c.timezone)) ?? candidates[0],
-  )
+    (candidates) =>
+      candidates.find((c) => WELL_KNOWN_ZONES.has(c.timezone)) ?? candidates[0],
+  );
 
-  distinct.sort((a, b) => getTimezoneOffset(a.timezone, now) - getTimezoneOffset(b.timezone, now))
-  return { country: found.country, zones: distinct }
+  distinct.sort(
+    (a, b) =>
+      getTimezoneOffset(a.timezone, now) - getTimezoneOffset(b.timezone, now),
+  );
+  return { country: found.country, zones: distinct };
 }
 
 /**
@@ -340,18 +368,22 @@ export function resolveCountryZones(text: string, now: Date): CountryZones | nul
  * `la`, `kl`) is already in the exact-match table above, so this costs
  * nothing for legitimate input.
  */
-export function resolvePlace(text: string, opts: { fuzzy?: boolean } = {}): PlaceEntry | null {
-  const key = foldKey(text)
-  if (key.length < 2) return null
+export function resolvePlace(
+  text: string,
+  opts: { fuzzy?: boolean } = {},
+): PlaceEntry | null {
+  const key = foldKey(text);
+  if (key.length < 2) return null;
 
-  const exact = INDEX.get(key) ?? COUNTRY_INDEX.get(key)
-  if (exact) return exact
-  if (opts.fuzzy === false || key.length < 3) return null
+  const exact = INDEX.get(key) ?? COUNTRY_INDEX.get(key);
+  if (exact) return exact;
+  if (opts.fuzzy === false || key.length < 3) return null;
 
-  let best: { entry: PlaceEntry; score: number } | null = null
+  let best: { entry: PlaceEntry; score: number } | null = null;
   for (const [indexKey, entry] of [...INDEX, ...COUNTRY_INDEX]) {
-    const result = fuzzyMatch(key, indexKey)
-    if (result.match && (!best || result.score > best.score)) best = { entry, score: result.score }
+    const result = fuzzyMatch(key, indexKey);
+    if (result.match && (!best || result.score > best.score))
+      best = { entry, score: result.score };
   }
-  return best?.entry ?? null
+  return best?.entry ?? null;
 }

@@ -28,5 +28,6 @@
     "src/extensions/**/ipc/preload.ts",
     "src/extensions/*/screen.ts",
     "src/extensions/*/screen.tsx"
-  ]
+  ],
+  "exclude": ["src/**/*.test.ts"]
 }

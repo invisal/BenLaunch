@@ -1,5 +1,5 @@
-import type { RequestSubtitleOptions } from '../../shared/types'
-import type { ActionDefinition } from '../types'
+import type { RequestSubtitleOptions } from "../../shared/types";
+import type { ActionDefinition } from "../types";
 
 /**
  * A provider of launcher actions. `actions.ts` holds a registry of these, fans
@@ -12,17 +12,17 @@ import type { ActionDefinition } from '../types'
  */
 export interface ActionSource {
   /** Stable identifier; also the conventional prefix of this source's action ids. */
-  readonly id: string
+  readonly id: string;
 
   /**
    * Actions to consider for `query`. List-then-filter sources ignore the argument
    * and return their whole catalog (the registry does the fuzzy match); a
    * query-driven source uses it to compute results.
    */
-  provide(query: string): ActionDefinition[] | Promise<ActionDefinition[]>
+  provide(query: string): ActionDefinition[] | Promise<ActionDefinition[]>;
 
   /** Whether `actionId` belongs to this source. Usually an id-prefix check. */
-  owns(actionId: string): boolean
+  owns(actionId: string): boolean;
 
   /**
    * Run the action identified by `actionId` (which this source `owns`). `query`
@@ -30,13 +30,13 @@ export interface ActionSource {
    * sources (e.g. quicklinks) parse their argument out of it; most sources
    * ignore it.
    */
-  execute(actionId: string, query: string): void | Promise<void>
+  execute(actionId: string, query: string): void | Promise<void>;
 
   /** Warm-up hook, called once at startup. */
-  init?(): void
+  init?(): void;
 
   /** Refresh hook, called when the launcher window is shown. */
-  refresh?(): void
+  refresh?(): void;
 
   /**
    * Called when a row this source produced with `isDeferredSubtitle: true`
@@ -49,8 +49,8 @@ export interface ActionSource {
    */
   requestSubtitle?(
     actionId: string,
-    opts?: RequestSubtitleOptions
-  ): string | undefined | Promise<string | undefined>
+    opts?: RequestSubtitleOptions,
+  ): string | undefined | Promise<string | undefined>;
 }
 
 /**
@@ -64,49 +64,52 @@ export interface ActionSource {
  * Execution resolves against the in-memory cache, so ids need no reverse-encoding.
  */
 export abstract class CachedActionSource implements ActionSource {
-  abstract readonly id: string
+  abstract readonly id: string;
 
   /** Minimum gap between `refresh()`-triggered fetches. */
-  protected refreshThrottleMs = 30_000
+  protected refreshThrottleMs = 30_000;
 
-  private cached: ActionDefinition[] = []
-  private staleLoad: Promise<void> | null = null
-  private firstFetch: Promise<void> | null = null
-  private fetchInFlight: Promise<void> | null = null
-  private lastFetchAt = 0
+  private cached: ActionDefinition[] = [];
+  private staleLoad: Promise<void> | null = null;
+  private firstFetch: Promise<void> | null = null;
+  private fetchInFlight: Promise<void> | null = null;
+  private lastFetchAt = 0;
 
   /** Build the current, authoritative list. */
-  protected abstract fetch(): Promise<ActionDefinition[]>
+  protected abstract fetch(): Promise<ActionDefinition[]>;
 
   /** Load a persisted list for an instant cold start. Default: nothing persisted. */
   protected loadStale(): Promise<ActionDefinition[] | null> {
-    return Promise.resolve(null)
+    return Promise.resolve(null);
   }
 
   init(): void {
-    void this.ensureStale()
-    if (!this.firstFetch) this.firstFetch = this.runFetch()
+    void this.ensureStale();
+    if (!this.firstFetch) this.firstFetch = this.runFetch();
   }
 
   refresh(): void {
-    this.init()
-    if (Date.now() - this.lastFetchAt > this.refreshThrottleMs) void this.runFetch()
+    this.init();
+    if (Date.now() - this.lastFetchAt > this.refreshThrottleMs)
+      void this.runFetch();
   }
 
   async provide(): Promise<ActionDefinition[]> {
-    this.init()
-    await this.ensureStale()
+    this.init();
+    await this.ensureStale();
     // Nothing persisted (first launch ever) — wait for the fetch this once.
-    if (this.cached.length === 0 && this.firstFetch) await this.firstFetch
-    return this.cached
+    if (this.cached.length === 0 && this.firstFetch) await this.firstFetch;
+    return this.cached;
   }
 
   owns(actionId: string): boolean {
-    return actionId.startsWith(`${this.id}:`)
+    return actionId.startsWith(`${this.id}:`);
   }
 
   async execute(actionId: string, _query: string): Promise<void> {
-    await this.cached.find((definition) => definition.action.id === actionId)?.run()
+    await this.cached
+      .find((definition) => definition.action.id === actionId)
+      ?.run();
   }
 
   private ensureStale(): Promise<void> {
@@ -114,30 +117,31 @@ export abstract class CachedActionSource implements ActionSource {
       this.staleLoad = this.loadStale()
         .then((list) => {
           // A background fetch may have already produced a fresher list.
-          if (list && this.cached.length === 0) this.cached = list
+          if (list && this.cached.length === 0) this.cached = list;
         })
         .catch((error) => {
-          console.error(`[${this.id}] stale load failed:`, error)
-        })
+          console.error(`[${this.id}] stale load failed:`, error);
+        });
     }
-    return this.staleLoad
+    return this.staleLoad;
   }
 
-  private runFetch(): Promise<void> {
+  /** Fetch now, ignoring the refresh throttle (still de-duplicated with an in-flight fetch). */
+  protected runFetch(): Promise<void> {
     if (!this.fetchInFlight) {
       this.fetchInFlight = this.fetch()
         .then((list) => {
           // Keep the last known-good list if a fetch yields nothing (a failure).
-          if (list.length > 0) this.cached = list
-          this.lastFetchAt = Date.now()
+          if (list.length > 0) this.cached = list;
+          this.lastFetchAt = Date.now();
         })
         .catch((error) => {
-          console.error(`[${this.id}] refresh failed:`, error)
+          console.error(`[${this.id}] refresh failed:`, error);
         })
         .finally(() => {
-          this.fetchInFlight = null
-        })
+          this.fetchInFlight = null;
+        });
     }
-    return this.fetchInFlight
+    return this.fetchInFlight;
   }
 }

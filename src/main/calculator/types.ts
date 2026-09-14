@@ -1,4 +1,4 @@
-import type { Calculation } from '../../shared/types'
+import type { Calculation } from "../../shared/types";
 
 /**
  * A calculator evaluator: given the query (already run through the shared
@@ -12,6 +12,6 @@ import type { Calculation } from '../../shared/types'
  */
 export interface Evaluator {
   /** Stable id, used in logs and tests (e.g. `"math"`, `"currency"`). */
-  readonly id: string
-  evaluate(input: string): Calculation | null
+  readonly id: string;
+  evaluate(input: string): Calculation | null;
 }

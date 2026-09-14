@@ -10,12 +10,12 @@
 
 /** Unicode math symbols from copy-paste or the keyboard. */
 const SYMBOLS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/[×✕✖⨯]/g, ' * '],
-  [/[÷]/g, ' / '],
-  [/[−–—]/g, '-'], // U+2212 minus sign, en dash, em dash
-  [/π/g, ' pi '],
-  [/√/g, ' sqrt '], // "√625", "√(2)"
-]
+  [/[×✕✖⨯]/g, " * "],
+  [/[÷]/g, " / "],
+  [/[−–—]/g, "-"], // U+2212 minus sign, en dash, em dash
+  [/π/g, " pi "],
+  [/√/g, " sqrt "], // "√625", "√(2)"
+];
 
 /**
  * Spoken function forms `mathjs` can't parse on its own — "square root of 625",
@@ -23,10 +23,10 @@ const SYMBOLS: ReadonlyArray<readonly [RegExp, string]> = [
  * `wrapBareCalls` then parenthesises into `fn(operand)`.
  */
 const FUNCTION_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\b(?:the\s+)?(?:square\s+root\s+of|sqrt\s+of)\s+/gi, 'sqrt '],
-  [/\b(?:the\s+)?cube\s+root\s+of\s+/gi, 'cbrt '],
-  [/\b(?:the\s+)?factorial\s+of\s+/gi, 'factorial '],
-]
+  [/\b(?:the\s+)?(?:square\s+root\s+of|sqrt\s+of)\s+/gi, "sqrt "],
+  [/\b(?:the\s+)?cube\s+root\s+of\s+/gi, "cbrt "],
+  [/\b(?:the\s+)?factorial\s+of\s+/gi, "factorial "],
+];
 
 /**
  * `sqrt 625` → `sqrt(625)`. `mathjs` needs the parens; natural phrasing and the
@@ -35,14 +35,14 @@ const FUNCTION_WORDS: ReadonlyArray<readonly [RegExp, string]> = [
  * or a nested function call.
  */
 const BARE_CALL =
-  /\b(sqrt|cbrt|factorial)\s+(\d[\d,]*(?:\.\d+)?|[a-z]\w*\s*\([^()]*\)|\([^()]*\)|pi|tau|phi|e)/gi
+  /\b(sqrt|cbrt|factorial)\s+(\d[\d,]*(?:\.\d+)?|[a-z]\w*\s*\([^()]*\)|\([^()]*\)|pi|tau|phi|e)/gi;
 
 function wrapBareCalls(input: string): string {
   return input.replace(BARE_CALL, (_match, fn: string, operand: string) => {
-    const arg = operand.replace(/,/g, '')
+    const arg = operand.replace(/,/g, "");
     // Operand already a parenthesised group ("sqrt (16 + 9)") — don't double-wrap.
-    return /^\(.*\)$/.test(arg) ? `${fn}${arg}` : `${fn}(${arg})`
-  })
+    return /^\(.*\)$/.test(arg) ? `${fn}${arg}` : `${fn}(${arg})`;
+  });
 }
 
 /**
@@ -52,40 +52,43 @@ function wrapBareCalls(input: string): string {
  * (`5 square feet`) means it's a unit phrase, not a power — left alone.
  */
 const POWER_WORDS =
-  /(\([^()]*\)|\d[\d,]*(?:\.\d+)?|pi|tau|phi|e)\s+(squared?|cubed?)\b(?!\s+[a-z])/gi
+  /(\([^()]*\)|\d[\d,]*(?:\.\d+)?|pi|tau|phi|e)\s+(squared?|cubed?)\b(?!\s+[a-z])/gi;
 
 function rewritePowerWords(input: string): string {
   return input.replace(POWER_WORDS, (_match, base: string, word: string) => {
-    const exponent = word.toLowerCase().startsWith('square') ? '2' : '3'
-    const arg = base.replace(/,/g, '')
-    return /^\(.*\)$/.test(arg) ? `${arg}^${exponent}` : `(${arg})^${exponent}`
-  })
+    const exponent = word.toLowerCase().startsWith("square") ? "2" : "3";
+    const arg = base.replace(/,/g, "");
+    return /^\(.*\)$/.test(arg) ? `${arg}^${exponent}` : `(${arg})^${exponent}`;
+  });
 }
 
 /** Spoken operators — rewritten only with whitespace on both sides. */
 const WORD_OPERATORS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\s+plus\s+/gi, ' + '],
-  [/\s+minus\s+/gi, ' - '],
-  [/\s+(?:times|multiplied\s+by)\s+/gi, ' * '],
-  [/\s+divided\s+by\s+/gi, ' / '],
-  [/\s+(?:mod|modulo)\s+/gi, ' % '],
-  [/\s+(?:to\s+the\s+power\s+of|power|pow)\s+/gi, ' ^ '],
-]
+  [/\s+plus\s+/gi, " + "],
+  [/\s+minus\s+/gi, " - "],
+  [/\s+(?:times|multiplied\s+by)\s+/gi, " * "],
+  [/\s+divided\s+by\s+/gi, " / "],
+  [/\s+(?:mod|modulo)\s+/gi, " % "],
+  [/\s+(?:to\s+the\s+power\s+of|power|pow)\s+/gi, " ^ "],
+];
 
 /** `3 x 4` / `3x4` — "x" as multiply, but only wedged between two numbers. */
-const X_MULTIPLY = /(\d)\s*x\s*(?=[(\d])/gi
+const X_MULTIPLY = /(\d)\s*x\s*(?=[(\d])/gi;
 
 export function normalizeMath(input: string): string {
-  let out = input
+  let out = input;
 
-  for (const [pattern, replacement] of SYMBOLS) out = out.replace(pattern, replacement)
-  for (const [pattern, replacement] of WORD_OPERATORS) out = out.replace(pattern, replacement)
-  for (const [pattern, replacement] of FUNCTION_WORDS) out = out.replace(pattern, replacement)
-  out = wrapBareCalls(out)
-  out = rewritePowerWords(out)
-  out = out.replace(X_MULTIPLY, '$1 * ')
+  for (const [pattern, replacement] of SYMBOLS)
+    out = out.replace(pattern, replacement);
+  for (const [pattern, replacement] of WORD_OPERATORS)
+    out = out.replace(pattern, replacement);
+  for (const [pattern, replacement] of FUNCTION_WORDS)
+    out = out.replace(pattern, replacement);
+  out = wrapBareCalls(out);
+  out = rewritePowerWords(out);
+  out = out.replace(X_MULTIPLY, "$1 * ");
 
   // Collapse whitespace the rewrites introduced, but keep single spaces so
   // "2 pi" (implicit multiplication) is not silently turned into "2pi".
-  return out.replace(/\s+/g, ' ').trim()
+  return out.replace(/\s+/g, " ").trim();
 }

@@ -44,6 +44,58 @@ test("missing, corrupt, and wrong-version files all yield the default without th
   assert.equal(new SettingsStore({ dir }).getGapSize(), 8);
 
   // Wrong version.
-  writeFileSync(join(dir, "settings.json"), JSON.stringify({ version: 999, savedAt: 0, gapPx: 20 }));
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ version: 999, savedAt: 0, gapPx: 20 }),
+  );
+  assert.equal(new SettingsStore({ dir }).getGapSize(), 8);
+});
+
+test("calculator settings default to crypto on / system number format", () => {
+  assert.deepEqual(new SettingsStore({ dir }).getCalculatorSettings(), {
+    cryptoEnabled: true,
+    numberFormat: "system",
+  });
+});
+
+test("setCalculatorSettings merges a patch, persists, and keeps the gap size", () => {
+  const first = new SettingsStore({ dir });
+  first.setGapSize(12);
+  assert.deepEqual(first.setCalculatorSettings({ cryptoEnabled: false }), {
+    cryptoEnabled: false,
+    numberFormat: "system",
+  });
+  first.setCalculatorSettings({ numberFormat: "comma" });
+
+  const second = new SettingsStore({ dir });
+  assert.deepEqual(second.getCalculatorSettings(), {
+    cryptoEnabled: false,
+    numberFormat: "comma",
+  });
+  assert.equal(second.getGapSize(), 12);
+});
+
+test("setCalculatorSettings ignores invalid values", () => {
+  const settings = new SettingsStore({ dir });
+  settings.setCalculatorSettings({
+    numberFormat: "roman" as never,
+    cryptoEnabled: "yes" as never,
+  });
+  assert.deepEqual(settings.getCalculatorSettings(), {
+    cryptoEnabled: true,
+    numberFormat: "system",
+  });
+});
+
+test("a settings file with an invalid calculator field falls back to defaults", () => {
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({
+      version: 1,
+      savedAt: 0,
+      gapPx: 20,
+      numberFormat: "roman",
+    }),
+  );
   assert.equal(new SettingsStore({ dir }).getGapSize(), 8);
 });

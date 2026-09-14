@@ -9,8 +9,9 @@ export function convert(
   to: string,
   rates: Record<string, number>,
 ): number | null {
-  const rFrom = from === 'USD' && !rates.USD ? 1 : rates[from]
-  const rTo = to === 'USD' && !rates.USD ? 1 : rates[to]
-  if (!rFrom || !rTo || !Number.isFinite(rFrom) || !Number.isFinite(rTo)) return null
-  return (amount * rTo) / rFrom
+  const rFrom = from === "USD" && !rates.USD ? 1 : rates[from];
+  const rTo = to === "USD" && !rates.USD ? 1 : rates[to];
+  if (!rFrom || !rTo || !Number.isFinite(rFrom) || !Number.isFinite(rTo))
+    return null;
+  return (amount * rTo) / rFrom;
 }

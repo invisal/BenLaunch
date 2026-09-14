@@ -2,7 +2,9 @@ export type LauncherActionType =
   | "application"
   | "command"
   | "quicklink"
-  | "widget";
+  | "widget"
+  /** A pinned calculation (Calculator History) — a live value, like a Widget row. */
+  | "calculation";
 
 export interface LauncherAction {
   id: string;
@@ -17,13 +19,13 @@ export interface LauncherAction {
    * Short alias that invokes this action when typed as the query's first word
    * (e.g. "g" for a Google quicklink). Everything after it becomes the argument.
    */
-  keyword?: string
+  keyword?: string;
   /** Extra terms this action should also match on (e.g. a quicklink's tags). */
-  tags?: string[]
+  tags?: string[];
   /** Quicklink is pinned — sorts above unpinned actions in the root list. */
-  pinned?: boolean
+  pinned?: boolean;
   /** Quicklink is hidden from the root list (still returned for an explicit search). */
-  hidden?: boolean
+  hidden?: boolean;
   /**
    * The action is resolving a value in the background (e.g. a Widget running
    * its async function). The list shows a spinner instead of the subtitle.
@@ -70,9 +72,29 @@ export interface Calculation {
   rawValue: string;
   /** `expression` split for syntax highlighting; absent when it could not be tokenized. */
   tokens?: CalcToken[];
-  /** Small print shown bottom-right of the result — e.g. currency's "Updated 2 days ago". */
+  /**
+   * Replaces `value` with a row of label/value chips — timezone's multi-zone
+   * country listing (`time in Australia`).
+   */
   items?: { label: string; value: string }[];
+  /**
+   * Secondary label/value chips shown *under* `value` — the extras a result
+   * carries beyond its headline number: "You save £16", "Total 48.30", a
+   * ratio's decimal/percent, other unit conversions.
+   */
+  details?: { label: string; value: string }[];
+  /** Small print shown bottom-right of the result — e.g. currency's "Updated 2 days ago". */
   footnote?: string;
+}
+
+/** How calculator numbers are written: follow the OS locale, or force `1,234.5` / `1.234,5`. */
+export type NumberFormatPreference = "system" | "dot" | "comma";
+
+/** The calculator's user preferences (Settings → Calculator). */
+export interface CalculatorSettings {
+  /** Fetch live crypto prices for `5 btc in gbp`. Off = no crypto network call. */
+  cryptoEnabled: boolean;
+  numberFormat: NumberFormatPreference;
 }
 
 /** What a query resolves to: the ranked actions, plus an optional inline answer. */
@@ -116,6 +138,9 @@ export const IPC_CHANNELS = {
   windowMinimize: "window:minimize",
   windowToggleMaximize: "window:toggle-maximize",
   windowClose: "window:close",
+  /** Settings window ↔ main: read / patch `CalculatorSettings`. */
+  calculatorSettingsGet: "settings:calculator-get",
+  calculatorSettingsSet: "settings:calculator-set",
   quicklinkCreate: "quicklink:create",
   quicklinkUpdate: "quicklink:update",
   quicklinkDelete: "quicklink:delete",

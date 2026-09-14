@@ -13,7 +13,8 @@ import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
 import { useShortcut } from "@renderer/lib/use-shortcut";
 
-const isImageIcon = (icon: string): boolean => /^(https?:|data:|file:)/.test(icon);
+const isImageIcon = (icon: string): boolean =>
+  /^(https?:|data:|file:)/.test(icon);
 
 /** A key-combo pill (e.g. ⌘⏎ / Ctrl+Enter). Decorative — hidden from a11y. */
 function Kbd({
@@ -341,18 +342,20 @@ function Menu({
     return keys;
   }, [items]);
 
-  const choose = (item: FooterMenuItem) => {
-    if (item.disabled) return;
+  /** Returns `"armed"` when the hit only armed a `confirmLabel` item. */
+  const choose = (item: FooterMenuItem): "armed" | "ran" | "ignored" => {
+    if (item.disabled) return "ignored";
     const key = item.id ?? item.label;
     // First hit on a guarded item just arms it — keep the menu open so the
     // swapped-in `confirmLabel` is visible for the confirming second hit.
     if (item.confirmLabel && armedId !== key) {
       setArmedId(key);
-      return;
+      return "armed";
     }
     setArmedId(null);
     setOpen(false);
     item.onSelect();
+    return "ran";
   };
 
   // The menu owns the ⌘K toggle whether controlled or not (setOpen routes to
@@ -412,13 +415,23 @@ function Menu({
                     )}
                     <Autocomplete.Item
                       value={item}
-                      onClick={() => choose(item)}
+                      disabled={item.disabled}
+                      onClick={(event) => {
+                        // Only a hit that actually ran the action may go on to
+                        // Base UI's own item press: it selects the item —
+                        // closing the popup and writing the label into the
+                        // search box — which would disarm a confirm before its
+                        // second hit, or close the menu on a disabled row. (↵
+                        // on a highlighted row arrives here as a click too.)
+                        if (choose(item) !== "ran")
+                          event.preventBaseUIHandler();
+                      }}
                       className={cn(
                         "flex w-full cursor-default items-center justify-between gap-2 rounded px-2 py-1.5 text-sm outline-none",
                         armed
-                          ? "bg-red-500/20 text-red-400"
+                          ? "bg-red-500/25 text-red-300 ring-1 ring-inset ring-red-500/40"
                           : item.danger
-                            ? "text-red-400/90 data-[highlighted]:text-red-400"
+                            ? "text-red-400/90 data-[highlighted]:bg-red-500/15 data-[highlighted]:text-red-300"
                             : "data-[highlighted]:bg-item-selected data-[highlighted]:text-foreground",
                         item.disabled && "opacity-40",
                       )}

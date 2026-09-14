@@ -7,10 +7,12 @@ import type {
 } from "../shared/quicklink";
 import {
   IPC_CHANNELS,
+  type CalculatorSettings,
   type ExecuteResult,
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
+import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
 import { windowApi } from "@extensions/window/ipc/preload";
 
@@ -24,7 +26,10 @@ const api = {
   togglePin: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.togglePin),
   createQuicklink: (draft: QuicklinkDraft): Promise<QuicklinkCreateResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkCreate, draft),
-  updateQuicklink: (id: string, draft: QuicklinkDraft): Promise<QuicklinkCreateResult> =>
+  updateQuicklink: (
+    id: string,
+    draft: QuicklinkDraft,
+  ): Promise<QuicklinkCreateResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkUpdate, id, draft),
   getQuicklink: (id: string): Promise<Quicklink | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkGet, id),
@@ -34,12 +39,24 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkSetPinned, id, pinned),
   setQuicklinkHidden: (id: string, hidden: boolean): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkSetHidden, id, hidden),
-  openQuicklinkWith: (id: string, text: string, appPath: string): Promise<void> =>
+  openQuicklinkWith: (
+    id: string,
+    text: string,
+    appPath: string,
+  ): Promise<void> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWith, id, text, appPath),
   pickQuicklinkPath: (type: "file" | "directory"): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkPickPath, type),
   openWithApps: (): Promise<OpenWithApp[]> =>
     ipcRenderer.invoke(IPC_CHANNELS.quicklinkOpenWithApps),
+
+  /** Settings → Calculator: crypto prices on/off, number format. */
+  calculatorSettings: {
+    get: (): Promise<CalculatorSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsGet),
+    set: (patch: Partial<CalculatorSettings>): Promise<CalculatorSettings> =>
+      ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsSet, patch),
+  },
 
   /** Launcher: a deferred-subtitle row rendered (or force-refreshed) — resolves with the fresh subtitle. */
   requestSubtitle: (
@@ -52,7 +69,8 @@ const api = {
    *  render their own title bar. Each acts on the calling window. */
   windowControls: {
     minimize: (): void => ipcRenderer.send(IPC_CHANNELS.windowMinimize),
-    toggleMaximize: (): void => ipcRenderer.send(IPC_CHANNELS.windowToggleMaximize),
+    toggleMaximize: (): void =>
+      ipcRenderer.send(IPC_CHANNELS.windowToggleMaximize),
     close: (): void => ipcRenderer.send(IPC_CHANNELS.windowClose),
   },
 
@@ -61,6 +79,9 @@ const api = {
 
   /** Window management (OS-level control + the custom-layout manager) ↔ main. */
   window: windowApi,
+
+  /** Calculator History (record, list, pin) ↔ main. */
+  calculatorHistory: calculatorHistoryApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);

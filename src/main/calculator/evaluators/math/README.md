@@ -93,71 +93,120 @@ because it is part of the same "type it how you'd say it" experience.
 Anything the bare `mathjs` grammar understands, plus spoken forms rewritten in
 [normalize.ts](normalize.ts).
 
-| #    | Input                    | Shown as       | Result          | ✓   |
-| ---- | ------------------------ | -------------- | --------------- | --- |
-| 6.1  | `sqrt(144)`              | —              | `12`            |     |
-| 6.2  | `sin(30 deg)`            | —              | `0.5`           |     |
-| 6.3  | `log(1000, 10)`          | —              | `3`             |     |
-| 6.4  | `2 * pi`                 | —              | `6.28318530718` |     |
-| 6.5  | `square root of 625`     | `sqrt(625)`    | `25`            |     |
-| 6.6  | `sqrt of 16`             | `sqrt(16)`     | `4`             |     |
-| 6.7  | `the square root of 2`   | `sqrt(2)`      | `1.41421356237` |     |
-| 6.8  | `square root of 1,000`   | `sqrt(1000)`   | `31.6227766017` |     |
-| 6.9  | `√625`                   | `sqrt(625)`    | `25`            |     |
-| 6.10 | `√(16 + 9)`              | `sqrt(16 + 9)` | `5`             |     |
-| 6.11 | `square root of 16 + 9`  | `sqrt(16) + 9` | `13`            |     |
-| 6.12 | `cube root of 27`        | `cbrt(27)`     | `3`             |     |
-| 6.13 | `factorial of 5`         | `factorial(5)` | `120`           |     |
-| 6.14 | `5 squared` / `5 square` | `(5)^2`        | `25`            |     |
-| 6.15 | `2 cubed` / `2 cube`     | `(2)^3`        | `8`             |     |
-| 6.16 | `(2 + 3) squared`        | `(2 + 3)^2`    | `25`            |     |
-| 6.17 | `pi squared`             | `(pi)^2`       | `9.86960440109` |     |
-| 6.18 | `5 squared plus 1`       | `(5)^2 + 1`    | `26`            |     |
+| #    | Input                    | Shown as       | Result           | ✓   |
+| ---- | ------------------------ | -------------- | ---------------- | --- |
+| 6.1  | `sqrt(144)`              | —              | `12`             |     |
+| 6.2  | `sin(30 deg)`            | —              | `0.5`            |     |
+| 6.3  | `log(1000, 10)`          | —              | `3`              |     |
+| 6.3a | `log(1000)`              | —              | `3` (base 10)    |     |
+| 6.3b | `log(8, 2)`              | —              | `3`              |     |
+| 6.3c | `ln(2)`                  | —              | `0.69314718056`  |     |
+| 6.3d | `cot(1)`                 | —              | `0.642092615934` |     |
+| 6.3e | `5!`                     | —              | `120`            |     |
+| 6.4  | `2 * pi`                 | —              | `6.28318530718`  |     |
+| 6.5  | `square root of 625`     | `sqrt(625)`    | `25`             |     |
+| 6.6  | `sqrt of 16`             | `sqrt(16)`     | `4`              |     |
+| 6.7  | `the square root of 2`   | `sqrt(2)`      | `1.41421356237`  |     |
+| 6.8  | `square root of 1,000`   | `sqrt(1000)`   | `31.6227766017`  |     |
+| 6.9  | `√625`                   | `sqrt(625)`    | `25`             |     |
+| 6.10 | `√(16 + 9)`              | `sqrt(16 + 9)` | `5`              |     |
+| 6.11 | `square root of 16 + 9`  | `sqrt(16) + 9` | `13`             |     |
+| 6.12 | `cube root of 27`        | `cbrt(27)`     | `3`              |     |
+| 6.13 | `factorial of 5`         | `factorial(5)` | `120`            |     |
+| 6.14 | `5 squared` / `5 square` | `(5)^2`        | `25`             |     |
+| 6.15 | `2 cubed` / `2 cube`     | `(2)^3`        | `8`              |     |
+| 6.16 | `(2 + 3) squared`        | `(2 + 3)^2`    | `25`             |     |
+| 6.17 | `pi squared`             | `(pi)^2`       | `9.86960440109`  |     |
+| 6.18 | `5 squared plus 1`       | `(5)^2 + 1`    | `26`             |     |
 
 ## 7. Unit-aware math
 
-`mathjs` keeps units through the operation and converts on `in` / `to`. Most word
-forms already work; [units.ts](units.ts) covers the gaps (bare `C`/`F`,
-`in`-as-connector, a few aliases).
+`mathjs` keeps units through the operation and converts on `in` / `to`.
+[units/aliases.ts](units/aliases.ts) covers phrasing gaps (bare `C`/`F`,
+`in`-as-connector, `fl oz`, `29"`, `mbps`), [units/definitions.ts](units/definitions.ts)
+adds US `tsp`/`tbsp` and `bps`, [units/pretty.ts](units/pretty.ts) prints `°F`,
+`mph`, `km/h`. Measured results show ≥ 2 decimals but ≥ 4 significant digits;
+durations nobody converted explicitly read as a timespan.
 
-| #    | Input              | Shown as             | Result                                                           | ✓   |
-| ---- | ------------------ | -------------------- | ---------------------------------------------------------------- | --- |
-| 7.1  | `128 GB to MB`     | —                    | `128000 MB`                                                      |     |
-| 7.2  | `10 cm in mm`      | `10 cm to mm`        | `100 mm`                                                         |     |
-| 7.3  | `20 degC to degF`  | —                    | `68 degF`                                                        |     |
-| 7.4  | `1 kg + 2 g`       | —                    | `1.002 kg`                                                       |     |
-| 7.5  | `5 m in ft`        | `5 m to ft`          | `16.404199 ft`                                                   |     |
-| 7.6  | `29 inches to cm`  | —                    | `73.66 cm`                                                       |     |
-| 7.7  | `10 ft in m`       | `10 ft to m`         | `3.048 m`                                                        |     |
-| 7.8  | `23C to F`         | `23 degC to degF`    | `73.4 degF`                                                      |     |
-| 7.9  | `0F to C`          | `0 degF to degC`     | `-17.777778 degC`                                                |     |
-| 7.10 | `180 pounds to kg` | `180 lbs to kg`      | `81.646627 kg`                                                   |     |
-| 7.11 | `180 lbs in kg`    | `180 lbs to kg`      | `81.646627 kg`                                                   |     |
-| 7.12 | `2 tbsp in ml`     | `2 tablespoon to ml` | `30 ml`                                                          |     |
-| 7.13 | `2 tsp in ml`      | `2 teaspoon to ml`   | `10 ml`                                                          |     |
-| 7.14 | `100 kmh in mph`   | `100 km/h to mi/h`   | `62.137119 mi / h`                                               |     |
-| 7.15 | `100 kph in mph`   | `100 km/h to mi/h`   | `62.137119 mi / h`                                               |     |
-| 7.16 | `5 in`             | —                    | `5 in` — bare `in` at end stays the inch unit, not the connector |     |
-| 7.17 | `5 in ft`          | `5 to ft`            | _nothing — no source unit to convert from_                       |     |
+| #    | Input                   | Shown as           | Result                                                       | ✓   |
+| ---- | ----------------------- | ------------------ | ------------------------------------------------------------ | --- |
+| 7.1  | `128 GB to MB`          | —                  | `128,000 MB`                                                 |     |
+| 7.2  | `10 cm in mm`           | `10 cm to mm`      | `100 mm`                                                     |     |
+| 7.3  | `20 degC to degF`       | —                  | `68 °F`                                                      |     |
+| 7.4  | `1 kg + 2 g`            | —                  | `1.002 kg`                                                   |     |
+| 7.5  | `5 m in ft`             | `5 m to ft`        | `16.4 ft`                                                    |     |
+| 7.6  | `29 inches to cm`       | —                  | `73.66 cm`                                                   |     |
+| 7.7  | `10 ft in m`            | `10 ft to m`       | `3.048 m`                                                    |     |
+| 7.8  | `23C to F`              | `23 degC to degF`  | `73.4 °F`                                                    |     |
+| 7.9  | `0F to C`               | `0 degF to degC`   | `-17.78 °C`                                                  |     |
+| 7.10 | `180 pounds to kg`      | `180 lbs to kg`    | `81.65 kg`                                                   |     |
+| 7.11 | `180 lbs in kg`         | `180 lbs to kg`    | `81.65 kg`                                                   |     |
+| 7.12 | `2 tbsp in ml`          | `2 tbsp to ml`     | `29.57 ml` (US tablespoon)                                   |     |
+| 7.13 | `3 teaspoon in ml`      | `3 teaspoon to ml` | `14.79 ml` (US teaspoon)                                     |     |
+| 7.14 | `100 kmh in mph`        | `100 km/h to mi/h` | `62.14 mph`                                                  |     |
+| 7.15 | `100 kph in mph`        | `100 km/h to mi/h` | `62.14 mph`                                                  |     |
+| 7.16 | `5 in`                  | —                  | auto-converts, see §7b (bare `in` at the end stays the inch) |     |
+| 7.17 | `5 in ft`               | `5 inch to ft`     | `0.4167 ft` (no source unit → the `in` is inches)            |     |
+| 7.18 | `1 fl oz in ml`         | `1 floz to ml`     | `29.57 ml`                                                   |     |
+| 7.19 | `29 " to cm`            | `29 inch to cm`    | `73.66 cm`                                                   |     |
+| 7.20 | `500 MB in GB`          | `500 MB to GB`     | `0.5 GB`                                                     |     |
+| 7.21 | `1 KiB in B`            | `1 KiB to B`       | `1,024 B`                                                    |     |
+| 7.22 | `120 mi / 2 h`          | —                  | `60 mph`                                                     |     |
+| 7.23 | `3 GB / 25 Mbps`        | —                  | `16 minutes`                                                 |     |
+| 7.24 | `500 GB / 50 Mbps`      | —                  | `22 hours 13 minutes 20 seconds`                             |     |
+| 7.25 | `90 minutes to seconds` | —                  | `5,400 seconds` (explicit target kept)                       |     |
+| 7.26 | `19m + 47%`             | —                  | `27.93 m`                                                    |     |
+
+## 7b. Automatic conversion
+
+A lone quantity with no target converts to its everyday counterpart
+([units/auto.ts](units/auto.ts)). Extra conversions show as chips under the result.
+
+| #     | Input                     | Result                           | Chips       | ✓   |
+| ----- | ------------------------- | -------------------------------- | ----------- | --- |
+| 7b.1  | `10 m`                    | `32.81 ft`                       | `393.7 in`  |     |
+| 7b.2  | `5 kg`                    | `11.02 lb`                       |             |     |
+| 7b.3  | `20 C` / `20 °C`          | `68 °F`                          |             |     |
+| 7b.4  | `1 mile`                  | `1.609 km`                       |             |     |
+| 7b.5  | `100 km`                  | `62.14 mi`                       |             |     |
+| 7b.6  | `6 ft`                    | `1.829 m`                        | `182.88 cm` |     |
+| 7b.7  | `180 lb`                  | `81.65 kg`                       |             |     |
+| 7b.8  | `32 F`                    | `0 °C`                           |             |     |
+| 7b.9  | `30 cm`                   | `11.81 in`                       |             |     |
+| 7b.10 | `500 g`                   | `17.64 oz`                       |             |     |
+| 7b.11 | `300 K`                   | `26.85 °C`                       | `80.33 °F`  |     |
+| 7b.12 | `10 l`                    | `2.642 gal`                      |             |     |
+| 7b.13 | `250 ml`                  | `8.454 fl oz`                    |             |     |
+| 7b.14 | `2 cups`                  | `473.18 ml`                      |             |     |
+| 7b.15 | `60 mph`                  | `96.56 km/h`                     |             |     |
+| 7b.16 | `10 m/s`                  | `36 km/h`                        | `22.37 mph` |     |
+| 7b.17 | `10 apps`, `20 c`, `5 MB` | _nothing — not an everyday unit_ |             |     |
 
 ## 8. Percentages
 
 Trailing `%` gets "of the other operand" semantics natively; [percent.ts](percent.ts)
 adds `X% of Y` and answers "what percent" phrasing directly.
 
-| #    | Input                       | Shown as     | Result                | ✓   |
-| ---- | --------------------------- | ------------ | --------------------- | --- |
-| 8.1  | `850 + 8.25%`               | —            | `920.125`             |     |
-| 8.2  | `250 - 10%`                 | —            | `225`                 |     |
-| 8.3  | `47%`                       | —            | `0.47` (a bare ratio) |     |
-| 8.4  | `1000 * (1 + 7%)^3`         | —            | `1,225.043`           |     |
-| 8.5  | `32% of 5`                  | `32% * 5`    | `1.6`                 |     |
-| 8.6  | `20% of 1499`               | `20% * 1499` | `299.8`               |     |
-| 8.7  | `52% of 900`                | `52% * 900`  | `468`                 |     |
-| 8.8  | `what percent is 32 of 200` | —            | `16%`                 |     |
-| 8.9  | `what percent of 200 is 32` | —            | `16%`                 |     |
-| 8.10 | `what percentage of 4 is 1` | —            | `25%`                 |     |
-| 8.11 | `what percentage is 1 of 4` | —            | `25%`                 |     |
+| #    | Input                             | Shown as     | Result                | ✓   |
+| ---- | --------------------------------- | ------------ | --------------------- | --- |
+| 8.1  | `850 + 8.25%`                     | —            | `920.125`             |     |
+| 8.2  | `250 - 10%`                       | —            | `225`                 |     |
+| 8.3  | `47%`                             | —            | `0.47` (a bare ratio) |     |
+| 8.4  | `1000 * (1 + 7%)^3`               | —            | `1,225.043`           |     |
+| 8.5  | `32% of 5`                        | `32% * 5`    | `1.6`                 |     |
+| 8.6  | `20% of 1499`                     | `20% * 1499` | `299.8`               |     |
+| 8.7  | `52% of 900`                      | `52% * 900`  | `468`                 |     |
+| 8.8  | `what percent is 32 of 200`       | —            | `16%`                 |     |
+| 8.9  | `what percent of 200 is 32`       | —            | `16%`                 |     |
+| 8.10 | `what percentage of 4 is 1`       | —            | `25%`                 |     |
+| 8.11 | `what percentage is 1 of 4`       | —            | `25%`                 |     |
+| 8.12 | `what % is 20 of 80`              | —            | `25%`                 |     |
+| 8.13 | `20 is what percent of 80`        | —            | `25%`                 |     |
+| 8.14 | `percentage change from 50 to 75` | —            | `+50%`                |     |
+| 8.15 | `% change from 50 to 75`          | —            | `+50%`                |     |
+| 8.16 | `% decrease from 80 to 60`        | —            | `-25%`                |     |
+| 8.17 | `from 50 to 75 as percent`        | —            | `+50%`                |     |
+| 8.18 | `percentage change from 0 to 5`   | —            | _nothing — undefined_ |     |
 
 ## 9. Syntax highlighting
 
@@ -169,19 +218,19 @@ fully read the string the panel falls back to plain text.
 
 ## 10. Not claimed — nothing shown, query falls through to app search
 
-| #     | Input                                                           | Why                                           | ✓   |
-| ----- | --------------------------------------------------------------- | --------------------------------------------- | --- |
-| 10.1  | `` (empty) / `   `                                              | nothing to evaluate                           |     |
-| 10.2  | `chrome`, `notepad`, `sin`, `pi`, `in`                          | no digit, no function call                    |     |
-| 10.3  | `42`, `1.5`, `-5`, `1000000`                                    | a bare number is not a _calculation_          |     |
-| 10.4  | `2 pi`, `2 pi extra`                                            | implicit multiply, no operator — a bare value |     |
-| 10.5  | `7zip`, `1password`                                             | digit then letters — undefined symbol         |     |
-| 10.6  | `notepad++`, `1 +`, `(1 + 2`                                    | doesn't parse                                 |     |
-| 10.7  | `1 / 0`                                                         | not finite                                    |     |
-| 10.8  | `import("fs")`, `createUnit("foo")`                             | meta-functions are disabled                   |     |
-| 10.9  | `2026-01-15 + 3`, `2026-12-25`                                  | an ISO date (with or without `±`) → `datetime` |    |
-| 10.10 | `in 3 hours`, `in 10 days`                                      | leading `in` + number → `datetime`            |     |
-| 10.11 | `sunny plus warm`, `what is love`, `today's news`, `monday.com` | not math                                      |     |
+| #     | Input                                                           | Why                                            | ✓   |
+| ----- | --------------------------------------------------------------- | ---------------------------------------------- | --- |
+| 10.1  | `` (empty) / `   `                                              | nothing to evaluate                            |     |
+| 10.2  | `chrome`, `notepad`, `sin`, `pi`, `in`                          | no digit, no function call                     |     |
+| 10.3  | `42`, `1.5`, `-5`, `1000000`                                    | a bare number is not a _calculation_           |     |
+| 10.4  | `2 pi`, `2 pi extra`                                            | implicit multiply, no operator — a bare value  |     |
+| 10.5  | `7zip`, `1password`                                             | digit then letters — undefined symbol          |     |
+| 10.6  | `notepad++`, `1 +`, `(1 + 2`                                    | doesn't parse                                  |     |
+| 10.7  | `1 / 0`                                                         | not finite                                     |     |
+| 10.8  | `import("fs")`, `createUnit("foo")`                             | meta-functions are disabled                    |     |
+| 10.9  | `2026-01-15 + 3`, `2026-12-25`                                  | an ISO date (with or without `±`) → `datetime` |     |
+| 10.10 | `in 3 hours`, `in 10 days`                                      | leading `in` + number → `datetime`             |     |
+| 10.11 | `sunny plus warm`, `what is love`, `today's news`, `monday.com` | not math                                       |     |
 
 ---
 
