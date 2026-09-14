@@ -3,6 +3,7 @@ import type { Evaluator } from "./types.ts";
 import { normalize } from "./normalize.ts";
 import { timespan } from "./evaluators/timespan/index.ts";
 import { finance } from "./evaluators/finance/index.ts";
+import { ratio } from "./evaluators/ratio/index.ts";
 import { math } from "./evaluators/math/index.ts";
 import { currency } from "./evaluators/currency/index.ts";
 import { datetime } from "./evaluators/datetime/index.ts";
@@ -24,6 +25,7 @@ import { timezone } from "./evaluators/timezone/index.ts";
 const evaluators: Evaluator[] = [
   timespan,
   finance,
+  ratio,
   math,
   currency,
   datetime,
