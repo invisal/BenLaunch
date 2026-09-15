@@ -1,8 +1,8 @@
 {
-  "name": "@benpocket/linux",
+  "name": "@magibar/linux",
   "version": "0.1.0",
   "private": true,
-  "description": "Native Linux (X11/XWayland) window control for benpocket-launcher (EWMH window snap/move/fullscreen)",
+  "description": "Native Linux (X11/XWayland) window control for magibar-launcher (EWMH window snap/move/fullscreen)",
   "main": "index.js",
   "types": "index.d.ts",
   "os": ["linux"],

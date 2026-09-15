@@ -20,13 +20,13 @@ import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 
 /**
- * `@benpocket/linux` is an optionalDependency that only installs on linux, so
+ * `@magibar/linux` is an optionalDependency that only installs on linux, so
  * it can't be a static import here — that would crash at module-load time on
  * every other platform, well before the `process.platform` checks below run.
  * `createRequire` gives us a synchronous, lazily-invoked load from this ESM
  * module without pulling in a top-level `require`.
  */
-type NativeLinux = typeof import("@benpocket/linux");
+type NativeLinux = typeof import("@magibar/linux");
 const nodeRequire = createRequire(import.meta.url);
 let native: NativeLinux | null | undefined;
 
@@ -34,16 +34,16 @@ function loadNative(): NativeLinux | null {
   if (native !== undefined) return native;
   if (process.platform !== "linux") return (native = null);
   try {
-    native = nodeRequire("@benpocket/linux") as NativeLinux;
+    native = nodeRequire("@magibar/linux") as NativeLinux;
   } catch (error) {
-    console.error("[window/linux] Failed to load @benpocket/linux:", error);
+    console.error("[window/linux] Failed to load @magibar/linux:", error);
     native = null;
   }
   return native;
 }
 
 /**
- * Linux-side window control, via the `@benpocket/linux` native addon — direct
+ * Linux-side window control, via the `@magibar/linux` native addon — direct
  * EWMH-over-X11 calls (through `x11rb`'s pure-Rust connection) replacing a
  * previous `xdotool`/`wmctrl` shell-out, which forked a whole process per call
  * and required both tools to be separately installed on the user's system.

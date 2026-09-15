@@ -74,8 +74,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-android-arm64')
-        const bindingPackageVersion = require('@benpocket/win-android-arm64/package.json').version
+        const binding = require('@magibar/win-android-arm64')
+        const bindingPackageVersion = require('@magibar/win-android-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -90,8 +90,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-android-arm-eabi')
-        const bindingPackageVersion = require('@benpocket/win-android-arm-eabi/package.json').version
+        const binding = require('@magibar/win-android-arm-eabi')
+        const bindingPackageVersion = require('@magibar/win-android-arm-eabi/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -111,8 +111,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-win32-x64-gnu')
-          const bindingPackageVersion = require('@benpocket/win-win32-x64-gnu/package.json').version
+          const binding = require('@magibar/win-win32-x64-gnu')
+          const bindingPackageVersion = require('@magibar/win-win32-x64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -127,8 +127,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-win32-x64-msvc')
-          const bindingPackageVersion = require('@benpocket/win-win32-x64-msvc/package.json').version
+          const binding = require('@magibar/win-win32-x64-msvc')
+          const bindingPackageVersion = require('@magibar/win-win32-x64-msvc/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -144,8 +144,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-win32-ia32-msvc')
-        const bindingPackageVersion = require('@benpocket/win-win32-ia32-msvc/package.json').version
+        const binding = require('@magibar/win-win32-ia32-msvc')
+        const bindingPackageVersion = require('@magibar/win-win32-ia32-msvc/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -160,8 +160,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-win32-arm64-msvc')
-        const bindingPackageVersion = require('@benpocket/win-win32-arm64-msvc/package.json').version
+        const binding = require('@magibar/win-win32-arm64-msvc')
+        const bindingPackageVersion = require('@magibar/win-win32-arm64-msvc/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -179,8 +179,8 @@ function requireNative() {
       loadErrors.push(e)
     }
     try {
-      const binding = require('@benpocket/win-darwin-universal')
-      const bindingPackageVersion = require('@benpocket/win-darwin-universal/package.json').version
+      const binding = require('@magibar/win-darwin-universal')
+      const bindingPackageVersion = require('@magibar/win-darwin-universal/package.json').version
       if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
         throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
       }
@@ -195,8 +195,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-darwin-x64')
-        const bindingPackageVersion = require('@benpocket/win-darwin-x64/package.json').version
+        const binding = require('@magibar/win-darwin-x64')
+        const bindingPackageVersion = require('@magibar/win-darwin-x64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -211,8 +211,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-darwin-arm64')
-        const bindingPackageVersion = require('@benpocket/win-darwin-arm64/package.json').version
+        const binding = require('@magibar/win-darwin-arm64')
+        const bindingPackageVersion = require('@magibar/win-darwin-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -231,8 +231,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-freebsd-x64')
-        const bindingPackageVersion = require('@benpocket/win-freebsd-x64/package.json').version
+        const binding = require('@magibar/win-freebsd-x64')
+        const bindingPackageVersion = require('@magibar/win-freebsd-x64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -247,8 +247,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-freebsd-arm64')
-        const bindingPackageVersion = require('@benpocket/win-freebsd-arm64/package.json').version
+        const binding = require('@magibar/win-freebsd-arm64')
+        const bindingPackageVersion = require('@magibar/win-freebsd-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -268,8 +268,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-x64-musl')
-          const bindingPackageVersion = require('@benpocket/win-linux-x64-musl/package.json').version
+          const binding = require('@magibar/win-linux-x64-musl')
+          const bindingPackageVersion = require('@magibar/win-linux-x64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -284,8 +284,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-x64-gnu')
-          const bindingPackageVersion = require('@benpocket/win-linux-x64-gnu/package.json').version
+          const binding = require('@magibar/win-linux-x64-gnu')
+          const bindingPackageVersion = require('@magibar/win-linux-x64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -302,8 +302,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-arm64-musl')
-          const bindingPackageVersion = require('@benpocket/win-linux-arm64-musl/package.json').version
+          const binding = require('@magibar/win-linux-arm64-musl')
+          const bindingPackageVersion = require('@magibar/win-linux-arm64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -318,8 +318,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-arm64-gnu')
-          const bindingPackageVersion = require('@benpocket/win-linux-arm64-gnu/package.json').version
+          const binding = require('@magibar/win-linux-arm64-gnu')
+          const bindingPackageVersion = require('@magibar/win-linux-arm64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -336,8 +336,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-arm-musleabihf')
-          const bindingPackageVersion = require('@benpocket/win-linux-arm-musleabihf/package.json').version
+          const binding = require('@magibar/win-linux-arm-musleabihf')
+          const bindingPackageVersion = require('@magibar/win-linux-arm-musleabihf/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -352,8 +352,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-arm-gnueabihf')
-          const bindingPackageVersion = require('@benpocket/win-linux-arm-gnueabihf/package.json').version
+          const binding = require('@magibar/win-linux-arm-gnueabihf')
+          const bindingPackageVersion = require('@magibar/win-linux-arm-gnueabihf/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -370,8 +370,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-loong64-musl')
-          const bindingPackageVersion = require('@benpocket/win-linux-loong64-musl/package.json').version
+          const binding = require('@magibar/win-linux-loong64-musl')
+          const bindingPackageVersion = require('@magibar/win-linux-loong64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -386,8 +386,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-loong64-gnu')
-          const bindingPackageVersion = require('@benpocket/win-linux-loong64-gnu/package.json').version
+          const binding = require('@magibar/win-linux-loong64-gnu')
+          const bindingPackageVersion = require('@magibar/win-linux-loong64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -404,8 +404,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-riscv64-musl')
-          const bindingPackageVersion = require('@benpocket/win-linux-riscv64-musl/package.json').version
+          const binding = require('@magibar/win-linux-riscv64-musl')
+          const bindingPackageVersion = require('@magibar/win-linux-riscv64-musl/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -420,8 +420,8 @@ function requireNative() {
           loadErrors.push(e)
         }
         try {
-          const binding = require('@benpocket/win-linux-riscv64-gnu')
-          const bindingPackageVersion = require('@benpocket/win-linux-riscv64-gnu/package.json').version
+          const binding = require('@magibar/win-linux-riscv64-gnu')
+          const bindingPackageVersion = require('@magibar/win-linux-riscv64-gnu/package.json').version
           if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
             throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
@@ -437,8 +437,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-linux-ppc64-gnu')
-        const bindingPackageVersion = require('@benpocket/win-linux-ppc64-gnu/package.json').version
+        const binding = require('@magibar/win-linux-ppc64-gnu')
+        const bindingPackageVersion = require('@magibar/win-linux-ppc64-gnu/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -453,8 +453,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-linux-s390x-gnu')
-        const bindingPackageVersion = require('@benpocket/win-linux-s390x-gnu/package.json').version
+        const binding = require('@magibar/win-linux-s390x-gnu')
+        const bindingPackageVersion = require('@magibar/win-linux-s390x-gnu/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -473,8 +473,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-openharmony-arm64')
-        const bindingPackageVersion = require('@benpocket/win-openharmony-arm64/package.json').version
+        const binding = require('@magibar/win-openharmony-arm64')
+        const bindingPackageVersion = require('@magibar/win-openharmony-arm64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -489,8 +489,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-openharmony-x64')
-        const bindingPackageVersion = require('@benpocket/win-openharmony-x64/package.json').version
+        const binding = require('@magibar/win-openharmony-x64')
+        const bindingPackageVersion = require('@magibar/win-openharmony-x64/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -505,8 +505,8 @@ function requireNative() {
         loadErrors.push(e)
       }
       try {
-        const binding = require('@benpocket/win-openharmony-arm')
-        const bindingPackageVersion = require('@benpocket/win-openharmony-arm/package.json').version
+        const binding = require('@magibar/win-openharmony-arm')
+        const bindingPackageVersion = require('@magibar/win-openharmony-arm/package.json').version
         if (bindingPackageVersion !== '0.1.0' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
           throw new Error(`Native binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
         }
@@ -642,16 +642,16 @@ if (!nativeBinding || forceWasi) {
     let candidateError = null
     let candidateFailed = false
     try {
-      candidateError = __napiWasiResolveCandidate('@benpocket/win-wasm32-wasi', true, undefined)
+      candidateError = __napiWasiResolveCandidate('@magibar/win-wasm32-wasi', true, undefined)
       candidateFailed = candidateError !== null
       if (!candidateFailed) {
         if (process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
-          const bindingPackageVersion = require('@benpocket/win-wasm32-wasi/package.json').version
+          const bindingPackageVersion = require('@magibar/win-wasm32-wasi/package.json').version
           if (bindingPackageVersion !== '0.1.0') {
             throw new Error(`WASI binding package version mismatch, expected 0.1.0 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
           }
         }
-        wasiBinding = require('@benpocket/win-wasm32-wasi')
+        wasiBinding = require('@magibar/win-wasm32-wasi')
         nativeBinding = wasiBinding
         wasiBindingLoaded = true
       }

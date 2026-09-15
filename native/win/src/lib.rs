@@ -1,5 +1,5 @@
 #![cfg(windows)]
-//! Native Windows icon extraction for benpocket-launcher.
+//! Native Windows icon extraction for magibar-launcher.
 //!
 //! Replaces a PowerShell script that shelled out to `powershell.exe` and JIT-compiled
 //! an embedded C# helper via `Add-Type` on every app-list refresh. `Electron`'s

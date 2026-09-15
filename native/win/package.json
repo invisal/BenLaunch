@@ -1,8 +1,8 @@
 {
-  "name": "@benpocket/win",
+  "name": "@magibar/win",
   "version": "0.1.0",
   "private": true,
-  "description": "Native Windows integrations for benpocket-launcher (icon extraction, and future native Win32 needs)",
+  "description": "Native Windows integrations for magibar-launcher (icon extraction, and future native Win32 needs)",
   "main": "index.js",
   "types": "index.d.ts",
   "os": ["win32"],

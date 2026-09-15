@@ -13,34 +13,34 @@ files:
   - out/**
   - resources/**
   - package.json
-  # @benpocket/{win,mac,linux} each ship a prebuilt napi .node but also carry
+  # @magibar/{win,mac,linux} each ship a prebuilt napi .node but also carry
   # their Rust source and build tree (~700 MB) — keep only what the addon
   # needs at runtime.
-  - "!node_modules/@benpocket/win/target/**"
-  - "!node_modules/@benpocket/win/src/**"
-  - "!node_modules/@benpocket/win/node_modules/**"
-  - "!node_modules/@benpocket/win/Cargo.*"
-  - "!node_modules/@benpocket/win/build.rs"
-  - "!node_modules/@benpocket/win/package-lock.json"
-  - "!node_modules/@benpocket/mac/target/**"
-  - "!node_modules/@benpocket/mac/src/**"
-  - "!node_modules/@benpocket/mac/node_modules/**"
-  - "!node_modules/@benpocket/mac/Cargo.*"
-  - "!node_modules/@benpocket/mac/build.rs"
-  - "!node_modules/@benpocket/mac/package-lock.json"
-  - "!node_modules/@benpocket/linux/target/**"
-  - "!node_modules/@benpocket/linux/src/**"
-  - "!node_modules/@benpocket/linux/node_modules/**"
-  - "!node_modules/@benpocket/linux/Cargo.*"
-  - "!node_modules/@benpocket/linux/build.rs"
-  - "!node_modules/@benpocket/linux/package-lock.json"
+  - "!node_modules/@magibar/win/target/**"
+  - "!node_modules/@magibar/win/src/**"
+  - "!node_modules/@magibar/win/node_modules/**"
+  - "!node_modules/@magibar/win/Cargo.*"
+  - "!node_modules/@magibar/win/build.rs"
+  - "!node_modules/@magibar/win/package-lock.json"
+  - "!node_modules/@magibar/mac/target/**"
+  - "!node_modules/@magibar/mac/src/**"
+  - "!node_modules/@magibar/mac/node_modules/**"
+  - "!node_modules/@magibar/mac/Cargo.*"
+  - "!node_modules/@magibar/mac/build.rs"
+  - "!node_modules/@magibar/mac/package-lock.json"
+  - "!node_modules/@magibar/linux/target/**"
+  - "!node_modules/@magibar/linux/src/**"
+  - "!node_modules/@magibar/linux/node_modules/**"
+  - "!node_modules/@magibar/linux/Cargo.*"
+  - "!node_modules/@magibar/linux/build.rs"
+  - "!node_modules/@magibar/linux/package-lock.json"
 
 asar: true
 asarUnpack:
   - "**/*.node"
-  - "node_modules/@benpocket/**"
+  - "node_modules/@magibar/**"
 
-# @benpocket/{win,mac,linux} are all Node-API (ABI-stable) prebuilts; nothing
+# @magibar/{win,mac,linux} are all Node-API (ABI-stable) prebuilts; nothing
 # here needs a native rebuild against Electron headers.
 npmRebuild: false
 
