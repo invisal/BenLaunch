@@ -1,7 +1,8 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'node:path'
-import { framelessChrome } from '@main/window-chrome'
+import { framelessChrome, persistWindowBounds, restoredBounds } from '@main/window-chrome'
 import { showLauncher } from '@main/window'
+import { settings } from '@main/actions'
 
 /**
  * The Widget window is the CodeMirror editor for a single Widget — the
@@ -37,8 +38,7 @@ export function openWidgetWindow(target: WidgetView): void {
   }
 
   widgetWindow = new BrowserWindow({
-    width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT,
+    ...restoredBounds(settings, 'widget', { width: WINDOW_WIDTH, height: WINDOW_HEIGHT }),
     minWidth: 560,
     minHeight: 420,
     title: 'Widget',
@@ -53,6 +53,7 @@ export function openWidgetWindow(target: WidgetView): void {
     }
   })
 
+  persistWindowBounds(widgetWindow, settings, 'widget')
   widgetWindow.once('ready-to-show', () => widgetWindow?.show())
   widgetWindow.on('closed', () => {
     widgetWindow = null

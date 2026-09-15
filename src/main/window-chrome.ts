@@ -1,5 +1,6 @@
-import { BrowserWindow, ipcMain, type BrowserWindowConstructorOptions } from 'electron'
+import { BrowserWindow, ipcMain, screen, type BrowserWindowConstructorOptions } from 'electron'
 import { IPC_CHANNELS } from '../shared/types'
+import type { SettingsStore, WindowBounds, WindowBoundsKey } from './settings/store'
 
 /**
  * Constructor options shared by the framed windows (Settings, Widget), which
@@ -49,5 +50,63 @@ export function registerWindowControlsIpc(): void {
 
   ipcMain.on(IPC_CHANNELS.windowClose, (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
+  })
+}
+
+/** True if `bounds` overlaps some connected display's work area — a saved position can go stale (e.g. a monitor gets unplugged). */
+function isOnScreen(bounds: WindowBounds): boolean {
+  return screen.getAllDisplays().some(({ workArea }) => {
+    return (
+      bounds.x < workArea.x + workArea.width &&
+      bounds.x + bounds.width > workArea.x &&
+      bounds.y < workArea.y + workArea.height &&
+      bounds.y + bounds.height > workArea.y
+    )
+  })
+}
+
+/**
+ * The saved position+size for `key` if there is one and it still lands on a
+ * connected display, else `fallback` — spread this into `BrowserWindow`
+ * constructor options.
+ */
+export function restoredBounds(
+  settings: SettingsStore,
+  key: WindowBoundsKey,
+  fallback: { width: number; height: number }
+): WindowBounds | { width: number; height: number } {
+  const saved = settings.getWindowBounds(key)
+  return saved && isOnScreen(saved) ? saved : fallback
+}
+
+/**
+ * The saved top-left position for `key` if there is one and it still lands on
+ * a connected display, else `null`. For a fixed-size window (the launcher),
+ * which repositions on every show rather than reading bounds once at
+ * construction — see `showLauncher`.
+ */
+export function restoredPosition(
+  settings: SettingsStore,
+  key: WindowBoundsKey
+): { x: number; y: number } | null {
+  const saved = settings.getWindowBounds(key)
+  return saved && isOnScreen(saved) ? { x: saved.x, y: saved.y } : null
+}
+
+/**
+ * Saves `win`'s position+size under `key` when it closes, so the next window
+ * created for `key` can reopen there (see `restoredBounds`). Reads bounds on
+ * `close` rather than `moved`/`resized` so dragging doesn't hit disk on every
+ * intermediate frame; a maximized/minimized window skips saving since its
+ * bounds aren't a position the user chose to be restored to.
+ */
+export function persistWindowBounds(
+  win: BrowserWindow,
+  settings: SettingsStore,
+  key: WindowBoundsKey
+): void {
+  win.on('close', () => {
+    if (win.isMinimized() || win.isMaximized()) return
+    settings.setWindowBounds(key, win.getBounds())
   })
 }

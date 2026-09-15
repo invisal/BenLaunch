@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron'
 import { join } from 'node:path'
-import { framelessChrome } from './window-chrome'
+import { framelessChrome, persistWindowBounds, restoredBounds } from './window-chrome'
+import { settings } from './actions'
 
 const WINDOW_WIDTH = 720
 const WINDOW_HEIGHT = 560
@@ -21,8 +22,7 @@ export function openSettingsWindow(): void {
   }
 
   settingsWindow = new BrowserWindow({
-    width: WINDOW_WIDTH,
-    height: WINDOW_HEIGHT,
+    ...restoredBounds(settings, 'settings', { width: WINDOW_WIDTH, height: WINDOW_HEIGHT }),
     minWidth: 480,
     minHeight: 400,
     title: 'Magibar Settings',
@@ -37,6 +37,7 @@ export function openSettingsWindow(): void {
     }
   })
 
+  persistWindowBounds(settingsWindow, settings, 'settings')
   settingsWindow.once('ready-to-show', () => settingsWindow?.show())
   settingsWindow.on('closed', () => {
     settingsWindow = null

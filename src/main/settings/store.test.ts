@@ -87,6 +87,40 @@ test("setCalculatorSettings ignores invalid values", () => {
   });
 });
 
+test("getWindowBounds is undefined until a position is saved, then persists across instances", () => {
+  const first = new SettingsStore({ dir });
+  assert.equal(first.getWindowBounds("settings"), undefined);
+
+  first.setWindowBounds("settings", { x: 10, y: 20, width: 720, height: 560 });
+  assert.deepEqual(first.getWindowBounds("settings"), {
+    x: 10,
+    y: 20,
+    width: 720,
+    height: 560,
+  });
+  assert.equal(first.getWindowBounds("widget"), undefined);
+
+  const second = new SettingsStore({ dir });
+  assert.deepEqual(second.getWindowBounds("settings"), {
+    x: 10,
+    y: 20,
+    width: 720,
+    height: 560,
+  });
+});
+
+test("a settings file with an invalid windowBounds field falls back to defaults", () => {
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({
+      version: 1,
+      savedAt: 0,
+      windowBounds: { settings: { x: 10, y: "nope" } },
+    }),
+  );
+  assert.equal(new SettingsStore({ dir }).getWindowBounds("settings"), undefined);
+});
+
 test("a settings file with an invalid calculator field falls back to defaults", () => {
   writeFileSync(
     join(dir, "settings.json"),

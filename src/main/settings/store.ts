@@ -21,6 +21,33 @@ const SETTINGS_VERSION = 1;
 /** Default "preferred gap" (px) a custom layout's `useGap` inserts around it, absent a saved override. */
 const DEFAULT_GAP_PX = 8;
 
+/** Which movable/resizable window a saved position+size belongs to. */
+export type WindowBoundsKey = "settings" | "widget" | "launcher";
+
+export interface WindowBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const WINDOW_BOUNDS_KEYS: readonly WindowBoundsKey[] = [
+  "settings",
+  "widget",
+  "launcher",
+];
+
+function isWindowBounds(value: unknown): value is WindowBounds {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<WindowBounds>;
+  return (
+    typeof candidate.x === "number" &&
+    typeof candidate.y === "number" &&
+    typeof candidate.width === "number" &&
+    typeof candidate.height === "number"
+  );
+}
+
 interface SettingsFile {
   version: number;
   savedAt: number;
@@ -34,11 +61,14 @@ interface SettingsFile {
   cryptoEnabled?: boolean;
   /** Calculator: number format. Optional — missing means `system`. */
   numberFormat?: NumberFormatPreference;
+  /** Last position+size of each movable window, keyed by `WindowBoundsKey`. Optional — missing means "let Electron pick". */
+  windowBounds?: Partial<Record<WindowBoundsKey, WindowBounds>>;
 }
 
 /** In-memory state — unlike `SettingsFile`, every field is populated (defaulted on load). */
 interface State extends CalculatorSettings {
   gapPx: number;
+  windowBounds: Partial<Record<WindowBoundsKey, WindowBounds>>;
 }
 
 const DEFAULT_CALCULATOR: CalculatorSettings = {
@@ -53,7 +83,7 @@ const NUMBER_FORMATS: readonly NumberFormatPreference[] = [
 ];
 
 function emptyState(): State {
-  return { gapPx: DEFAULT_GAP_PX, ...DEFAULT_CALCULATOR };
+  return { gapPx: DEFAULT_GAP_PX, windowBounds: {}, ...DEFAULT_CALCULATOR };
 }
 
 function isSettingsFile(value: unknown): value is SettingsFile {
@@ -65,7 +95,15 @@ function isSettingsFile(value: unknown): value is SettingsFile {
     (candidate.cryptoEnabled === undefined ||
       typeof candidate.cryptoEnabled === "boolean") &&
     (candidate.numberFormat === undefined ||
-      NUMBER_FORMATS.includes(candidate.numberFormat))
+      NUMBER_FORMATS.includes(candidate.numberFormat)) &&
+    (candidate.windowBounds === undefined ||
+      (typeof candidate.windowBounds === "object" &&
+        candidate.windowBounds !== null &&
+        Object.entries(candidate.windowBounds).every(
+          ([key, bounds]) =>
+            WINDOW_BOUNDS_KEYS.includes(key as WindowBoundsKey) &&
+            isWindowBounds(bounds),
+        )))
   );
 }
 
@@ -90,6 +128,7 @@ export class SettingsStore {
           cryptoEnabled:
             parsed.cryptoEnabled ?? DEFAULT_CALCULATOR.cryptoEnabled,
           numberFormat: parsed.numberFormat ?? DEFAULT_CALCULATOR.numberFormat,
+          windowBounds: parsed.windowBounds ?? {},
         };
       }
     } catch (error) {
@@ -134,6 +173,19 @@ export class SettingsStore {
     return this.getCalculatorSettings();
   }
 
+  /** The last saved position+size for `key`, or `undefined` if it's never been moved/resized. */
+  getWindowBounds(key: WindowBoundsKey): WindowBounds | undefined {
+    this.init();
+    return this.state.windowBounds[key];
+  }
+
+  /** Persists immediately. */
+  setWindowBounds(key: WindowBoundsKey, bounds: WindowBounds): void {
+    this.init();
+    this.state.windowBounds = { ...this.state.windowBounds, [key]: bounds };
+    this.persist();
+  }
+
   private path(): string {
     return join(this.dir, "settings.json");
   }
@@ -148,6 +200,7 @@ export class SettingsStore {
       gapPx: this.state.gapPx,
       cryptoEnabled: this.state.cryptoEnabled,
       numberFormat: this.state.numberFormat,
+      windowBounds: this.state.windowBounds,
     };
     try {
       writeFileSync(tmp, JSON.stringify(payload));
