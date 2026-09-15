@@ -31,7 +31,7 @@ export class BuiltinCommandSource implements ActionSource {
       action: {
         id: "cmd:settings",
         title: "Settings",
-        subtitle: "Open BenLaunch settings",
+        subtitle: "Open Magibar settings",
         icon: "⚙️",
         type: "command",
       },

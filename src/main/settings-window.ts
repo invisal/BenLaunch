@@ -25,7 +25,7 @@ export function openSettingsWindow(): void {
     height: WINDOW_HEIGHT,
     minWidth: 480,
     minHeight: 400,
-    title: 'BenLaunch Settings',
+    title: 'Magibar Settings',
     show: false,
     autoHideMenuBar: true,
     ...framelessChrome,

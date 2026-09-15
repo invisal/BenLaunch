@@ -180,7 +180,7 @@ function Settings() {
       <div className="mx-auto w-full max-w-2xl px-6 py-8">
         <h1 className="text-xl font-semibold">Settings</h1>
         <p className="mt-1 text-sm text-foreground-subtle">
-          Configure how BenLaunch behaves.
+          Configure how Magibar behaves.
         </p>
 
         <section className="mt-6">
@@ -198,7 +198,7 @@ function Settings() {
           <Row
             title="Launch at login"
             controlId="setting-launch-at-login"
-            description="Start BenLaunch automatically when you sign in."
+            description="Start Magibar automatically when you sign in."
           >
             <input
               id="setting-launch-at-login"

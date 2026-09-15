@@ -168,9 +168,9 @@ function notifyPermissionIssue(): void {
   void dialog
     .showMessageBox({
       type: "warning",
-      message: "BenLaunch needs Accessibility access",
+      message: "Magibar needs Accessibility access",
       detail:
-        "Window Management moves and resizes other apps’ windows, which macOS only allows once BenLaunch is granted Accessibility access.",
+        "Window Management moves and resizes other apps’ windows, which macOS only allows once Magibar is granted Accessibility access.",
       buttons: ["Open Privacy Settings", "Cancel"],
       defaultId: 0,
       cancelId: 1,

@@ -115,7 +115,7 @@ function notifyToolIssue(): void {
   toolIssueDialogShown = true;
   void dialog.showMessageBox({
     type: "warning",
-    message: "BenLaunch couldn't move this window",
+    message: "Magibar couldn't move this window",
     detail:
       "Window Management on Linux needs a reachable X server (this includes XWayland-backed apps under a Wayland session), but a Wayland-native window can't be moved by any external app — that's a Wayland platform limitation, not something this app can work around.",
     buttons: ["OK"],

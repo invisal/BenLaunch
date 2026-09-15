@@ -61,6 +61,68 @@ body {
    should NOT reach every window — the launcher's `user-select: none`, say —
    belongs there, not here. */
 
+/* ListScreen's `MagicIcon` animates in two layers that never fight over
+   `transform` because they're on different elements (two animations on the
+   *same* element don't blend — the later one in the list just wins
+   outright for the whole run):
+   - `.magic-intro`, on the `<g>` wrapping all three stars, is a one-shot
+     burst that plays once as the icon mounts — the mark pops in small and
+     rotated, overshoots, then settles.
+   - `.magic-float`, on each star `<path>` individually, is a continuous
+     gentle drift ("hovering") that keeps running after the burst settles.
+     `--b`/`--c` stagger the second and third star's phase so the three
+     don't bob in lockstep.
+   Both are gated behind `prefers-reduced-motion` — the mark still renders
+   fully formed and still either way. */
+.magic-intro,
+.magic-float {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .magic-intro {
+    animation: magic-intro 650ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  }
+  .magic-float {
+    animation: magic-float 2800ms ease-in-out infinite;
+  }
+  .magic-float--b {
+    animation-delay: 700ms;
+  }
+  .magic-float--c {
+    animation-delay: 1400ms;
+  }
+}
+@keyframes magic-intro {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-35deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.12) rotate(6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+@keyframes magic-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(0.5px, -0.6px);
+  }
+  50% {
+    transform: translate(-0.3px, -0.9px);
+  }
+  75% {
+    transform: translate(-0.6px, -0.3px);
+  }
+}
+
 ::selection {
   background: var(--color-item-selected);
   color: var(--color-foreground);

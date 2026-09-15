@@ -73,6 +73,42 @@ function BackIcon() {
   );
 }
 
+/**
+ * Magibar's mark: a sparkle wand. Shown at the head of the root screen (the
+ * launcher itself, `stack.length === 1`) in the same slot the back button
+ * occupies on a pushed screen — purely decorative, so it carries no
+ * `no-drag` override and sits inside the header's drag region.
+ *
+ * Two animation layers (both defined in `index.css`, and how they avoid
+ * fighting each other is explained there): `.magic-intro` on the wrapping
+ * `<g>` is a one-shot bouncy pop as the icon mounts, and `.magic-float` on
+ * each star keeps a slow, staggered hover drift going afterwards — replaced
+ * a blink/twinkle loop that read as flat rather than "magic".
+ */
+function MagicIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <g className="magic-intro">
+        <path
+          className="magic-float"
+          d="M9 2l1 2.5L12.5 5.5 10 6.5 9 9 8 6.5 5.5 5.5 8 4.5 9 2z"
+          fill="currentColor"
+        />
+        <path
+          className="magic-float magic-float--b"
+          d="M4.5 9l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4L2.5 11l1.4-.6.6-1.4z"
+          fill="currentColor"
+        />
+        <path
+          className="magic-float magic-float--c"
+          d="M12 10.8l.3.7.7.3-.7.3-.3.7-.3-.7L11 11.8l.7-.3.3-.7z"
+          fill="currentColor"
+        />
+      </g>
+    </svg>
+  );
+}
+
 function ItemIcon({ icon }: { icon?: ReactNode }) {
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg">
@@ -381,7 +417,7 @@ function ListScreenRoot<T>({
     >
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
         <div className="flex items-center gap-1 border-b border-border px-2 p-1 [-webkit-app-region:drag]">
-          {canGoBack && (
+          {canGoBack ? (
             <button
               type="button"
               aria-label="Back"
@@ -390,6 +426,17 @@ function ListScreenRoot<T>({
             >
               <BackIcon />
             </button>
+          ) : (
+            // Root of the stack — the launcher itself. No back button here,
+            // so the slot instead carries Magibar's mark; purely decorative
+            // and left inside the drag region (no `no-drag`) so it's part of
+            // the window's drag handle rather than competing with it.
+            <span
+              aria-hidden
+              className="grid h-7 w-7 shrink-0 place-items-center text-foreground-subtle"
+            >
+              <MagicIcon />
+            </span>
           )}
           <Autocomplete.Input
             ref={inputRef}

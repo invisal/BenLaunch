@@ -1,5 +1,5 @@
-appId: com.benpocket.benlaunch
-productName: BenLaunch
+appId: com.benpocket.magibar
+productName: Magibar
 
 directories:
   output: dist

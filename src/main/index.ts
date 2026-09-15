@@ -105,7 +105,7 @@ function toggleLauncher(): void {
 /**
  * Toggles the launcher from argv — what a GNOME custom keyboard shortcut
  * invokes instead of a hotkey Electron can't grab directly on this desktop
- * (see `TOGGLE_SHORTCUT` above). A relaunch while BenLaunch is already
+ * (see `TOGGLE_SHORTCUT` above). A relaunch while Magibar is already
  * running relays its argv here via `second-instance`; the very first launch
  * checks its own `process.argv` the same way, in case that launch itself was
  * the GNOME shortcut firing before anything was running yet.
