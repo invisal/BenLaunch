@@ -1,4 +1,5 @@
 import { app } from "electron";
+import type { IpcMain } from "electron";
 import type {
   CalculatorSettings,
   ExecuteResult,
@@ -12,7 +13,7 @@ import { SettingsStore } from "./settings/store";
 import type { ActionSource } from "./sources/base";
 import { InstalledAppSource } from "./sources/apps/source";
 import { BuiltinCommandSource } from "./sources/builtin/source";
-import { QuicklinkSource } from "@extensions/quicklink/main/source";
+import { QuicklinkSource } from "@extensions/quicklink";
 import { ExchangeRateSource } from "./sources/calculator/exchange-rate/source.ts";
 import { CryptoPriceSource } from "./sources/calculator/crypto-price/source.ts";
 import { setCryptoEnabled } from "./sources/calculator/crypto-price/store.ts";
@@ -20,12 +21,12 @@ import {
   numberLocaleTag,
   setNumberLocale,
 } from "./calculator/common/locale.ts";
-import { WidgetSource } from "@extensions/widget/main/source";
-import { WindowExtension } from "@extensions/window/main/source";
+import { WidgetSource } from "@extensions/widget";
+import { WindowExtension } from "@extensions/window";
 import { Usage } from "./usage/store";
 import { configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
-import { CalculatorHistoryExtension } from "@extensions/calculator-history/main/source";
+import { CalculatorHistoryExtension } from "@extensions/calculator-history";
 
 // Point extensions at `<userData>/extensions/` before any is constructed below.
 configureExtensions(app.getPath("userData"));
@@ -35,30 +36,26 @@ export const settings = new SettingsStore({ dir: app.getPath("userData") });
 
 /**
  * The Widget extension. It owns its `ExtensionStorage`
- * (`<userData>/extensions/widget.json`); `store` (definitions) and `runner`
- * (value cache) are exposed so `index.ts` can wire the manager window's IPC to
- * the same instances.
+ * (`<userData>/extensions/widget.json`, `store`/`runner` keyed `widgets`/
+ * `values`) and wires the manager window's IPC to them itself, via
+ * `registerIpc()`.
  */
 const widgetSource = new WidgetSource();
-export const widgetStore = widgetSource.store;
-export const widgetRunner = widgetSource.runner;
 
 /**
  * The window-management extension. It owns its `ExtensionStorage`
- * (`<userData>/extensions/window.json`); `store` (saved custom layouts) is
- * exposed so `index.ts` can wire the manager screens' IPC to the same instance.
+ * (`<userData>/extensions/window.json`, `store` keyed `layouts`) and wires
+ * the manager screens' IPC to it itself, via `registerIpc()`.
  */
 const windowExtension = new WindowExtension(settings);
-export const windowLayoutStore = windowExtension.store;
 
 /**
  * The Calculator History extension. It owns its `ExtensionStorage`
- * (`<userData>/extensions/calculator-history.json`); `store` is exposed so
- * `index.ts` can wire the record/list/pin IPC to the same instance. Pinned
- * entries re-run through `evaluate` for their live value.
+ * (`<userData>/extensions/calculator-history.json`) and wires the
+ * record/list/pin IPC to it itself, via `registerIpc()`. Pinned entries
+ * re-run through `evaluate` for their live value.
  */
 const calculatorHistory = new CalculatorHistoryExtension(evaluate);
-export const calculatorHistoryStore = calculatorHistory.store;
 
 /** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`, gated by a setting. */
 const cryptoPriceSource = new CryptoPriceSource();
@@ -130,6 +127,11 @@ export function initActionSources(): void {
   settings.init();
   applyCalculatorSettings(settings.getCalculatorSettings());
   for (const source of sources) source.init?.();
+}
+
+/** Let every source wire its own `ipcMain` handlers (called once from app `whenReady`). */
+export function registerActionSourcesIpc(ipc: IpcMain): void {
+  for (const source of sources) source.registerIpc?.(ipc);
 }
 
 /** Refresh every source (called when the launcher window is shown; sources throttle). */

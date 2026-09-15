@@ -1,10 +1,11 @@
-import { clipboard } from "electron";
+import { clipboard, type IpcMain } from "electron";
 import { Extension } from "@core/base";
 import type { RequestSubtitleOptions } from "@shared/types";
 import type { ActionDefinition } from "@main/types";
-import { openWidgetWindow } from "./window";
-import { WidgetRunner } from "./runner";
-import { WidgetStore } from "./store";
+import { registerWidgetIpc } from "./ipc/handlers";
+import { openWidgetWindow } from "./main/window";
+import { WidgetRunner } from "./main/runner";
+import { WidgetStore } from "./main/store";
 
 /** Action id that opens the code editor window for an existing Widget. */
 const EDIT_PREFIX = "widget:edit:";
@@ -42,6 +43,10 @@ export class WidgetSource extends Extension {
   init(): void {
     this.store.init();
     this.runner.init();
+  }
+
+  registerIpc(ipc: IpcMain): void {
+    registerWidgetIpc(ipc, this.store, this.runner);
   }
 
   provide(): ActionDefinition[] {

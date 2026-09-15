@@ -1,3 +1,4 @@
+import type { IpcMain } from "electron";
 import type { RequestSubtitleOptions } from "../../shared/types";
 import type { ActionDefinition } from "../types";
 
@@ -37,6 +38,19 @@ export interface ActionSource {
 
   /** Refresh hook, called when the launcher window is shown. */
   refresh?(): void;
+
+  /**
+   * Register this source's own `ipcMain` handlers against the given `ipc`,
+   * called once at startup (after `init()`). Lets an `Extension` own its IPC
+   * wiring end-to-end instead of `main/index.ts` importing and calling a
+   * `register*Ipc` function per extension. `ipc` is injected (rather than the
+   * source importing the `ipcMain` singleton itself) so handler registration
+   * stays a plain, testable function of its inputs. Does not cover the
+   * preload side — exposing a channel on `window.api` still means adding an
+   * entry to `src/preload/index.ts`, since the preload script is a separate
+   * bundle with no access to the main-process `Extension` instances.
+   */
+  registerIpc?(ipc: IpcMain): void;
 
   /**
    * Called when a row this source produced with `isDeferredSubtitle: true`

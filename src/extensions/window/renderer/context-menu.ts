@@ -1,7 +1,7 @@
 import type { LauncherAction } from "@shared/types";
 import type { ContextMenuContributor } from "@renderer/screens/launcher/context-menu/types";
 
-/** Matches `CUSTOM_LAYOUT_PREFIX` in `main/source.ts`. */
+/** Matches `CUSTOM_LAYOUT_PREFIX` in `index.ts`. */
 const CUSTOM_LAYOUT_PREFIX = "win:custom:";
 
 /**

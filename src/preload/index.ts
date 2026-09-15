@@ -7,6 +7,7 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
+import { groupApi } from "@extensions/group/ipc/preload";
 import { quicklinkApi } from "@extensions/quicklink/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
 import { windowApi } from "@extensions/window/ipc/preload";
@@ -55,6 +56,9 @@ const api = {
 
   /** Quicklinks: the Create/Edit/Duplicate form and the Ctrl+K menu ↔ main. */
   quicklink: quicklinkApi,
+
+  /** Group manager screen ↔ main. */
+  group: groupApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);

@@ -1,9 +1,10 @@
-import { clipboard } from "electron";
+import { clipboard, type IpcMain } from "electron";
 import { Extension } from "@core/base";
 import type { ActionDefinition } from "@main/types";
-import { HISTORY_ROUTE } from "../shared/types";
-import { pinEntryId, pinRow, refreshPin, type Evaluate } from "./pins";
-import { HistoryStore } from "./store";
+import { registerCalculatorHistoryIpc } from "./ipc/handlers";
+import { HISTORY_ROUTE } from "./shared/types";
+import { pinEntryId, pinRow, refreshPin, type Evaluate } from "./main/pins";
+import { HistoryStore } from "./main/store";
 
 /**
  * Calculator History (Raycast's "Calculator History" + pinned calculations).
@@ -34,6 +35,10 @@ export class CalculatorHistoryExtension extends Extension {
 
   init(): void {
     this.store.init();
+  }
+
+  registerIpc(ipc: IpcMain): void {
+    registerCalculatorHistoryIpc(ipc, this.store);
   }
 
   provide(): ActionDefinition[] {

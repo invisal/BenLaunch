@@ -1,7 +1,7 @@
 import { dialog, ipcMain, type BrowserWindow } from "electron";
 import { listOpenWithApps } from "@main/sources/apps/open-with";
 import { QUICKLINK_CHANNELS, type QuicklinkDraft } from "../shared/types";
-import type { QuicklinkSource } from "../main/source";
+import type { QuicklinkSource } from "../index";
 
 /**
  * The bits of the launcher window's own state that `quicklinkOpenWith` and

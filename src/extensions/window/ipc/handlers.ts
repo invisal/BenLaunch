@@ -1,8 +1,8 @@
 import {
   BrowserWindow,
-  ipcMain,
   screen,
   systemPreferences,
+  type IpcMain,
   type IpcMainInvokeEvent,
 } from "electron";
 import type { SettingsStore } from "@main/settings/store";
@@ -20,26 +20,27 @@ import type { WindowLayoutStore } from "../main/store";
  * checks the OS control backend needs (see `control-mac.ts`).
  */
 export function registerWindowIpc(
+  ipc: IpcMain,
   store: WindowLayoutStore,
   settings: SettingsStore,
 ): void {
-  ipcMain.handle(WINDOW_CHANNELS.customLayoutList, () => store.list());
-  ipcMain.handle(
+  ipc.handle(WINDOW_CHANNELS.customLayoutList, () => store.list());
+  ipc.handle(
     WINDOW_CHANNELS.customLayoutGet,
     (_event, id: string) => store.get(id) ?? null,
   );
-  ipcMain.handle(
+  ipc.handle(
     WINDOW_CHANNELS.customLayoutSave,
     (_event, draft: CustomLayoutDraft) => store.save(draft),
   );
-  ipcMain.handle(WINDOW_CHANNELS.customLayoutDelete, (_event, id: string) => {
+  ipc.handle(WINDOW_CHANNELS.customLayoutDelete, (_event, id: string) => {
     store.remove(id);
   });
-  ipcMain.handle(WINDOW_CHANNELS.gapSize, () => settings.getGapSize());
-  ipcMain.handle(WINDOW_CHANNELS.setGapSize, (_event, px: number) => {
+  ipc.handle(WINDOW_CHANNELS.gapSize, () => settings.getGapSize());
+  ipc.handle(WINDOW_CHANNELS.setGapSize, (_event, px: number) => {
     settings.setGapSize(px);
   });
-  ipcMain.handle(WINDOW_CHANNELS.displayInfo, (event): DisplayPreviewInfo => {
+  ipc.handle(WINDOW_CHANNELS.displayInfo, (event): DisplayPreviewInfo => {
     const display = displayForSender(event);
     const workArea = toRect(display.workArea);
     return {
@@ -49,11 +50,11 @@ export function registerWindowIpc(
     };
   });
 
-  ipcMain.handle(WINDOW_CHANNELS.accessibilityStatus, () => {
+  ipc.handle(WINDOW_CHANNELS.accessibilityStatus, () => {
     if (process.platform !== "darwin") return true;
     return systemPreferences.isTrustedAccessibilityClient(false);
   });
-  ipcMain.handle(WINDOW_CHANNELS.requestAccessibility, () => {
+  ipc.handle(WINDOW_CHANNELS.requestAccessibility, () => {
     if (process.platform !== "darwin") return true;
     return systemPreferences.isTrustedAccessibilityClient(true);
   });

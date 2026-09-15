@@ -1,14 +1,13 @@
 import { ListScreen } from "@renderer/shared/ui";
-import { useState } from "react";
-import type { GroupItem } from "./../types";
+import { useEffect, useState } from "react";
+import type { GroupDef } from "../shared/types";
 
 export default function GroupListScreen() {
-  const [groups] = useState<GroupItem[]>([
-    { id: "123456", name: "Testing" },
-    { id: "123457", name: "Testing 1" },
-    { id: "123458", name: "Testing 2" },
-    { id: "123458", name: "Testing 3" },
-  ]);
+  const [groups, setGroups] = useState<GroupDef[]>([]);
+
+  useEffect(() => {
+    window.api.group.list().then(setGroups);
+  }, []);
 
   return (
     <ListScreen

@@ -12,19 +12,12 @@ import {
   initActionSources,
   openQuicklinkWith,
   query,
-  calculatorHistoryStore,
   quicklinkSource,
-  widgetRunner,
-  widgetStore,
-  windowLayoutStore,
   refreshActionSources,
+  registerActionSourcesIpc,
   requestSubtitle,
-  settings,
 } from "./actions";
-import { registerCalculatorHistoryIpc } from "@extensions/calculator-history/ipc/handlers";
 import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
-import { registerWidgetIpc } from "@extensions/widget/ipc/handlers";
-import { registerWindowIpc } from "@extensions/window/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
 import {
   createLauncherWindow,
@@ -128,10 +121,12 @@ app.whenReady().then(() => {
   // instead of waiting for the renderer's first search.
   initActionSources();
 
-  registerWidgetIpc(widgetStore, widgetRunner);
-  registerWindowIpc(windowLayoutStore, settings);
-  registerCalculatorHistoryIpc(calculatorHistoryStore);
+  // Each extension wires its own `ipcMain` handlers via `registerIpc()`.
+  registerActionSourcesIpc(ipcMain);
   registerWindowControlsIpc();
+  // Quicklink's IPC needs the launcher window's own state (pinned,
+  // blur-suppression, the window itself), which only `index.ts` owns, so it
+  // stays wired here rather than through `registerIpc()`.
   registerQuicklinkIpc(quicklinkSource, openQuicklinkWith, {
     getLauncherWindow,
     setSuppressAutoHide: (value) => {

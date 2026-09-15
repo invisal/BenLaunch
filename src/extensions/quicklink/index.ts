@@ -6,7 +6,7 @@ import type { ActionDefinition } from "@main/types";
 import type {
   QuicklinkCreateResult,
   QuicklinkDraft,
-} from "../shared/types";
+} from "./shared/types";
 import {
   QuicklinkStore,
   expandDynamic,
@@ -17,7 +17,7 @@ import {
   prettyLink,
   resolveLink,
   type Quicklink,
-} from "./store";
+} from "./main/store";
 
 /** Ids of the built-in management actions this source also provides. */
 const EDIT_ACTION_ID = "ql:__edit";

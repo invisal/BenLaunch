@@ -1,8 +1,10 @@
+import type { IpcMain } from "electron";
 import { Extension } from "@core/base";
 import type { SettingsStore } from "@main/settings/store";
 import type { ActionDefinition } from "@main/types";
-import type { CustomLayoutDef } from "../shared/types";
-import { anchorOrigin, AUTO_PREVIEW_FRACTION } from "../shared/anchor";
+import { registerWindowIpc } from "./ipc/handlers";
+import type { CustomLayoutDef } from "./shared/types";
+import { anchorOrigin, AUTO_PREVIEW_FRACTION } from "./shared/anchor";
 import {
   applyCustomLayout,
   applyRegion,
@@ -18,8 +20,8 @@ import {
   type FractionSpan,
   type GridRegion,
   type SnapRegion,
-} from "./control/control";
-import { WindowLayoutStore } from "./store";
+} from "./main/control/control";
+import { WindowLayoutStore } from "./main/store";
 
 /**
  * `./control/control` has a backend for all three desktop platforms — see
@@ -73,6 +75,10 @@ export class WindowExtension extends Extension {
 
   init(): void {
     this.store.init();
+  }
+
+  registerIpc(ipc: IpcMain): void {
+    registerWindowIpc(ipc, this.store, this.settings);
   }
 
   provide(): ActionDefinition[] {

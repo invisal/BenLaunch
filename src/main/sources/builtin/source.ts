@@ -41,7 +41,7 @@ export class BuiltinCommandSource implements ActionSource {
     },
     // A layout designed here can only ever run as a `win:custom:*` command,
     // which `WindowExtension` already hides when `isSupported()` is
-    // false (see `@extensions/window/main/source.ts`) — offering the editor anyway
+    // false (see `@extensions/window/index.ts`) — offering the editor anyway
     // would just let the user build something that can never be executed.
     ...(isSupported()
       ? [
