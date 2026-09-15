@@ -26,4 +26,6 @@ export const GROUP_CHANNELS = {
   get: "group:get",
   save: "group:save",
   delete: "group:delete",
+  /** Resolve a group's `sourceIds` into the other sources' current `LauncherAction`s. */
+  items: "group:items",
 } as const;

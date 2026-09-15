@@ -4,8 +4,9 @@
  * An extension is an {@link ActionSource} (it contributes rows and executes
  * them) plus a small per-extension context: `this.storage` (a JSON document
  * isolated by the extension's `id`, so two extensions can use the same keys
- * without colliding) and `this.ctx` (capabilities beyond storage — today just
- * `navigate`, to push a screen onto the launcher's stack from `execute()`).
+ * without colliding) and `this.ctx` (capabilities beyond storage — `navigate`,
+ * to push a screen onto the launcher's stack from `execute()`, and
+ * `resolveActions`, to look up other sources' ids, e.g. a group's members).
  *
  * Subclasses pass their `id` to `super()`; it is both the storage namespace and
  * the conventional prefix of their action ids.
@@ -27,11 +28,33 @@ export function configureExtensions(userDataDir: string): void {
   rootDir = join(userDataDir, 'extensions')
 }
 
+/**
+ * Backs `ctx.resolveActions` until the real registry wires itself in — see
+ * `configureActionResolver`. Extensions are constructed (in `actions.ts`)
+ * before the `sources` array they'd need to search exists, so `ctx` closes
+ * over this mutable slot instead of the registry function directly.
+ */
+let resolveActionsImpl: (ids: string[]) => Promise<ActionDefinition[]> = async () => []
+
+/**
+ * Point `ctx.resolveActions` at the real cross-source lookup. Must run after
+ * `sources` is built — `actions.ts` calls this once, right after that array.
+ */
+export function configureActionResolver(
+  resolver: (ids: string[]) => Promise<ActionDefinition[]>,
+): void {
+  resolveActionsImpl = resolver
+}
+
 export abstract class Extension implements ActionSource {
   readonly id: string
   protected readonly storage: ExtensionStorage
   /** Capabilities available to `provide()`/`execute()` beyond storage. */
-  protected readonly ctx = { navigate }
+  protected readonly ctx = {
+    navigate,
+    /** Look up ids that may belong to any source, not just this extension. */
+    resolveActions: (ids: string[]) => resolveActionsImpl(ids),
+  }
 
   constructor(id: string) {
     this.id = id

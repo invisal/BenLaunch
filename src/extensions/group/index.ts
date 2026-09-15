@@ -25,10 +25,21 @@ export class GroupExtension extends Extension {
   /** Wires the Group manager screen's CRUD calls to the store directly — small enough not to need its own `ipc/handlers.ts`. */
   registerIpc(ipc: IpcMain): void {
     ipc.handle(GROUP_CHANNELS.list, () => this.store.list());
-    ipc.handle(GROUP_CHANNELS.get, (_event, id: string) => this.store.get(id) ?? null);
-    ipc.handle(GROUP_CHANNELS.save, (_event, draft: GroupDraft) => this.store.save(draft));
+    ipc.handle(
+      GROUP_CHANNELS.get,
+      (_event, id: string) => this.store.get(id) ?? null,
+    );
+    ipc.handle(GROUP_CHANNELS.save, (_event, draft: GroupDraft) =>
+      this.store.save(draft),
+    );
     ipc.handle(GROUP_CHANNELS.delete, (_event, id: string) => {
       this.store.remove(id);
+    });
+    ipc.handle(GROUP_CHANNELS.items, async (_event, id: string) => {
+      const group = this.store.get(id);
+      if (!group) return [];
+      const definitions = await this.ctx.resolveActions(group.sourceIds);
+      return definitions.map((definition) => definition.action);
     });
   }
 
@@ -40,8 +51,9 @@ export class GroupExtension extends Extension {
     console.log("group:", "execute", actionId, query);
   }
 
+  /** The two management commands, plus one row per Group the store holds. */
   provide(): ActionDefinition[] {
-    return [
+    const commands: ActionDefinition[] = [
       {
         action: {
           id: "group:create",
@@ -61,5 +73,18 @@ export class GroupExtension extends Extension {
         run: () => {},
       },
     ];
+
+    const groups: ActionDefinition[] = this.store.list().map((group) => ({
+      action: {
+        id: `group:${group.id}`,
+        title: group.name,
+        subtitle: `${group.sourceIds.length} item${group.sourceIds.length === 1 ? "" : "s"}`,
+        type: "command",
+        icon: "G",
+      },
+      run: () => {},
+    }));
+
+    return [...commands, ...groups];
   }
 }

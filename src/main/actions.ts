@@ -24,8 +24,9 @@ import {
 import { WidgetSource } from "@extensions/widget";
 import { WindowExtension } from "@extensions/window";
 import { Usage } from "./usage/store";
-import { configureExtensions } from "@core/base";
+import { configureActionResolver, configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
+import type { ActionDefinition } from "./types";
 import { CalculatorHistoryExtension } from "@extensions/calculator-history";
 
 // Point extensions at `<userData>/extensions/` before any is constructed below.
@@ -107,6 +108,32 @@ const sources: ActionSource[] = [
   cryptoPriceSource,
   new GroupExtension(),
 ];
+
+/**
+ * Cross-source lookup by id, e.g. for a group resolving its members' current
+ * title/icon/subtitle. Each id is checked against `owns()` in registry order
+ * and resolved by whichever source claims it, via `provideByIds` where a
+ * source implements it, else `provide("")` filtered down to the ids it owns.
+ */
+async function resolveActionsByIds(ids: string[]): Promise<ActionDefinition[]> {
+  const remaining = new Set(ids);
+  const found: ActionDefinition[] = [];
+  for (const source of sources) {
+    const owned = ids.filter((id) => remaining.has(id) && source.owns(id));
+    if (owned.length === 0) continue;
+    const definitions = source.provideByIds
+      ? await source.provideByIds(owned)
+      : (await source.provide("")).filter((definition) =>
+          remaining.has(definition.action.id),
+        );
+    for (const definition of definitions) {
+      found.push(definition);
+      remaining.delete(definition.action.id);
+    }
+  }
+  return found;
+}
+configureActionResolver(resolveActionsByIds);
 
 /** Open the quicklink `id` now with a specific app ("" = the system default). */
 export async function openQuicklinkWith(

@@ -26,6 +26,18 @@ export interface ActionSource {
   owns(actionId: string): boolean;
 
   /**
+   * Resolve specific `actionId`s (already known, via `owns()`, to belong to
+   * this source) back into full `ActionDefinition`s — e.g. a group's member
+   * ids, looked up to render their live title/icon/subtitle. Optional: a
+   * source that omits it is looked up via `provide("")` plus filtering
+   * instead (see `resolveActionsByIds` in `actions.ts`), which is fine for a
+   * source whose `provide()` is cheap and ignores its query argument, but a
+   * query-driven source — whose `provide("")` isn't a meaningful "everything"
+   * list — should implement this to stay resolvable by id.
+   */
+  provideByIds?(ids: string[]): ActionDefinition[] | Promise<ActionDefinition[]>;
+
+  /**
    * Run the action identified by `actionId` (which this source `owns`). `query`
    * is the text in the search box at the moment of execution — query-driven
    * sources (e.g. quicklinks) parse their argument out of it; most sources
@@ -109,15 +121,27 @@ export abstract class CachedActionSource implements ActionSource {
   }
 
   async provide(): Promise<ActionDefinition[]> {
-    this.init();
-    await this.ensureStale();
-    // Nothing persisted (first launch ever) — wait for the fetch this once.
-    if (this.cached.length === 0 && this.firstFetch) await this.firstFetch;
+    await this.ready();
     return this.cached;
   }
 
   owns(actionId: string): boolean {
     return actionId.startsWith(`${this.id}:`);
+  }
+
+  /** Direct lookup against the cache, once it's ready — no need to fall back to `provide("")`. */
+  async provideByIds(ids: string[]): Promise<ActionDefinition[]> {
+    await this.ready();
+    const wanted = new Set(ids);
+    return this.cached.filter((definition) => wanted.has(definition.action.id));
+  }
+
+  /** Wait until `cached` holds something worth reading: warmed stale/first-fetch. */
+  private async ready(): Promise<void> {
+    this.init();
+    await this.ensureStale();
+    // Nothing persisted (first launch ever) — wait for the fetch this once.
+    if (this.cached.length === 0 && this.firstFetch) await this.firstFetch;
   }
 
   async execute(actionId: string, _query: string): Promise<void> {
