@@ -69,14 +69,14 @@ function typescriptRuntimeAsset(): Plugin {
 
 export default defineConfig({
   main: {
-    // `@benpocket/{win,mac,linux}` (each platform-restricted via their own
+    // `@magibar/{win,mac,linux}` (each platform-restricted via their own
     // `os` field) and `electron-liquid-glass` are optionalDependencies with a
     // native addon, so externalizeDepsPlugin's default `pkg.dependencies` scan
     // misses them — list them explicitly so they stay a runtime `import`
     // instead of something Rollup tries (and fails) to bundle.
     plugins: [
       externalizeDepsPlugin({
-        include: ['@benpocket/win', '@benpocket/mac', '@benpocket/linux', 'electron-liquid-glass']
+        include: ['@magibar/win', '@magibar/mac', '@magibar/linux', 'electron-liquid-glass']
       })
     ],
     resolve: { alias: nodeAlias },

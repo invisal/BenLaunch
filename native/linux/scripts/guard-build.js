@@ -14,7 +14,7 @@
 
 if (process.platform !== 'linux') {
   console.log(
-    '[@benpocket/linux] Skipping napi build: not running on Linux.\n' +
+    '[@magibar/linux] Skipping napi build: not running on Linux.\n' +
       '  index.js/index.d.ts here are hand-written — running `napi build`\n' +
       '  outside of an actual Linux host would overwrite them. Build this\n' +
       '  package on a real Linux machine (or CI runner) instead.',

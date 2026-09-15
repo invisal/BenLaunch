@@ -1,8 +1,8 @@
 {
-  "name": "@benpocket/mac",
+  "name": "@magibar/mac",
   "version": "0.1.0",
   "private": true,
-  "description": "Native macOS window control for benpocket-launcher (Accessibility API window snap/move/fullscreen)",
+  "description": "Native macOS window control for magibar-launcher (Accessibility API window snap/move/fullscreen)",
   "main": "index.js",
   "types": "index.d.ts",
   "os": ["darwin"],

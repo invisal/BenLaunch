@@ -1,6 +1,6 @@
 /**
  * Runs out-of-process via `ELECTRON_RUN_AS_NODE` (spawned from apps.ts), never inside
- * Electron's main/browser process. The `@benpocket/win` native calls this makes
+ * Electron's main/browser process. The `@magibar/win` native calls this makes
  * are synchronous, and Electron's "main process" is the actual Chromium browser
  * process — calling them there would freeze the whole app (window paint, IPC,
  * everything) for as long as icon resolution takes. Spawning this as a child process
@@ -12,7 +12,7 @@
  */
 import { readdir } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
-import { extractIconPng, extractPackagedIconPng, listStartApps, resolveShortcut } from '@benpocket/win'
+import { extractIconPng, extractPackagedIconPng, listStartApps, resolveShortcut } from '@magibar/win'
 import * as iconCache from './icon-cache'
 
 const START_MENU_DIRS = [

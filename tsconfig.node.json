@@ -7,9 +7,9 @@
     "lib": ["ES2022"],
     "strict": true,
     "paths": {
-      "@benpocket/win": ["./native/win/index.d.ts"],
-      "@benpocket/mac": ["./native/mac/index.d.ts"],
-      "@benpocket/linux": ["./native/linux/index.d.ts"],
+      "@magibar/win": ["./native/win/index.d.ts"],
+      "@magibar/mac": ["./native/mac/index.d.ts"],
+      "@magibar/linux": ["./native/linux/index.d.ts"],
       "@core/*": ["./src/core/*"],
       "@main/*": ["./src/main/*"],
       "@shared/*": ["./src/shared/*"],

@@ -1,5 +1,5 @@
 #![cfg(target_os = "linux")]
-//! Native Linux (X11/XWayland) window control for benpocket-launcher.
+//! Native Linux (X11/XWayland) window control for magibar-launcher.
 //!
 //! Replaces the previous `xdotool`/`wmctrl` shell-outs with direct EWMH-over-X11
 //! calls via `x11rb`'s pure-Rust connection (`rust_connection` — no libxcb C

@@ -3,7 +3,7 @@ import type { BrowserWindow } from 'electron'
 
 /**
  * `electron-liquid-glass` is a macOS-only optionalDependency with a native
- * addon, so — like `@benpocket/win` — it can't be a static import: that would
+ * addon, so — like `@magibar/win` — it can't be a static import: that would
  * throw at module-load time on Windows/Linux where npm skips it. `createRequire`
  * gives us a lazy, synchronous load from this ESM module.
  */

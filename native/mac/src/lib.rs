@@ -1,5 +1,5 @@
 #![cfg(target_os = "macos")]
-//! Native macOS window control for benpocket-launcher.
+//! Native macOS window control for magibar-launcher.
 //!
 //! Replaces the previous `osascript`/System Events shell-outs — every call there
 //! forks a whole process and JIT-compiles an AppleScript, which is why a tight
