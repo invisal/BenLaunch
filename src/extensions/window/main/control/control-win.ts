@@ -14,13 +14,13 @@ import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 
 /**
- * `@benpocket/win` is an optionalDependency that only installs on win32, so it
+ * `@magibar/win` is an optionalDependency that only installs on win32, so it
  * can't be a static import here — that would crash at module-load time on
  * every other platform, well before the `process.platform` checks below run.
  * `createRequire` gives us a synchronous, lazily-invoked load from this ESM
  * module without pulling in a top-level `require`.
  */
-type NativeWin = typeof import("@benpocket/win");
+type NativeWin = typeof import("@magibar/win");
 const nodeRequire = createRequire(import.meta.url);
 let native: NativeWin | null | undefined;
 
@@ -28,9 +28,9 @@ function loadNative(): NativeWin | null {
   if (native !== undefined) return native;
   if (process.platform !== "win32") return (native = null);
   try {
-    native = nodeRequire("@benpocket/win") as NativeWin;
+    native = nodeRequire("@magibar/win") as NativeWin;
   } catch (error) {
-    console.error("[window/win] Failed to load @benpocket/win:", error);
+    console.error("[window/win] Failed to load @magibar/win:", error);
     native = null;
   }
   return native;

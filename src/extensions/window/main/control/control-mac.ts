@@ -20,13 +20,13 @@ import type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 export type { CustomLayoutGeometry, EdgeDirection, SnapRegion } from "./layout";
 
 /**
- * `@benpocket/mac` is an optionalDependency that only installs on darwin, so it
+ * `@magibar/mac` is an optionalDependency that only installs on darwin, so it
  * can't be a static import here — that would crash at module-load time on every
  * other platform, well before the `process.platform` checks below run.
  * `createRequire` gives us a synchronous, lazily-invoked load from this ESM
  * module without pulling in a top-level `require`.
  */
-type NativeMac = typeof import("@benpocket/mac");
+type NativeMac = typeof import("@magibar/mac");
 const nodeRequire = createRequire(import.meta.url);
 let native: NativeMac | null | undefined;
 
@@ -34,16 +34,16 @@ function loadNative(): NativeMac | null {
   if (native !== undefined) return native;
   if (process.platform !== "darwin") return (native = null);
   try {
-    native = nodeRequire("@benpocket/mac") as NativeMac;
+    native = nodeRequire("@magibar/mac") as NativeMac;
   } catch (error) {
-    console.error("[window/mac] Failed to load @benpocket/mac:", error);
+    console.error("[window/mac] Failed to load @magibar/mac:", error);
     native = null;
   }
   return native;
 }
 
 /**
- * macOS-side window control, via the `@benpocket/mac` native addon (CoreGraphics'
+ * macOS-side window control, via the `@magibar/mac` native addon (CoreGraphics'
  * window list to find the frontmost app, and the Accessibility API to read/move/
  * fullscreen its focused window) — replaces a previous `osascript`/System Events
  * shell-out, which forked a whole process and JIT-compiled an AppleScript on

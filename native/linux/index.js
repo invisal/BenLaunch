@@ -34,16 +34,16 @@ function requireNative() {
     return require(process.env.NAPI_RS_NATIVE_LIBRARY_PATH)
   }
   if (process.platform !== 'linux') {
-    throw new Error(`@benpocket/linux does not support platform "${process.platform}"`)
+    throw new Error(`@magibar/linux does not support platform "${process.platform}"`)
   }
   if (isMusl()) {
     throw new Error(
-      '@benpocket/linux only ships glibc builds today (x86_64/aarch64-unknown-linux-gnu) — musl (e.g. Alpine) is not supported.',
+      '@magibar/linux only ships glibc builds today (x86_64/aarch64-unknown-linux-gnu) — musl (e.g. Alpine) is not supported.',
     )
   }
   if (process.arch === 'x64') return require('./linux.linux-x64-gnu.node')
   if (process.arch === 'arm64') return require('./linux.linux-arm64-gnu.node')
-  throw new Error(`@benpocket/linux does not support architecture "${process.arch}" on Linux`)
+  throw new Error(`@magibar/linux does not support architecture "${process.arch}" on Linux`)
 }
 
 const nativeBinding = requireNative()
