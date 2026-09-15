@@ -6,9 +6,12 @@ directories:
   buildResources: build
 
 # electron-vite emits the app into out/; node_modules (prod + optional deps) is
-# added automatically by electron-builder.
+# added automatically by electron-builder. resources/ holds main-process-only
+# static assets referenced via `?asset` imports (e.g. the tray icon) — electron-vite
+# resolves those to a path next to out/ at runtime, so it has to ship alongside it.
 files:
   - out/**
+  - resources/**
   - package.json
   # @benpocket/{win,mac,linux} each ship a prebuilt napi .node but also carry
   # their Rust source and build tree (~700 MB) — keep only what the addon

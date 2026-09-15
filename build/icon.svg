@@ -1,0 +1,30 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="55%" stop-color="#6D28D9"/>
+      <stop offset="100%" stop-color="#3730A3"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="46%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sparkleFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#F5F3FF"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="228" fill="url(#glow)"/>
+
+  <!-- big sparkle -->
+  <g transform="translate(486,556)">
+    <path d="M0,-244 C50,-50 50,-50 244,0 C50,50 50,50 0,244 C-50,50 -50,50 -244,0 C-50,-50 -50,-50 0,-244 Z" fill="url(#sparkleFill)"/>
+  </g>
+
+  <!-- small companion sparkle -->
+  <g transform="translate(742,286) scale(0.36)">
+    <path d="M0,-244 C50,-50 50,-50 244,0 C50,50 50,50 0,244 C-50,50 -50,50 -244,0 C-50,-50 -50,-50 0,-244 Z" fill="#ffffff" fill-opacity="0.92"/>
+  </g>
+</svg>

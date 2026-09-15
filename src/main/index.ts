@@ -32,6 +32,7 @@ import {
   hideLauncher,
   showLauncher,
 } from "./window";
+import { createTray } from "./tray";
 
 // Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
 // (e.g. to Mission Control/Spotlight variants) and Cmd+Space/Cmd+Option+Space/
@@ -120,6 +121,7 @@ app.on("second-instance", (_event, argv) => {
 
 app.whenReady().then(() => {
   createLauncherWindow(keepLauncherOpen);
+  createTray(toggleLauncher);
   handleCliAction(process.argv);
 
   // Warm every action source now (apps: disk cache, then a background worker run)
