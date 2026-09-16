@@ -160,7 +160,21 @@ const Item = forwardRef<HTMLDivElement, ItemProps>(function Item(
     >
       <ItemIcon icon={icon} />
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="shrink-0 truncate">{title}</span>
+        <span
+          className={cn(
+            "truncate",
+            // With a subtitle/shortcut to share the row with, keep title at
+            // its natural width and let *that* trailing content shrink
+            // first (below). With nothing else on the row, title is the
+            // only thing that can give — let it shrink and truncate
+            // instead of overflowing the row uncut.
+            (shortcut && highlighted) || subtitle
+              ? "shrink-0"
+              : "min-w-0 flex-1",
+          )}
+        >
+          {title}
+        </span>
         {shortcut && highlighted ? (
           <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
             {formatShortcut(shortcut)}
@@ -241,6 +255,25 @@ interface ListScreenBaseProps<T> {
   loadingLabel?: ReactNode;
   emptyLabel?: ReactNode;
   noMatchLabel?: ReactNode;
+
+  /** Row is inert — keyboard nav skips it and click/Enter/⌘K ignore it.
+   *  For a non-interactive row inlined into `data`, e.g. a section heading
+   *  (see `ClipboardHistoryListScreen` for the pattern). */
+  isDisabled?: (item: T) => boolean;
+  /** Render a detail/preview pane to the right of the list, synced to the
+   *  current highlighted row (or the first selectable row, like `menu`'s
+   *  target — `null` while loading/empty). Narrows the list to a left
+   *  column with a vertical divider instead of the full-width default. */
+  detail?: (item: T | null) => ReactNode;
+  /** Fires whenever the highlighted row changes — keyboard navigation,
+   *  right-click (which highlights the row it opens the menu for), and
+   *  Base UI's own auto-highlight on mount/filter. A caller driving its own
+   *  state off this (e.g. a `detail` pane) should ignore the occasional
+   *  `null` a plain click can still emit as a side effect of `Autocomplete`'s
+   *  built-in "commit and close" handling — `onActivate` already fires with
+   *  the clicked row itself, synchronously, so nothing is lost by ignoring
+   *  it here. */
+  onHighlightChange?: (item: T | null) => void;
 }
 
 type ListScreenVirtualProps<T> =
@@ -287,6 +320,9 @@ function ListScreenRoot<T>({
   virtualized = false,
   itemHeight,
   measureItem,
+  isDisabled,
+  detail,
+  onHighlightChange,
 }: ListScreenProps<T>) {
   const { stack, pop } = useRouteStack();
   const controlled = inputValue !== undefined;
@@ -347,9 +383,12 @@ function ListScreenRoot<T>({
     gap: 1,
   });
 
-  // The highlighted row, falling back to the first — the target both the
-  // `menu` builder and `onInputKeyDown`'s second arg receive.
-  const menuTarget = highlighted ?? visible[0] ?? null;
+  // The highlighted row, falling back to the first *selectable* one — the
+  // target both the `menu` builder and `onInputKeyDown`'s second arg
+  // receive. Skips a disabled row (e.g. a section heading inlined into
+  // `data`) rather than landing on it before anything's been highlighted.
+  const menuTarget =
+    highlighted ?? visible.find((item) => !isDisabled?.(item)) ?? null;
 
   // Whether this screen is pushed on top of something — i.e. whether "back"
   // is a real place to go, as opposed to the launcher root's `onExit`, which
@@ -402,6 +441,7 @@ function ListScreenRoot<T>({
       onItemHighlighted={(item, { index }) => {
         const value = (item as T | undefined) ?? null;
         setHighlighted(value);
+        onHighlightChange?.(value);
         // Rows are rebuilt (new object identities) whenever `data` changes,
         // which re-fires this even though the highlighted *index* hasn't
         // moved — only scroll on an actual index change, so a data refresh
@@ -447,82 +487,108 @@ function ListScreenRoot<T>({
           />
         </div>
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2">
-          {virtualized ? (
-            <Autocomplete.List
-              className="relative w-full"
-              style={{ height: virtualizer.getTotalSize() }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const item = visible[virtualRow.index];
-                if (!item) return null;
-                const measure = measureItem?.(item) ?? false;
-                return (
-                  <Autocomplete.Item
-                    key={getId(item)}
-                    value={item}
-                    index={virtualRow.index}
-                    onClick={() => onActivate?.(item)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setHighlighted(item);
-                      setMenuOpen(true);
-                    }}
-                    {...(measure
-                      ? {
-                          ref: virtualizer.measureElement,
-                          "data-index": virtualRow.index,
-                        }
-                      : {})}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      // A measured row must size to its own content — pinning
-                      // it to `virtualRow.size` would clip what grows past the
-                      // estimate and feed that same pinned height back into
-                      // the measurement, so it could never grow.
-                      height: measure ? undefined : virtualRow.size,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                    render={(props, state) =>
-                      cloneElement(
-                        renderItem(item, { highlighted: state.highlighted }),
-                        props,
-                      )
-                    }
-                  />
-                );
-              })}
-            </Autocomplete.List>
-          ) : (
-            <Autocomplete.List className="relative w-full">
-              {(item: T) => (
-                <Autocomplete.Item
-                  key={getId(item)}
-                  value={item}
-                  onClick={() => onActivate?.(item)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setHighlighted(item);
-                    setMenuOpen(true);
-                  }}
-                  render={(props, state) =>
-                    cloneElement(
-                      renderItem(item, { highlighted: state.highlighted }),
-                      props,
-                    )
-                  }
-                />
-              )}
-            </Autocomplete.List>
-          )}
+        <div className="flex flex-1 overflow-hidden">
+          <div
+            ref={scrollContainerRef}
+            className={cn(
+              "overflow-y-auto p-2",
+              detail ? "w-56 shrink-0 border-r border-border" : "flex-1",
+            )}
+          >
+            {virtualized ? (
+              <Autocomplete.List
+                className="relative w-full"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const item = visible[virtualRow.index];
+                  if (!item) return null;
+                  const measure = measureItem?.(item) ?? false;
+                  const disabled = isDisabled?.(item) ?? false;
+                  return (
+                    <Autocomplete.Item
+                      key={getId(item)}
+                      value={item}
+                      index={virtualRow.index}
+                      disabled={disabled}
+                      onClick={() => !disabled && onActivate?.(item)}
+                      onContextMenu={(e) => {
+                        if (disabled) return;
+                        e.preventDefault();
+                        setHighlighted(item);
+                        onHighlightChange?.(item);
+                        setMenuOpen(true);
+                      }}
+                      {...(measure
+                        ? {
+                            ref: virtualizer.measureElement,
+                            "data-index": virtualRow.index,
+                          }
+                        : {})}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        // A measured row must size to its own content — pinning
+                        // it to `virtualRow.size` would clip what grows past the
+                        // estimate and feed that same pinned height back into
+                        // the measurement, so it could never grow.
+                        height: measure ? undefined : virtualRow.size,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      render={(props, state) =>
+                        cloneElement(
+                          renderItem(item, {
+                            highlighted: state.highlighted,
+                          }),
+                          props,
+                        )
+                      }
+                    />
+                  );
+                })}
+              </Autocomplete.List>
+            ) : (
+              <Autocomplete.List className="relative w-full">
+                {(item: T) => {
+                  const disabled = isDisabled?.(item) ?? false;
+                  return (
+                    <Autocomplete.Item
+                      key={getId(item)}
+                      value={item}
+                      disabled={disabled}
+                      onClick={() => !disabled && onActivate?.(item)}
+                      onContextMenu={(e) => {
+                        if (disabled) return;
+                        e.preventDefault();
+                        setHighlighted(item);
+                        onHighlightChange?.(item);
+                        setMenuOpen(true);
+                      }}
+                      render={(props, state) =>
+                        cloneElement(
+                          renderItem(item, {
+                            highlighted: state.highlighted,
+                          }),
+                          props,
+                        )
+                      }
+                    />
+                  );
+                }}
+              </Autocomplete.List>
+            )}
 
-          {visible.length === 0 && (
-            <div className="px-3 py-2 text-sm text-foreground-subtle">
-              {emptyMessage}
-            </div>
+            {visible.length === 0 && (
+              <div className="px-3 py-2 text-sm text-foreground-subtle">
+                {emptyMessage}
+              </div>
+            )}
+          </div>
+
+          {detail && (
+            <div className="flex-1 overflow-y-auto">{detail(menuTarget)}</div>
           )}
         </div>
 

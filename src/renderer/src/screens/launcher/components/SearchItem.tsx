@@ -9,6 +9,7 @@ const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   quicklink: "Quicklink",
   widget: "Widget",
   calculation: "Calculation",
+  clipboard: "Clipboard",
 };
 
 function isImageIcon(icon: string): boolean {

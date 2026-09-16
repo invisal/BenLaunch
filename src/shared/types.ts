@@ -4,7 +4,9 @@ export type LauncherActionType =
   | "quicklink"
   | "widget"
   /** A pinned calculation (Calculator History) — a live value, like a Widget row. */
-  | "calculation";
+  | "calculation"
+  /** A clipboard entry (Clipboard History) — pinned or matching a search. */
+  | "clipboard";
 
 export interface LauncherAction {
   id: string;

@@ -28,6 +28,7 @@ import { configureActionResolver, configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
 import type { ActionDefinition } from "./types";
 import { CalculatorHistoryExtension } from "@extensions/calculator-history";
+import { ClipboardHistoryExtension } from "@extensions/clipboard-history";
 
 // Point extensions at `<userData>/extensions/` before any is constructed below.
 configureExtensions(app.getPath("userData"));
@@ -57,6 +58,15 @@ const windowExtension = new WindowExtension(settings);
  * re-run through `evaluate` for their live value.
  */
 const calculatorHistory = new CalculatorHistoryExtension(evaluate);
+
+/**
+ * The Clipboard History extension. It owns its `ExtensionStorage`
+ * (`<userData>/extensions/clipboard-history.json`) and a background poller
+ * watching Electron's `clipboard` module (no native change event exists),
+ * wiring the list/pin/delete/copy-again IPC to the same instance via
+ * `registerIpc()`. Exposed so `index.ts` can stop the poller at `will-quit`.
+ */
+export const clipboardHistory = new ClipboardHistoryExtension();
 
 /** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`, gated by a setting. */
 const cryptoPriceSource = new CryptoPriceSource();
@@ -102,6 +112,7 @@ const sources: ActionSource[] = [
   windowExtension,
   widgetSource,
   calculatorHistory,
+  clipboardHistory,
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),

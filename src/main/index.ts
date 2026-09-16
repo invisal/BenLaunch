@@ -6,6 +6,7 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import {
+  clipboardHistory,
   executeAction,
   getCalculatorSettings,
   updateCalculatorSettings,
@@ -198,4 +199,5 @@ app.on("window-all-closed", () => {
 
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
+  clipboardHistory.stopPolling();
 });

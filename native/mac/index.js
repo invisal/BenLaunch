@@ -703,4 +703,5 @@ module.exports.applyWindowRect = nativeBinding.applyWindowRect
 module.exports.frontmostPid = nativeBinding.frontmostPid
 module.exports.getWindowRect = nativeBinding.getWindowRect
 module.exports.isFullscreen = nativeBinding.isFullscreen
+module.exports.pasteboardChangeCount = nativeBinding.pasteboardChangeCount
 module.exports.toggleFullscreen = nativeBinding.toggleFullscreen

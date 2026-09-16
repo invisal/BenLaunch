@@ -341,6 +341,55 @@ pub fn is_fullscreen(pid: i32) -> bool {
   }
 }
 
+// -- NSPasteboard (AppKit) — Objective-C only, no Core Foundation or plain-C
+// equivalent exists for this, so unlike everything above this talks to the
+// Objective-C runtime directly (`objc_msgSend`) rather than a framework's C
+// API. Kept to this one scalar property read rather than pulling in a
+// bridging crate for it. --
+
+#[link(name = "objc", kind = "dylib")]
+unsafe extern "C" {
+  fn objc_getClass(name: *const std::ffi::c_char) -> *mut c_void;
+  fn sel_registerName(name: *const std::ffi::c_char) -> *mut c_void;
+  fn objc_msgSend(receiver: *mut c_void, sel: *mut c_void) -> *mut c_void;
+}
+
+// No AppKit C symbols are called directly — this block exists purely to force
+// the framework to be linked (and so loaded into the process), which is what
+// actually registers `NSPasteboard` with the Objective-C runtime.
+// `objc_getClass` on an unlinked framework's class silently returns nil, and
+// a message sent to nil silently returns 0 — the bug this caught: without
+// this, `pasteboard_change_count()` compiled and ran fine, just always
+// returned 0.
+#[link(name = "AppKit", kind = "framework")]
+unsafe extern "C" {}
+
+/// `NSPasteboard.generalPasteboard.changeCount` — a counter AppKit increments
+/// every time the general pasteboard's *content* changes (a copy, a cut, or
+/// any programmatic write), and never otherwise. macOS has no pasteboard
+/// "changed" notification/event at all — every clipboard-history app,
+/// Raycast included, is built around polling *something*; the point of this
+/// export is to make that something cheap. Reading it costs nothing (no IPC,
+/// no permission prompt, no clipboard format negotiation) — a poller can
+/// check this very frequently and only pay for an actual Electron
+/// `clipboard.read()` call on the rare tick where it's moved.
+///
+/// `generalPasteboard` is a process-wide singleton the caller doesn't own
+/// (the selector isn't `alloc`/`new`/`copy`-prefixed), so it's never
+/// released — same manual-reference-counting convention every other
+/// Objective-C call in this codebase already assumes, just without a
+/// bridging crate to enforce it for us here.
+#[napi]
+pub fn pasteboard_change_count() -> i64 {
+  unsafe {
+    let cls = objc_getClass(c"NSPasteboard".as_ptr());
+    let general_sel = sel_registerName(c"generalPasteboard".as_ptr());
+    let pasteboard = objc_msgSend(cls, general_sel);
+    let change_count_sel = sel_registerName(c"changeCount".as_ptr());
+    objc_msgSend(pasteboard, change_count_sel) as i64
+  }
+}
+
 /// Toggles native macOS fullscreen on the focused window — the same effect as
 /// clicking-and-holding the green traffic-light button and choosing "Enter/Exit
 /// Full Screen." Not every window supports this; returns whether the write
