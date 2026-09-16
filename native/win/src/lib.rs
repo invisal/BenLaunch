@@ -11,9 +11,10 @@
 //! list comes from enumerating the virtual `shell:AppsFolder`.
 
 use napi::bindgen_prelude::*;
+use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
 use napi_derive::napi;
-use windows::core::{Interface, HSTRING};
-use windows::Win32::Foundation::{HWND, RECT};
+use windows::core::{Interface, PCWSTR, HSTRING};
+use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{
   CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDIBits, SelectObject,
@@ -24,15 +25,22 @@ use windows::Win32::System::Com::{
   CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, IPersistFile,
   CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ
 };
+use windows::Win32::System::DataExchange::{
+  AddClipboardFormatListener, RemoveClipboardFormatListener
+};
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
   BHID_EnumItems, ExtractIconExW, IEnumShellItems, IShellItem, IShellItem2, IShellItemImageFactory,
   IShellLinkW, SHCreateItemFromParsingName, ShellLink, SIGDN_NORMALDISPLAY, SIIGBF_RESIZETOFIT,
   SLGP_RAWPATH
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-  DestroyIcon, DrawIconEx, GetForegroundWindow, GetWindowRect, IsIconic, IsZoomed,
-  SetForegroundWindow, SetWindowPos, ShowWindow, DI_NORMAL, HICON, SWP_FRAMECHANGED,
-  SWP_NOACTIVATE, SWP_NOZORDER, SW_MAXIMIZE, SW_RESTORE
+  CreateWindowExW, DefWindowProcW, DestroyIcon, DestroyWindow, DispatchMessageW, DrawIconEx,
+  GetForegroundWindow, GetMessageW, GetWindowLongPtrW, GetWindowRect, IsIconic, IsZoomed,
+  PostMessageW, PostQuitMessage, RegisterClassExW, SetForegroundWindow, SetWindowLongPtrW,
+  SetWindowPos, ShowWindow, TranslateMessage, DI_NORMAL, GWLP_USERDATA, HICON, HWND_MESSAGE, MSG,
+  SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOZORDER, SW_MAXIMIZE, SW_RESTORE, WINDOW_EX_STYLE,
+  WINDOW_STYLE, WM_CLIPBOARDUPDATE, WM_CLOSE, WM_DESTROY, WNDCLASSEXW
 };
 
 /// COM must be initialized on whatever thread calls into these APIs. napi-rs runs
@@ -544,4 +552,179 @@ pub fn list_start_apps() -> Vec<StartApp> {
     }
   }
   results
+}
+
+/// Stashed behind the watcher window's `GWLP_USERDATA` slot so the (`extern "system"`, so
+/// state-free by construction) `clipboard_watcher_wndproc` can reach the callback the window
+/// exists for. Boxed on creation (`start_clipboard_watcher`) and freed on `WM_CLOSE`.
+struct WatcherContext {
+  tsfn: ThreadsafeFunction<()>,
+}
+
+/// Window procedure for the hidden, message-only window `start_clipboard_watcher` creates.
+/// `WM_CLIPBOARDUPDATE` is Win32's push notification for "the clipboard just changed",
+/// delivered here because the window registered itself via `AddClipboardFormatListener`.
+/// `WM_CLOSE` (sent by `ClipboardWatcher::stop`) tears the listener/context down and destroys
+/// the window; `WM_DESTROY` (fired by that `DestroyWindow`) posts `WM_QUIT` to end this thread's
+/// message loop.
+unsafe extern "system" fn clipboard_watcher_wndproc(
+  hwnd: HWND,
+  msg: u32,
+  wparam: WPARAM,
+  lparam: LPARAM
+) -> LRESULT {
+  match msg {
+    WM_CLIPBOARDUPDATE => {
+      let ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const WatcherContext;
+      if let Some(ctx) = unsafe { ptr.as_ref() } {
+        ctx.tsfn.call(Ok(()), ThreadsafeFunctionCallMode::NonBlocking);
+      }
+      LRESULT(0)
+    }
+    WM_CLOSE => {
+      unsafe {
+        let _ = RemoveClipboardFormatListener(hwnd);
+        let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut WatcherContext;
+        if !ptr.is_null() {
+          SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+          drop(Box::from_raw(ptr));
+        }
+        let _ = DestroyWindow(hwnd);
+      }
+      LRESULT(0)
+    }
+    WM_DESTROY => {
+      unsafe { PostQuitMessage(0) };
+      LRESULT(0)
+    }
+    _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+  }
+}
+
+/// Handle for the background clipboard watcher `start_clipboard_watcher` starts. Dropping this
+/// without calling `stop()` leaks the watcher window and its message-loop thread for the rest of
+/// the process's life — callers must `stop()` it explicitly (e.g. on app quit), matching
+/// `ClipboardPoller.stop()` on the TS side.
+#[napi]
+pub struct ClipboardWatcher {
+  hwnd: isize,
+  thread: Option<std::thread::JoinHandle<()>>
+}
+
+#[napi]
+impl ClipboardWatcher {
+  /// Unregisters the clipboard listener, closes the hidden watcher window, and joins its
+  /// message-loop thread. Idempotent — a second call is a no-op.
+  #[napi]
+  pub fn stop(&mut self) {
+    if self.hwnd != 0 {
+      let hwnd = HWND(self.hwnd as *mut core::ffi::c_void);
+      unsafe {
+        let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
+      }
+      self.hwnd = 0;
+    }
+    if let Some(thread) = self.thread.take() {
+      let _ = thread.join();
+    }
+  }
+}
+
+/// Starts watching the system clipboard for changes via a true OS push notification instead of
+/// polling: a background thread creates a hidden, message-only window, registers it for
+/// `WM_CLIPBOARDUPDATE` via `AddClipboardFormatListener` (the Win32 mechanism the Windows Clipboard
+/// History pane itself is built on), and invokes `callback` with no arguments once for every
+/// clipboard write. This is what lets the TS `ClipboardPoller` (see
+/// `main/pasteboard-change-win.ts`) skip its `setInterval` fallback entirely on Windows, unlike the
+/// cheap-but-still-polled `pasteboardChangeCount()` this addon's macOS counterpart offers.
+///
+/// Blocks briefly (microseconds — one window creation) waiting for the background thread to
+/// finish setting up before returning, so a failure (window/class creation, or registering the
+/// listener) can be reported by returning a watcher whose `hwnd` is already 0 rather than a
+/// handle that silently never calls back.
+#[napi]
+pub fn start_clipboard_watcher(callback: ThreadsafeFunction<()>) -> ClipboardWatcher {
+  let (tx, rx) = std::sync::mpsc::channel::<isize>();
+
+  let thread = std::thread::spawn(move || {
+    let hinstance = unsafe {
+      match GetModuleHandleW(None) {
+        Ok(h) => windows::Win32::Foundation::HINSTANCE::from(h),
+        Err(_) => {
+          let _ = tx.send(0);
+          return;
+        }
+      }
+    };
+
+    let class_name = HSTRING::from("MagibarClipboardWatcherClass");
+    static CLASS_REGISTERED: std::sync::Once = std::sync::Once::new();
+    CLASS_REGISTERED.call_once(|| unsafe {
+      let wc = WNDCLASSEXW {
+        cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+        lpfnWndProc: Some(clipboard_watcher_wndproc),
+        hInstance: hinstance,
+        lpszClassName: PCWSTR(class_name.as_ptr()),
+        ..Default::default()
+      };
+      RegisterClassExW(&wc);
+    });
+
+    let hwnd = unsafe {
+      CreateWindowExW(
+        WINDOW_EX_STYLE(0),
+        &class_name,
+        &HSTRING::from(""),
+        WINDOW_STYLE(0),
+        0,
+        0,
+        0,
+        0,
+        Some(HWND_MESSAGE),
+        None,
+        Some(hinstance),
+        None
+      )
+    };
+    let hwnd = match hwnd {
+      Ok(h) => h,
+      Err(_) => {
+        let _ = tx.send(0);
+        return;
+      }
+    };
+
+    let ctx = Box::new(WatcherContext { tsfn: callback });
+    unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(ctx) as isize) };
+
+    let listening = unsafe { AddClipboardFormatListener(hwnd) };
+    if listening.is_err() {
+      unsafe {
+        let ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut WatcherContext;
+        if !ptr.is_null() {
+          SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0);
+          drop(Box::from_raw(ptr));
+        }
+        let _ = DestroyWindow(hwnd);
+      }
+      let _ = tx.send(0);
+      return;
+    }
+
+    let _ = tx.send(hwnd.0 as isize);
+
+    let mut msg = MSG::default();
+    unsafe {
+      while GetMessageW(&mut msg, None, 0, 0).as_bool() {
+        let _ = TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+      }
+    }
+  });
+
+  let hwnd = rx.recv().unwrap_or(0);
+  ClipboardWatcher {
+    hwnd,
+    thread: Some(thread)
+  }
 }

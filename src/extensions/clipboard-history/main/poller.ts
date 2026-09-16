@@ -53,6 +53,15 @@ import { fileURLToPath } from "node:url";
  * `clipboard` module has no equivalent for. When given, a tick short-circuits
  * before any of the real reads below unless the signal has moved since the
  * last tick (or the last `writeExclusive`).
+ *
+ * `changeEvent` (optional, mutually preferred over the `setInterval` loop
+ * entirely) goes one step further: a real OS push notification for "the
+ * clipboard just changed", rather than something merely cheap to poll. On
+ * Windows, `pasteboardChangeEvent()` (`main/pasteboard-change-win.ts`) backs
+ * this with `AddClipboardFormatListener`/`WM_CLIPBOARDUPDATE` via
+ * `@magibar/win`'s `startClipboardWatcher`. When given, `start()` subscribes
+ * to it instead of starting `setInterval` at all — every tick is then a
+ * direct response to an actual clipboard write, not a periodic guess.
  */
 export interface ClipboardItemLike {
   types: string[];
@@ -109,8 +118,10 @@ export class ClipboardPoller {
   private readonly intervalMs: number;
   private readonly readFile: (path: string) => Promise<Buffer>;
   private readonly changeSignal?: () => number;
+  private readonly changeEvent?: (onChange: () => void) => () => void;
 
   private timer: ReturnType<typeof setInterval> | null = null;
+  private unsubscribeChangeEvent: (() => void) | null = null;
   private lastText = "";
   private lastFormats = "";
   private lastChangeSignal: number | null = null;
@@ -124,6 +135,7 @@ export class ClipboardPoller {
     intervalMs = 750,
     readFile: (path: string) => Promise<Buffer> = (path) => readFileFs(path),
     changeSignal?: () => number,
+    changeEvent?: (onChange: () => void) => () => void,
   ) {
     this.reader = reader;
     this.onText = onText;
@@ -131,19 +143,28 @@ export class ClipboardPoller {
     this.intervalMs = intervalMs;
     this.readFile = readFile;
     this.changeSignal = changeSignal;
+    this.changeEvent = changeEvent;
   }
 
   async start(): Promise<void> {
-    if (this.timer) return;
+    if (this.timer || this.unsubscribeChangeEvent) return;
     // Seed from the clipboard's current contents so startup doesn't record
     // whatever was already copied before the app launched.
     await this.resync();
+    if (this.changeEvent) {
+      this.unsubscribeChangeEvent = this.changeEvent(() => void this.tick());
+      return;
+    }
     this.timer = setInterval(() => void this.tick(), this.intervalMs);
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    if (this.unsubscribeChangeEvent) {
+      this.unsubscribeChangeEvent();
+      this.unsubscribeChangeEvent = null;
+    }
   }
 
   /** One poll cycle. Exposed so tests can drive it without real timers. */

@@ -2,6 +2,20 @@
 /* eslint-disable */
 
 /**
+ * Handle for the background clipboard watcher `start_clipboard_watcher` starts. Dropping this
+ * without calling `stop()` leaks the watcher window and its message-loop thread for the rest of
+ * the process's life — callers must `stop()` it explicitly (e.g. on app quit), matching
+ * `ClipboardPoller.stop()` on the TS side.
+ */
+export declare class ClipboardWatcher {
+  /**
+   * Unregisters the clipboard listener, closes the hidden watcher window, and joins its
+   * message-loop thread. Idempotent — a second call is a no-op.
+   */
+  stop(): void
+}
+
+/**
  * Restores a maximized/minimized window, then moves/resizes it so its *visible*
  * frame (see `get_window_rect`) exactly matches `rect` — expanding by the
  * invisible resize border so adjacent tiled windows still sit flush, the way
@@ -67,6 +81,22 @@ export interface StartApp {
   name: string
   appId: string
 }
+
+/**
+ * Starts watching the system clipboard for changes via a true OS push notification instead of
+ * polling: a background thread creates a hidden, message-only window, registers it for
+ * `WM_CLIPBOARDUPDATE` via `AddClipboardFormatListener` (the Win32 mechanism the Windows Clipboard
+ * History pane itself is built on), and invokes `callback` with no arguments once for every
+ * clipboard write. This is what lets the TS `ClipboardPoller` (see
+ * `main/pasteboard-change-win.ts`) skip its `setInterval` fallback entirely on Windows, unlike the
+ * cheap-but-still-polled `pasteboardChangeCount()` this addon's macOS counterpart offers.
+ *
+ * Blocks briefly (microseconds — one window creation) waiting for the background thread to
+ * finish setting up before returning, so a failure (window/class creation, or registering the
+ * listener) can be reported by returning a watcher whose `hwnd` is already 0 rather than a
+ * handle that silently never calls back.
+ */
+export declare function startClipboardWatcher(callback: ((err: Error | null, ) => any)): ClipboardWatcher
 
 /**
  * Windows has no equivalent of macOS's Spaces-based fullscreen, so "Toggle
