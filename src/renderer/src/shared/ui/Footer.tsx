@@ -220,8 +220,9 @@ function Label({
 
 /* -------------------------------- menu --------------------------------- */
 
-export interface FooterMenuItem {
-  /** Stable key for the row; falls back to `label`. */
+interface FooterMenuItemBase {
+  /** Stable key for the row; falls back to `label`. Also the submenu path
+   *  segment for a row that carries `items`, so give those an explicit `id`. */
   id?: string;
   label: string;
   /** Display hint shown on the row. Bind the key itself with `useShortcut`. */
@@ -237,6 +238,10 @@ export interface FooterMenuItem {
    * items of one section next to each other in the array.
    */
   section?: string;
+}
+
+/** A row that runs something when picked. */
+interface FooterMenuLeaf extends FooterMenuItemBase {
   /**
    * Guards a destructive action with a second activation: the first select
    * swaps the label to this text and arms the row (auto-disarms after a few
@@ -244,7 +249,24 @@ export interface FooterMenuItem {
    */
   confirmLabel?: string;
   onSelect: () => void;
+  items?: never;
 }
+
+/**
+ * A row that opens a list of its own instead of running: picking it replaces
+ * the menu's contents with `items` (and its search box filters those), and
+ * Escape — or the back button in the popup's header — returns to the list it
+ * came from. For a long, self-contained group like quicklinks' "Open With",
+ * which contributes a row per installed app and would otherwise bury the rest
+ * of the menu under it.
+ */
+interface FooterMenuSubmenu extends FooterMenuItemBase {
+  items: FooterMenuItem[];
+  confirmLabel?: never;
+  onSelect?: never;
+}
+
+export type FooterMenuItem = FooterMenuLeaf | FooterMenuSubmenu;
 
 export interface FooterMenuProps {
   /** Trigger label. Default "Actions". */
@@ -265,13 +287,19 @@ export interface FooterMenuProps {
 }
 
 /**
- * A searchable, single-level actions menu for the footer, opened by its trigger
- * or the ⌘K shortcut. Uncontrolled by default (owns its open/close and binds
- * ⌘K); pass `open` / `onOpenChange` to drive it. An item's `shortcut` is a
- * display hint on the row; bind the key itself with `useShortcut` in the screen.
- * Items can carry an `icon`, a `section` heading, `danger` styling, and a
- * `confirmLabel` (arm-then-confirm) — see `FooterMenuItem`. No nesting: a menu
- * that wants sub-lists lays them out as sections instead.
+ * A searchable actions menu for the footer, opened by its trigger or the ⌘K
+ * shortcut. Uncontrolled by default (owns its open/close and binds ⌘K); pass
+ * `open` / `onOpenChange` to drive it. An item's `shortcut` is a display hint
+ * on the row; bind the key itself with `useShortcut` in the screen. Items can
+ * carry an `icon`, a `section` heading, `danger` styling, and a `confirmLabel`
+ * (arm-then-confirm) — see `FooterMenuItem`.
+ *
+ * Mostly one flat list: related rows are a `section`, not a submenu. The one
+ * exception is a row carrying `items` (a `FooterMenuSubmenu`), which opens
+ * that list in place of the current one — for a group too long to sit inline,
+ * like quicklinks' "Open With" and its row per installed app. Escape (or the
+ * popup's back button) returns to the list it came from, and only closes the
+ * menu from the top level.
  *
  *   const format = () => editor.current?.format();
  *   useShortcut({ "CommandOrControl+S": format });
@@ -297,6 +325,12 @@ function Menu({
   const [search, setSearch] = useState("");
   // Key of the `confirmLabel` item awaiting its second activation, if any.
   const [armedId, setArmedId] = useState<string | null>(null);
+  // Path into the open submenu, as row keys (`id ?? label`) rather than the
+  // item objects themselves: a screen rebuilds `items` on every render (the
+  // launcher rebuilds it from the highlighted row), so holding onto an item
+  // would pin the submenu — and the closures in its `onSelect`s — to whatever
+  // the menu looked like when it was opened.
+  const [trail, setTrail] = useState<string[]>([]);
   const triggerRef = useRef<HTMLButtonElement>(null);
   // The popup is portalled into this element rather than `document.body`, so it
   // stays inside the owning screen's subtree. When an `onSelect` navigates and
@@ -316,6 +350,7 @@ function Menu({
     if (!open) {
       setSearch("");
       setArmedId(null);
+      setTrail([]);
     }
   }, [open]);
 
@@ -330,22 +365,56 @@ function Menu({
     return () => clearTimeout(timer);
   }, [armedId]);
 
+  // Walk `trail` down the *current* `items` to the list being shown, and the
+  // row it hangs off (the popup's header). A segment that no longer resolves —
+  // the highlighted row changed under an open submenu — stops the walk there,
+  // so the menu falls back to the deepest list that still exists.
+  const { activeItems, parent } = useMemo(() => {
+    let list = items;
+    let openedBy: FooterMenuItem | null = null;
+    for (const key of trail) {
+      const next = list.find((item) => (item.id ?? item.label) === key);
+      if (!next?.items) break;
+      list = next.items;
+      openedBy = next;
+    }
+    return { activeItems: list, parent: openedBy };
+  }, [items, trail]);
+
   // Heading rows: the key of the first item of each contiguous `section` run.
   const sectionFirstKeys = useMemo(() => {
     const keys = new Set<string>();
     let prev: string | undefined;
-    for (const item of items) {
+    for (const item of activeItems) {
       const key = item.id ?? item.label;
       if (item.section && item.section !== prev) keys.add(key);
       prev = item.section;
     }
     return keys;
-  }, [items]);
+  }, [activeItems]);
 
-  /** Returns `"armed"` when the hit only armed a `confirmLabel` item. */
-  const choose = (item: FooterMenuItem): "armed" | "ran" | "ignored" => {
+  /** Leave the open submenu for the list it came from. */
+  const goBack = () => {
+    setTrail((path) => path.slice(0, -1));
+    setSearch("");
+    setArmedId(null);
+  };
+
+  /** `"armed"` when the hit only armed a `confirmLabel` item, `"opened"` when
+   *  it descended into a submenu — neither ran anything. */
+  const choose = (
+    item: FooterMenuItem,
+  ): "armed" | "opened" | "ran" | "ignored" => {
     if (item.disabled) return "ignored";
     const key = item.id ?? item.label;
+    // A submenu row swaps the list out and keeps the menu open; the search box
+    // starts empty again so it filters the list now on screen.
+    if (item.items) {
+      setTrail((path) => [...path, key]);
+      setSearch("");
+      setArmedId(null);
+      return "opened";
+    }
     // First hit on a guarded item just arms it — keep the menu open so the
     // swapped-in `confirmLabel` is visible for the confirming second hit.
     if (item.confirmLabel && armedId !== key) {
@@ -364,7 +433,7 @@ function Menu({
 
   return (
     <Autocomplete.Root
-      items={items}
+      items={activeItems}
       open={open}
       onOpenChange={setOpen}
       value={search}
@@ -385,18 +454,54 @@ function Menu({
       {/* Zero-size, out-of-flow host for the portal (see `portalRef`). */}
       <div ref={portalRef} className="fixed" />
       <Autocomplete.Portal container={portalRef}>
-        <Autocomplete.Positioner side="top" align="end" sideOffset={8}>
+        <Autocomplete.Positioner
+          side="top"
+          align="end"
+          sideOffset={8}
+          collisionPadding={8}
+        >
+          {/* The popup is capped at the space the window actually has
+              (`--available-height`, from the positioner) and the list scrolls
+              inside it. Without the cap a long list — quicklinks' "Open With"
+              submenu, a row per installed app — lays itself out at its full
+              height, and since the side axis flips rather than shifts, most of
+              it ends up off the top of the 640×420 launcher: search box and
+              first rows outside the window, unclickable. Same treatment as the
+              "Open With" picker in `AppPicker`. */}
           <Autocomplete.Popup
             finalFocus={finalFocus ?? triggerRef}
-            className="w-60 rounded-md border border-border bg-popover text-foreground shadow-lg outline-none"
+            // Inside a submenu, Escape steps back out instead of dismissing.
+            // Base UI's own Escape handling is a bubble-phase listener on the
+            // document, so claiming the key here (capture, before the event
+            // reaches the input at all) is what keeps the popup open.
+            onKeyDownCapture={(event) => {
+              if (event.key !== "Escape" || !parent) return;
+              event.preventDefault();
+              event.stopPropagation();
+              goBack();
+            }}
+            className="flex max-h-[min(24rem,var(--available-height))] w-60 flex-col overflow-hidden rounded-md border border-border bg-popover text-foreground shadow-lg outline-none [-webkit-app-region:no-drag]"
           >
-            <div className="border-b border-border p-1">
+            {parent && (
+              <button
+                type="button"
+                onClick={goBack}
+                className="flex shrink-0 items-center gap-1.5 border-b border-border px-2 py-1.5 text-left text-xs font-medium text-foreground-subtle hover:text-foreground"
+              >
+                <span aria-hidden className="shrink-0">
+                  ‹
+                </span>
+                <span className="min-w-0 flex-1 truncate">{parent.label}</span>
+                <Kbd accelerator="Escape" />
+              </button>
+            )}
+            <div className="shrink-0 border-b border-border p-1">
               <Autocomplete.Input
-                placeholder={placeholder}
+                placeholder={parent ? `Search ${parent.label}…` : placeholder}
                 className="w-full bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-foreground-subtle"
               />
             </div>
-            <Autocomplete.List className="p-1">
+            <Autocomplete.List className="min-h-0 overflow-y-auto overscroll-contain scroll-py-1 p-1">
               {(item: FooterMenuItem, index: number) => {
                 const key = item.id ?? item.label;
                 const armed = armedId === key;
@@ -455,7 +560,15 @@ function Menu({
                             : item.label}
                         </span>
                       </span>
-                      {item.shortcut ? (
+                      {item.items ? (
+                        // Marks the row as a way in rather than an action.
+                        <span
+                          aria-hidden
+                          className="shrink-0 text-foreground-subtle"
+                        >
+                          ›
+                        </span>
+                      ) : item.shortcut ? (
                         <Kbd
                           accelerator={item.shortcut}
                           className="border-border"
@@ -466,7 +579,7 @@ function Menu({
                 );
               }}
             </Autocomplete.List>
-            <Autocomplete.Empty className="px-2 py-1.5 text-xs text-foreground-subtle">
+            <Autocomplete.Empty className="shrink-0 px-2 py-1.5 text-xs text-foreground-subtle">
               No actions found
             </Autocomplete.Empty>
           </Autocomplete.Popup>

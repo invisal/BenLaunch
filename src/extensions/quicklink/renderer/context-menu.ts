@@ -4,34 +4,39 @@ import type {
   ContextMenuContributor,
   MenuActionItem,
 } from "@renderer/screens/launcher/context-menu/types";
+import type { OpenWithApp } from "../shared/types";
 
-/** The "Open With" rows: the system default plus every resolved app, as one
- *  flat `section` (there are no submenus). */
-function openWithItems(
+/**
+ * The "Open With" row: a submenu holding the system default plus every
+ * resolved app. It's a list of its own rather than a `section` inlined into
+ * the menu because `ctx.apps` is every installed app that can take a path as
+ * an argument — on Windows, every Start-Menu shortcut resolving to an `.exe`,
+ * which inline would bury Pin/Edit/Delete under a hundred rows.
+ */
+function openWithItem(
   actionId: string,
   ctx: ContextMenuContext,
-): MenuActionItem[] {
-  return [
-    {
-      id: "ow:__default",
-      section: "Open With",
-      label: "Default App",
-      onSelect: () => {
-        void window.api.quicklink.openQuicklinkWith(actionId, ctx.query, "");
-        ctx.dismiss();
-      },
-    },
-    ...ctx.apps.map((app) => ({
-      id: `ow:${app.path}`,
-      section: "Open With",
+): MenuActionItem {
+  // The system default is the empty path — the same "no override" the IPC call
+  // already takes — so it's just the first app in the list, not its own row.
+  const apps: OpenWithApp[] = [{ name: "Default App", path: "" }, ...ctx.apps];
+  return {
+    id: "open-with",
+    label: "Open With",
+    items: apps.map((app) => ({
+      id: `ow:${app.path || "__default"}`,
       label: app.name,
       icon: app.icon,
       onSelect: () => {
-        void window.api.quicklink.openQuicklinkWith(actionId, ctx.query, app.path);
+        void window.api.quicklink.openQuicklinkWith(
+          actionId,
+          ctx.query,
+          app.path,
+        );
         ctx.dismiss();
       },
     })),
-  ];
+  };
 }
 
 /**
@@ -76,7 +81,7 @@ export const quicklinkContextMenu: ContextMenuContributor = {
           shortcut: "Enter",
           onSelect: () => ctx.runAction(action),
         },
-        ...openWithItems(actionId, ctx),
+        openWithItem(actionId, ctx),
         {
           id: "pin",
           section: "Manage Quicklink",
