@@ -3,7 +3,7 @@ import { Footer, ListScreen } from "@renderer/shared/ui";
 import type { FooterMenuItem } from "@renderer/shared/ui";
 import type { Route } from "@renderer/screens/launcher/router/types";
 import {
-  monogramIcon,
+  displayIcon,
   type OpenWithApp,
   type QuicklinkEntry,
 } from "../shared/types";
@@ -143,7 +143,7 @@ function SearchQuicklinksScreen({
       renderItem={(ql, { highlighted }) => (
         <ListScreen.Item
           highlighted={highlighted}
-          icon={ql.icon ?? monogramIcon(ql.name)}
+          icon={displayIcon(ql)}
           title={ql.name}
           badge={ql.hidden ? "Hidden" : ql.pinned ? "📌" : undefined}
         />

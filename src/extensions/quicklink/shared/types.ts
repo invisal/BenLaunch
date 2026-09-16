@@ -170,6 +170,15 @@ export function monogramIcon(label: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * The icon to render for a stored quicklink: whatever was resolved for it, or a
+ * generated monogram. Shared so the launcher row, the manager list, the detail
+ * pane and the Create form all fall back the same way.
+ */
+export function displayIcon(link: Pick<Quicklink, "icon" | "name">): string {
+  return link.icon ?? monogramIcon(link.name);
+}
+
 /** IPC channels between the Create/Edit form (and the Ctrl+K menu) and main. */
 export const QUICKLINK_CHANNELS = {
   create: "quicklink:create",
@@ -182,7 +191,6 @@ export const QUICKLINK_CHANNELS = {
   openWith: "quicklink:open-with",
   pickPath: "quicklink:pick-path",
   openWithApps: "quicklink:open-with-apps",
-  fetchFavicon: "quicklink:fetch-favicon",
-  fileIcon: "quicklink:file-icon",
+  icon: "quicklink:icon",
   preview: "quicklink:preview",
 } as const;

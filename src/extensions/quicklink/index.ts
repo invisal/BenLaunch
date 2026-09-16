@@ -5,16 +5,17 @@ import { readFile, writeFile } from "node:fs/promises";
 import { Extension } from "@core/base";
 import { listOpenWithApps } from "@main/sources/apps/open-with";
 import type { ActionDefinition } from "@main/types";
-import { fetchFavicon } from "./main/favicon";
+import { iconForKey, iconKeyFor } from "./main/icon";
+import { withLauncherDialog } from "./ipc/handlers";
 import {
   fillMissingIcons,
   isDuplicate,
   parseRaycastJson,
   toDraft,
   toRaycast,
-  type ImportSummary,
 } from "./main/transfer";
 import {
+  displayIcon,
   prettyLink,
   type QuicklinkCreateResult,
   type QuicklinkDraft,
@@ -24,7 +25,6 @@ import {
   expandDynamic,
   hasPlaceholder,
   isWebTarget,
-  monogramIcon,
   parseArgument,
   resolveLink,
   type Quicklink,
@@ -45,6 +45,27 @@ const EXPORT_ACTION_ID = "ql:__export";
 export interface QuicklinkDialogHost {
   getLauncherWindow: () => BrowserWindow | null;
   setSuppressAutoHide: (value: boolean) => void;
+}
+
+/** What a finished Import/Export has to say for itself. */
+interface TransferOutcome {
+  message: string;
+  detail: string;
+}
+
+/**
+ * How a quicklink describes its destination, for both the launcher row and the
+ * argument chip's live preview. One rule so the two can't drift: with no
+ * argument to take it's just the link; with one supplied it's the resolved
+ * target; with one still wanted the placeholder collapses to an ellipsis, e.g.
+ * "www.google.com/search?q=…", so it reads as a real destination.
+ *
+ * Preview only — an actual open re-resolves with live clipboard/uuid values.
+ */
+function subtitleFor(link: Quicklink, argument: string): string {
+  if (!hasPlaceholder(link.link)) return prettyLink(link.link);
+  if (!argument) return prettyLink(link.link).replace(/\{[^}]*\}/g, "…");
+  return `Open ${prettyLink(expandDynamic(resolveLink(link.link, argument)))}`;
 }
 
 /**
@@ -178,25 +199,22 @@ export class QuicklinkSource extends Extension {
    * `null` if the user cancelled. Throws a user-facing message when the file
    * can't be read or isn't the array the format calls for.
    */
-  private async importFromFile(): Promise<ImportSummary | null> {
-    const parent = this.dialogs?.getLauncherWindow() ?? null;
-    const options = {
-      title: "Import Quicklinks",
-      properties: ["openFile"] as Array<"openFile">,
-      filters: [{ name: "JSON", extensions: ["json"] }],
-    };
+  private async importFromFile(): Promise<TransferOutcome | null> {
+    // Independent of the file being picked, and slow on a cold session — start
+    // it now so it resolves while the user is still browsing.
+    const apps = listOpenWithApps();
 
-    this.dialogs?.setSuppressAutoHide(true);
-    let path: string | undefined;
-    try {
+    const path = await withLauncherDialog(this.dialogs, async (parent) => {
+      const options = {
+        title: "Import Quicklinks",
+        properties: ["openFile"] as Array<"openFile">,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      };
       const picked = parent
         ? await dialog.showOpenDialog(parent, options)
         : await dialog.showOpenDialog(options);
-      if (picked.canceled) return null;
-      path = picked.filePaths[0];
-    } finally {
-      this.dialogs?.setSuppressAutoHide(false);
-    }
+      return picked.canceled ? null : (picked.filePaths[0] ?? null);
+    });
     if (!path) return null;
 
     let text: string;
@@ -209,37 +227,39 @@ export class QuicklinkSource extends Extension {
     const parsed = parseRaycastJson(text);
     if (!parsed) throw new Error("That file isn't a JSON array of quicklinks.");
 
-    const apps = await listOpenWithApps();
-    const drafts = parsed.entries.map((entry) => toDraft(entry, apps));
+    const resolvedApps = await apps;
+    const drafts = parsed.entries.map((entry) => toDraft(entry, resolvedApps));
 
-    // An entry with no `iconName` gets its site's favicon, like the Create form
-    // does. Only for the ones that will actually be stored — re-importing a
-    // file you already have shouldn't hit the network at all.
+    // An entry with no `iconName` gets whatever its link resolves to, exactly as
+    // the Create form would. Only for the ones that will actually be stored —
+    // re-importing a file you already have shouldn't hit the network at all.
     const existing = this.store.list();
     await fillMissingIcons(
       drafts.filter((draft) => !isDuplicate(draft, existing)),
-      fetchFavicon,
+      { keyOf: iconKeyFor, icon: iconForKey },
     );
 
     const summary = this.store.addMany(drafts, isDuplicate);
-    return { ...summary, invalid: summary.invalid + parsed.invalid };
+    const invalid = summary.invalid + parsed.invalid;
+    const parts = [`Added ${summary.added}`];
+    if (summary.duplicates)
+      parts.push(`skipped ${summary.duplicates} duplicate`);
+    if (invalid) parts.push(`${invalid} unusable`);
+    return { message: "Import complete", detail: `${parts.join(", ")}.` };
   }
 
   /**
-   * Run an import/export and report it in a message box — the launcher is on its
+   * Run an Import/Export and report it in a message box — the launcher is on its
    * way out by the time either finishes, so there's nowhere in-app to show the
    * result. A cancelled dialog (`null`) says nothing; a failure reports itself
    * rather than dying silently in the console.
    */
-  private async runTransfer<T>(
-    run: () => Promise<T | null>,
-    describe: (result: T) => { message: string; detail: string },
+  private async report(
+    run: () => Promise<TransferOutcome | null>,
   ): Promise<void> {
     try {
-      const result = await run();
-      if (result === null) return;
-      const { message, detail } = describe(result);
-      await dialog.showMessageBox({ type: "info", message, detail });
+      const outcome = await run();
+      if (outcome) await dialog.showMessageBox({ type: "info", ...outcome });
     } catch (error) {
       await dialog.showMessageBox({
         type: "error",
@@ -251,49 +271,47 @@ export class QuicklinkSource extends Extension {
   }
 
   /** Write every quicklink to a Raycast-format JSON file. Null if cancelled. */
-  private async exportToFile(): Promise<string | null> {
-    const parent = this.dialogs?.getLauncherWindow() ?? null;
-    const options = {
-      title: "Export Quicklinks",
-      defaultPath: "quicklinks.json",
-      filters: [{ name: "JSON", extensions: ["json"] }],
-    };
+  private async exportToFile(): Promise<TransferOutcome | null> {
+    const apps = listOpenWithApps();
 
-    this.dialogs?.setSuppressAutoHide(true);
-    let path: string | undefined;
-    try {
+    const path = await withLauncherDialog(this.dialogs, async (parent) => {
+      const options = {
+        title: "Export Quicklinks",
+        defaultPath: "quicklinks.json",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      };
       const picked = parent
         ? await dialog.showSaveDialog(parent, options)
         : await dialog.showSaveDialog(options);
-      if (picked.canceled) return null;
-      path = picked.filePath;
-    } finally {
-      this.dialogs?.setSuppressAutoHide(false);
-    }
+      return picked.canceled ? null : (picked.filePath ?? null);
+    });
     if (!path) return null;
 
-    const apps = await listOpenWithApps();
-    const payload = this.store.list().map((link) => toRaycast(link, apps));
+    const resolvedApps = await apps;
+    const payload = this.store
+      .list()
+      .map((link) => toRaycast(link, resolvedApps));
     try {
       await writeFile(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
     } catch {
       throw new Error("That file could not be written.");
     }
-    return path;
+    return { message: "Quicklinks exported", detail: path };
   }
 
   /**
    * Subtitle for `actionId` with `argument` substituted in — what the launcher's
-   * argument chip shows live as the user types, so the row previews the URL that
-   * Enter will actually open.
+   * argument chip shows live as the user types. Shares `subtitleFor` with the
+   * row itself, so the chip and the row can't describe a link differently.
    */
   preview(actionId: string, argument: string): string | null {
-    const link = this.store
-      .list()
-      .find((entry) => `ql:${entry.id}` === actionId);
-    if (!link) return null;
-    const resolved = expandDynamic(resolveLink(link.link, argument));
-    return `Open ${prettyLink(resolved)}`;
+    const link = this.find(actionId);
+    return link ? subtitleFor(link, argument) : null;
+  }
+
+  /** The stored quicklink behind a `ql:<id>` action id. */
+  private find(actionId: string): Quicklink | undefined {
+    return this.store.list().find((entry) => `ql:${entry.id}` === actionId);
   }
 
   /** Delete the quicklink `id`. */
@@ -341,33 +359,16 @@ export class QuicklinkSource extends Extension {
     }
 
     if (actionId === IMPORT_ACTION_ID) {
-      await this.runTransfer(
-        () => this.importFromFile(),
-        (summary) => {
-          const parts = [`Added ${summary.added}`];
-          if (summary.duplicates)
-            parts.push(`skipped ${summary.duplicates} duplicate`);
-          if (summary.invalid) parts.push(`${summary.invalid} unusable`);
-          return {
-            message: "Import complete",
-            detail: `${parts.join(", ")}.`,
-          };
-        },
-      );
+      await this.report(() => this.importFromFile());
       return;
     }
 
     if (actionId === EXPORT_ACTION_ID) {
-      await this.runTransfer(
-        () => this.exportToFile(),
-        (path) => ({ message: "Quicklinks exported", detail: path }),
-      );
+      await this.report(() => this.exportToFile());
       return;
     }
 
-    const link = this.store
-      .list()
-      .find((entry) => `ql:${entry.id}` === actionId);
+    const link = this.find(actionId);
     if (!link) return;
 
     const withArgument = resolveLink(
@@ -411,27 +412,14 @@ export class QuicklinkSource extends Extension {
 
   private toDefinition(link: Quicklink, query: string): ActionDefinition {
     const takesArgument = hasPlaceholder(link.link);
-    const argument = parseArgument(query, link);
-    // Preview only — the real open re-resolves with live clipboard/uuid values.
-    const resolved = expandDynamic(resolveLink(link.link, argument));
-
-    let subtitle: string;
-    if (!takesArgument) {
-      subtitle = prettyLink(link.link);
-    } else if (argument) {
-      subtitle = `Open ${prettyLink(resolved)}`;
-    } else {
-      // Show the target with the placeholder collapsed to an ellipsis, e.g.
-      // "www.google.com/search?q=…", so it reads as a real destination.
-      subtitle = prettyLink(link.link).replace(/\{[^}]*\}/g, "…");
-    }
+    const subtitle = subtitleFor(link, parseArgument(query, link));
 
     return {
       action: {
         id: `ql:${link.id}`,
         title: link.name,
         subtitle,
-        icon: link.icon ?? monogramIcon(link.name),
+        icon: displayIcon(link),
         type: "quicklink",
         ...(takesArgument ? { takesArgument: true } : {}),
         ...(link.keyword ? { keyword: link.keyword } : {}),

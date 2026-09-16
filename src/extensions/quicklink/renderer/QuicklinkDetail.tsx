@@ -1,5 +1,5 @@
 import { relativeAge } from "../shared/format";
-import { monogramIcon, prettyLink, type QuicklinkEntry } from "../shared/types";
+import { displayIcon, prettyLink, type QuicklinkEntry } from "../shared/types";
 
 /**
  * The right-hand pane of the "Search Quicklinks" manager: what the highlighted
@@ -61,7 +61,7 @@ function QuicklinkDetail({
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 flex-col items-center gap-1.5 border-b border-border px-4 py-4">
         <img
-          src={entry.icon ?? monogramIcon(entry.name)}
+          src={displayIcon(entry)}
           alt=""
           className="h-10 w-10 rounded-lg object-contain"
         />

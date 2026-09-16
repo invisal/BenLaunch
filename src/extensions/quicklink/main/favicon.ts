@@ -8,23 +8,14 @@
  * which is the privacy line `monogramIcon` was written to hold.
  */
 
+import { originOf } from "../shared/link";
+
 /** Give up on a slow site rather than stalling the Create form. */
 const TIMEOUT_MS = 5_000;
 /** A favicon is kilobytes; anything past this is not one. */
 const MAX_BYTES = 256 * 1024;
 /** Only read enough of the page to reach `<head>`'s icon links. */
 const MAX_HTML_BYTES = 512 * 1024;
-
-/** `https://example.com/x?q={query}` → `https://example.com`, or null. */
-function originOf(link: string): string | null {
-  try {
-    const url = new URL(link.replace(/\{[^}]*\}/g, "x"));
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return url.origin;
-  } catch {
-    return null;
-  }
-}
 
 async function get(url: string): Promise<Response | null> {
   try {

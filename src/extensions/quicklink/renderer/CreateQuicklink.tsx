@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "cnfast";
 import { useImmer } from "use-immer";
 import { Menu } from "@base-ui/react/menu";
@@ -6,6 +6,7 @@ import { Popover } from "@base-ui/react/popover";
 import { Form, Layout, useField } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
 import AppPicker from "./AppPicker";
+import { hostOf, isImageUri, isLocalPath, originOf } from "../shared/link";
 import {
   DYNAMIC_PLACEHOLDERS,
   monogramIcon,
@@ -60,44 +61,11 @@ interface FormState {
   error: string | null;
 }
 
-const isImageIcon = (icon: string): boolean =>
-  /^(https?:|data:|file:)/.test(icon);
-
 const looksLikeLink = (text: string): boolean =>
   /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ||
   /^[~/]/.test(text) ||
   /^[a-z]:[\\/]/i.test(text) ||
   /^[^\s]+\.[a-z]{2,}(\/|$)/i.test(text);
-
-function hostOf(link: string): string | null {
-  try {
-    return new URL(link.replace(/\{[^}]*\}/g, "x")).hostname || null;
-  } catch {
-    return null;
-  }
-}
-
-/** `https://example.com/x?q={query}` → `https://example.com`; null unless http(s). */
-function originOf(link: string): string | null {
-  try {
-    const url = new URL(link.replace(/\{[^}]*\}/g, "x"));
-    return url.protocol === "http:" || url.protocol === "https:"
-      ? url.origin
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-/** A link that points at the filesystem — `~/x`, `/x`, `C:\x`, `file://x`. */
-function isLocalPath(link: string): boolean {
-  const trimmed = link.trim();
-  return (
-    /^file:\/\//i.test(trimmed) ||
-    /^[~/]/.test(trimmed) ||
-    /^[a-z]:[\\/]/i.test(trimmed)
-  );
-}
 
 /** `/Users/me/Notes/report.pdf` → `report`; `~/Downloads` → `Downloads`. */
 function nameFromPath(link: string): string {
@@ -274,12 +242,8 @@ function CreateQuicklink({
   // keystroke.
   useEffect(() => {
     if (state.iconEdited) return;
-    const lookup = origin
-      ? () => window.api.quicklink.fetchFavicon(origin)
-      : localPath
-        ? () => window.api.quicklink.fileIcon(localPath)
-        : null;
-    if (!lookup) {
+    const target = origin ?? localPath;
+    if (!target) {
       setState((d) => {
         d.fetchedIcon = "";
         d.fetchingIcon = false;
@@ -291,7 +255,7 @@ function CreateQuicklink({
       d.fetchingIcon = true;
     });
     const timer = setTimeout(() => {
-      void lookup().then((icon) => {
+      void window.api.quicklink.icon(target).then((icon) => {
         if (!live) return;
         setState((d) => {
           d.fetchedIcon = icon ?? "";
@@ -305,19 +269,13 @@ function CreateQuicklink({
     };
   }, [origin, localPath, state.iconEdited, setState]);
 
-  const previewIcon = useMemo(() => {
-    const trimmed = effectiveIcon.trim();
-    if (trimmed) return trimmed;
-    return monogramIcon(effectiveName || state.link || "Quicklink");
-  }, [effectiveIcon, effectiveName, state.link]);
-
-  // A hand-typed remote URL can't pass the CSP — show the monogram rather than
-  // a broken image.
-  const [iconLoadFailed, setIconLoadFailed] = useState(false);
-  useEffect(() => setIconLoadFailed(false), [previewIcon]);
-  const displayIcon = iconLoadFailed
-    ? monogramIcon(effectiveName || state.link || "Quicklink")
-    : previewIcon;
+  // Only a `data:` icon can pass the launcher's CSP, so whether an icon will
+  // render is decidable here — no need to paint one and repair it on error. A
+  // hand-typed http(s)/file: icon, or one carried in by an old edit, falls back.
+  const displayIcon =
+    effectiveIcon.trim() && !/^(https?|file):/i.test(effectiveIcon.trim())
+      ? effectiveIcon.trim()
+      : monogramIcon(effectiveName || state.link || "Quicklink");
 
   function insertIntoLink(token: string): void {
     const el = linkRef.current;
@@ -445,12 +403,11 @@ function CreateQuicklink({
                       className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-input text-lg"
                       title="Change icon"
                     >
-                      {isImageIcon(displayIcon) ? (
+                      {isImageUri(displayIcon) ? (
                         <img
                           src={displayIcon}
                           alt=""
                           className="h-5 w-5 object-contain"
-                          onError={() => setIconLoadFailed(true)}
                         />
                       ) : (
                         <span>{displayIcon}</span>

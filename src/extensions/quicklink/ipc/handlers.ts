@@ -5,9 +5,8 @@ import {
   type QuicklinkDraft,
   type QuicklinkEntry,
 } from "../shared/types";
-import { fetchFavicon } from "../main/favicon";
-import { fileIcon } from "../main/file-icon";
-import type { QuicklinkSource } from "../index";
+import { resolveIcon } from "../main/icon";
+import type { QuicklinkDialogHost, QuicklinkSource } from "../index";
 
 /**
  * The bits of the launcher window's own state that `quicklinkOpenWith` and
@@ -28,6 +27,29 @@ export interface QuicklinkIpcHost {
   usageOf: (
     actionId: string,
   ) => { count: number; lastUsedAt: number } | undefined;
+}
+
+/**
+ * Run a modal file dialog the way the launcher needs it: parented to the
+ * launcher window, with blur-to-hide suppressed for the duration and focus
+ * handed back afterwards — otherwise the launcher vanishes behind the sheet and
+ * the form it was showing is gone when the dialog closes.
+ *
+ * The one place that protocol lives; `pickPath` below and Import/Export in
+ * `index.ts` all go through it.
+ */
+export async function withLauncherDialog<T>(
+  host: QuicklinkDialogHost | null,
+  run: (parent: BrowserWindow | null) => Promise<T>,
+): Promise<T> {
+  const parent = host?.getLauncherWindow() ?? null;
+  host?.setSuppressAutoHide(true);
+  try {
+    return await run(parent);
+  } finally {
+    host?.setSuppressAutoHide(false);
+    parent?.focus();
+  }
 }
 
 /** Wires the Create/Edit form's and the Ctrl+K menu's quicklink calls to the source. */
@@ -88,38 +110,25 @@ export function registerQuicklinkIpc(
 
   ipcMain.handle(
     QUICKLINK_CHANNELS.pickPath,
-    async (_event, type: "file" | "directory"): Promise<string | null> => {
-      const options = {
-        properties: [
-          type === "directory" ? "openDirectory" : "openFile",
-        ] as Array<"openDirectory" | "openFile">,
-      };
-      const launcherWindow = host.getLauncherWindow();
-      host.setSuppressAutoHide(true);
-      try {
-        const result = launcherWindow
-          ? await dialog.showOpenDialog(launcherWindow, options)
+    (_event, type: "file" | "directory"): Promise<string | null> =>
+      withLauncherDialog(host, async (parent) => {
+        const options = {
+          properties: [
+            type === "directory" ? "openDirectory" : "openFile",
+          ] as Array<"openDirectory" | "openFile">,
+        };
+        const result = parent
+          ? await dialog.showOpenDialog(parent, options)
           : await dialog.showOpenDialog(options);
         return result.canceled ? null : (result.filePaths[0] ?? null);
-      } finally {
-        host.setSuppressAutoHide(false);
-        // The dialog took focus; hand it back so the form stays interactive and
-        // a later real focus loss hides the launcher as usual.
-        launcherWindow?.focus();
-      }
-    },
+      }),
   );
 
   ipcMain.handle(QUICKLINK_CHANNELS.openWithApps, () => listOpenWithApps());
 
   ipcMain.handle(
-    QUICKLINK_CHANNELS.fetchFavicon,
-    (_event, link: string): Promise<string | null> => fetchFavicon(link),
-  );
-
-  ipcMain.handle(
-    QUICKLINK_CHANNELS.fileIcon,
-    (_event, link: string): Promise<string | null> => fileIcon(link),
+    QUICKLINK_CHANNELS.icon,
+    (_event, link: string): Promise<string | null> => resolveIcon(link),
   );
 
   ipcMain.handle(

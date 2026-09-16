@@ -37,12 +37,12 @@ export const quicklinkApi = {
     ipcRenderer.invoke(QUICKLINK_CHANNELS.pickPath, type),
   openWithApps: (): Promise<OpenWithApp[]> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.openWithApps),
-  /** The site's favicon as a `data:` URI — remote URLs can't pass the CSP. */
-  fetchFavicon: (link: string): Promise<string | null> =>
-    ipcRenderer.invoke(QUICKLINK_CHANNELS.fetchFavicon, link),
-  /** The OS icon for a file/folder link, inlined as a `data:` URI. */
-  fileIcon: (link: string): Promise<string | null> =>
-    ipcRenderer.invoke(QUICKLINK_CHANNELS.fileIcon, link),
+  /**
+   * The icon for a link — a site's favicon, a file's OS icon — inlined as a
+   * `data:` URI, since a referenced URL can't pass the CSP. Null if it has none.
+   */
+  icon: (link: string): Promise<string | null> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.icon, link),
   /** Live subtitle for the argument chip: the URL `argument` would open. */
   preview: (actionId: string, argument: string): Promise<string | null> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.preview, actionId, argument),

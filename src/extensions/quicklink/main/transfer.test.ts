@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 
+import { isLocalPath, originOf } from "../shared/link.ts";
 import type { OpenWithApp, QuicklinkDraft } from "../shared/types.ts";
 import { QuicklinkStore } from "./store.ts";
 import {
@@ -14,14 +15,22 @@ import {
   toRaycast,
 } from "./transfer.ts";
 
-/** Records which origins were asked for, so tests can assert the de-duping. */
-function fakeFetcher(result: (origin: string) => string | null = () => "icon") {
+/**
+ * A stand-in for the real icon resolver, recording which keys were asked for so
+ * tests can assert the de-duping. Keys web links by origin and paths by path,
+ * mirroring `main/icon.ts`'s `iconKeyFor` without importing Electron.
+ */
+function fakeResolver(result: (key: string) => string | null = () => "icon") {
   const asked: string[] = [];
   return {
     asked,
-    fetch: async (origin: string) => {
-      asked.push(origin);
-      return result(origin);
+    resolve: {
+      keyOf: (link: string) =>
+        originOf(link) ?? (isLocalPath(link) ? `path:${link}` : null),
+      icon: async (key: string) => {
+        asked.push(key);
+        return result(key);
+      },
     },
   };
 }
@@ -256,9 +265,9 @@ test("fillMissingIcons gives an iconless web link its site's favicon", async () 
   const drafts: QuicklinkDraft[] = [
     { name: "x", link: "https://example.com/a?b=1" },
   ];
-  const fetcher = fakeFetcher();
+  const fetcher = fakeResolver();
 
-  await fillMissingIcons(drafts, fetcher.fetch);
+  await fillMissingIcons(drafts, fetcher.resolve);
 
   assert.deepEqual(fetcher.asked, ["https://example.com"]);
   assert.equal(drafts[0].icon, "icon");
@@ -271,9 +280,9 @@ test("fillMissingIcons fetches once per origin, not once per link", async () => 
     { name: "c", link: "https://github.com/three" },
     { name: "d", link: "https://other.com/x" },
   ];
-  const fetcher = fakeFetcher((origin) => `icon:${origin}`);
+  const fetcher = fakeResolver((origin) => `icon:${origin}`);
 
-  await fillMissingIcons(drafts, fetcher.fetch);
+  await fillMissingIcons(drafts, fetcher.resolve);
 
   assert.equal(fetcher.asked.length, 2);
   assert.deepEqual(
@@ -290,23 +299,39 @@ test("fillMissingIcons leaves an entry that brought its own icon alone", async (
   const drafts: QuicklinkDraft[] = [
     { name: "x", link: "https://example.com", icon: "🚀" },
   ];
-  const fetcher = fakeFetcher();
+  const fetcher = fakeResolver();
 
-  await fillMissingIcons(drafts, fetcher.fetch);
+  await fillMissingIcons(drafts, fetcher.resolve);
 
   assert.deepEqual(fetcher.asked, []);
   assert.equal(drafts[0].icon, "🚀");
 });
 
-test("fillMissingIcons skips links with no website to ask", async () => {
+test("fillMissingIcons resolves file links too, by expanded path", async () => {
   const drafts: QuicklinkDraft[] = [
     { name: "downloads", link: "~/Downloads" },
-    { name: "shortcut", link: "shortcuts://run-shortcut?Name={Test}" },
     { name: "abs", link: "/usr/local/bin" },
   ];
-  const fetcher = fakeFetcher();
+  const fetcher = fakeResolver();
 
-  await fillMissingIcons(drafts, fetcher.fetch);
+  await fillMissingIcons(drafts, fetcher.resolve);
+
+  // An imported file link gets the same icon the Create form would give it.
+  assert.deepEqual(fetcher.asked, [
+    `path:${join(homedir(), "Downloads")}`,
+    "path:/usr/local/bin",
+  ]);
+  for (const draft of drafts) assert.equal(draft.icon, "icon");
+});
+
+test("fillMissingIcons skips a link with no icon to look up", async () => {
+  const drafts: QuicklinkDraft[] = [
+    { name: "shortcut", link: "shortcuts://run-shortcut?Name={Test}" },
+    { name: "mail", link: "mailto:someone@example.com" },
+  ];
+  const fetcher = fakeResolver();
+
+  await fillMissingIcons(drafts, fetcher.resolve);
 
   assert.deepEqual(fetcher.asked, []);
   for (const draft of drafts) assert.equal(draft.icon, undefined);
@@ -314,18 +339,18 @@ test("fillMissingIcons skips links with no website to ask", async () => {
 
 test("fillMissingIcons normalizes a bare domain before asking", async () => {
   const drafts: QuicklinkDraft[] = [{ name: "x", link: "example.com/path" }];
-  const fetcher = fakeFetcher();
+  const fetcher = fakeResolver();
 
-  await fillMissingIcons(drafts, fetcher.fetch);
+  await fillMissingIcons(drafts, fetcher.resolve);
 
   assert.deepEqual(fetcher.asked, ["https://example.com"]);
 });
 
 test("fillMissingIcons leaves a link iconless when the lookup finds nothing", async () => {
   const drafts: QuicklinkDraft[] = [{ name: "x", link: "https://example.com" }];
-  const fetcher = fakeFetcher(() => null);
+  const fetcher = fakeResolver(() => null);
 
-  await fillMissingIcons(drafts, fetcher.fetch);
+  await fillMissingIcons(drafts, fetcher.resolve);
 
   assert.equal(drafts[0].icon, undefined);
 });

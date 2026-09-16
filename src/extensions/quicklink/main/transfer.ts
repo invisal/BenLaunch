@@ -13,6 +13,7 @@
  * file picking and writing live in the extension's IPC handlers.
  */
 import { basename } from "node:path";
+import { isImageUri } from "../shared/link.ts";
 import type { OpenWithApp, QuicklinkDraft } from "../shared/types.ts";
 import { normalizeLink, type Quicklink } from "./store.ts";
 
@@ -36,7 +37,7 @@ export interface ImportSummary {
 function isRenderableIcon(icon: string): boolean {
   const trimmed = icon.trim();
   if (!trimmed) return false;
-  if (/^(https?:|data:|file:)/i.test(trimmed)) return true;
+  if (isImageUri(trimmed)) return true;
   // Raycast's built-in names ("folder-16", "globe") have no equivalent here;
   // an emoji has no ASCII word characters, which is what separates the two.
   return !/[A-Za-z0-9_-]/.test(trimmed);
@@ -45,18 +46,6 @@ function isRenderableIcon(icon: string): boolean {
 /** `/Applications/Music.app` → `Music`; `C:\...\Code.exe` → `Code`. */
 function appNameFromPath(path: string): string {
   return basename(path).replace(/\.(app|exe)$/i, "");
-}
-
-/** The http(s) origin a link points at, or null for a path/other scheme. */
-function originOfLink(link: string): string | null {
-  try {
-    const url = new URL(link);
-    return url.protocol === "http:" || url.protocol === "https:"
-      ? url.origin
-      : null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -136,41 +125,44 @@ export function toDraft(
 }
 
 /**
- * Give every draft that arrived without an icon its own site's favicon — the
- * same thing the Create form does when you type a URL, so an imported link
- * doesn't look worse than one made by hand. Fills them in place.
+ * Give every draft that arrived without an icon whatever icon its link resolves
+ * to — a site's favicon, a file's OS icon — so an imported link doesn't look
+ * worse than the same link typed into the Create form. Fills them in place.
  *
- * Grouped by origin, so a file with twenty github.com links costs one fetch,
- * and run a few at a time so a long list doesn't go one-at-a-time through each
- * request's timeout. Links that aren't http(s) — `~/Downloads`,
- * `shortcuts://…` — have no favicon to find and are skipped; anything that
- * fails is left iconless and falls back to a monogram at render time.
+ * Drafts are grouped by `keyOf`, so a file with twenty github.com links costs
+ * one lookup, and run a few at a time so a long list doesn't go one-at-a-time
+ * through each request's timeout. A link `keyOf` can't key — `shortcuts://…` —
+ * has no icon to find and is skipped; anything that fails is left iconless and
+ * falls back to a monogram at render time.
  *
- * `fetchIcon` is injected rather than imported so this stays testable without
+ * The resolver is injected rather than imported so this stays testable without
  * touching the network.
  */
 export async function fillMissingIcons(
   drafts: readonly QuicklinkDraft[],
-  fetchIcon: (origin: string) => Promise<string | null>,
+  resolve: {
+    keyOf: (link: string) => string | null;
+    icon: (key: string) => Promise<string | null>;
+  },
   concurrency = 8,
 ): Promise<void> {
-  const byOrigin = new Map<string, QuicklinkDraft[]>();
+  const byKey = new Map<string, QuicklinkDraft[]>();
   for (const draft of drafts) {
     if (draft.icon) continue;
-    const origin = originOfLink(normalizeLink(draft.link));
-    if (!origin) continue;
-    const group = byOrigin.get(origin);
+    const key = resolve.keyOf(normalizeLink(draft.link));
+    if (!key) continue;
+    const group = byKey.get(key);
     if (group) group.push(draft);
-    else byOrigin.set(origin, [draft]);
+    else byKey.set(key, [draft]);
   }
 
-  const pending = [...byOrigin];
+  const pending = [...byKey];
   let cursor = 0;
   const worker = async (): Promise<void> => {
     while (cursor < pending.length) {
-      const [origin, group] = pending[cursor];
+      const [key, group] = pending[cursor];
       cursor += 1;
-      const icon = await fetchIcon(origin);
+      const icon = await resolve.icon(key);
       if (icon) for (const draft of group) draft.icon = icon;
     }
   };
@@ -195,9 +187,7 @@ export function toRaycast(
     link: link.link,
     // A data: URI favicon is kilobytes of base64 and means nothing to Raycast;
     // only a literal emoji is worth carrying across.
-    ...(link.icon && !/^(https?:|data:|file:)/i.test(link.icon)
-      ? { iconName: link.icon }
-      : {}),
+    ...(link.icon && !isImageUri(link.icon) ? { iconName: link.icon } : {}),
     ...(openWith ? { openWith } : {}),
   };
 }
