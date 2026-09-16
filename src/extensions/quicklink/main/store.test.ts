@@ -6,6 +6,7 @@ import { afterEach, beforeEach, test } from "node:test";
 
 import {
   normalizeTags,
+  prettyLink,
   slugify,
   validateDraft,
 } from "../shared/types.ts";
@@ -18,7 +19,6 @@ import {
   monogramIcon,
   normalizeLink,
   parseArgument,
-  prettyLink,
   resolveLink,
   sanitize,
 } from "./store.ts";
@@ -219,7 +219,7 @@ test("validateDraft catches the form-checkable problems", () => {
 });
 
 test("add() appends a normalized entry with a unique generated id", () => {
-  const store = new QuicklinkStore({ dir });
+  const store = new QuicklinkStore({ dir, now: () => 1000 });
   store.reload();
   writeFileSync(join(dir, "quicklinks.json"), JSON.stringify([]));
   store.reload();
@@ -232,6 +232,8 @@ test("add() appends a normalized entry with a unique generated id", () => {
     id: "hacker-news",
     name: "Hacker News",
     link: "https://news.ycombinator.com",
+    createdAt: 1000,
+    updatedAt: 1000,
   });
 
   const second = store.add({
@@ -285,8 +287,8 @@ test("add() persists openWith and tags", () => {
   assert.deepEqual(reread.tags, ["work", "reference"]);
 });
 
-test("update() replaces fields but keeps the id and the pinned/hidden flags", () => {
-  const store = new QuicklinkStore({ dir });
+test("update() replaces fields but keeps the id, flags and createdAt", () => {
+  const store = new QuicklinkStore({ dir, now: () => 2000 });
   writeFileSync(
     join(dir, "quicklinks.json"),
     JSON.stringify([
@@ -296,6 +298,8 @@ test("update() replaces fields but keeps the id and the pinned/hidden flags", ()
         link: "https://docs.example.com",
         pinned: true,
         hidden: true,
+        createdAt: 5,
+        updatedAt: 5,
       },
     ]),
   );
@@ -313,11 +317,37 @@ test("update() replaces fields but keeps the id and the pinned/hidden flags", ()
     keyword: "d",
     pinned: true,
     hidden: true,
+    createdAt: 5,
+    updatedAt: 2000,
   });
 
   const reread = new QuicklinkStore({ dir }).get("docs");
   assert.equal(reread?.name, "Docs v2");
   assert.equal(reread?.pinned, true);
+});
+
+test("pinning and hiding leave updatedAt alone — they aren't edits to the link", () => {
+  const store = new QuicklinkStore({ dir, now: () => 3000 });
+  writeFileSync(
+    join(dir, "quicklinks.json"),
+    JSON.stringify([
+      {
+        id: "docs",
+        name: "Docs",
+        link: "https://docs.example.com",
+        updatedAt: 7,
+      },
+    ]),
+  );
+  store.reload();
+
+  store.setPinned("docs", true);
+  store.setHidden("docs", true);
+
+  const entry = new QuicklinkStore({ dir }).get("docs");
+  assert.equal(entry?.updatedAt, 7);
+  assert.equal(entry?.pinned, true);
+  assert.equal(entry?.hidden, true);
 });
 
 test("update() rejects an unknown id and an invalid draft", () => {

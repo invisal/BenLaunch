@@ -22,6 +22,11 @@ export interface LauncherAction {
    * (e.g. "g" for a Google quicklink). Everything after it becomes the argument.
    */
   keyword?: string;
+  /**
+   * The action takes a typed argument (a quicklink with a `{query}`
+   * placeholder). The launcher offers Tab to capture one into a chip.
+   */
+  takesArgument?: boolean;
   /** Extra terms this action should also match on (e.g. a quicklink's tags). */
   tags?: string[];
   /** Quicklink is pinned — sorts above unpinned actions in the root list. */

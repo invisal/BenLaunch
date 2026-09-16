@@ -59,6 +59,18 @@ function LauncherScreen() {
   } | null>(null);
   const [pinned, setPinned] = useState(false);
   const [apps, setApps] = useState<OpenWithApp[]>([]);
+  /**
+   * Argument mode — the Raycast-style chip. Tab on a row that `takesArgument`
+   * locks it in: the search box stops being a search and becomes that action's
+   * `{query}` value, so a quicklink no longer needs an alias to receive one.
+   * `savedQuery` is the search text to restore when the chip is dismissed.
+   */
+  const [argumentMode, setArgumentMode] = useState<{
+    action: LauncherAction;
+    savedQuery: string;
+  } | null>(null);
+  /** Live "Open …" subtitle for the locked row, resolved in main. */
+  const [argumentPreview, setArgumentPreview] = useState<string | null>(null);
 
   async function togglePin(): Promise<void> {
     setPinned(await window.api.togglePin());
@@ -75,6 +87,9 @@ function LauncherScreen() {
   }, []);
 
   useEffect(() => {
+    // In argument mode the box holds the argument, not a search — the list is
+    // pinned to the one locked row, so there's nothing to re-rank.
+    if (argumentMode) return;
     let cancelled = false;
     window.api.query(query).then((res) => {
       if (!cancelled) {
@@ -85,7 +100,21 @@ function LauncherScreen() {
     return () => {
       cancelled = true;
     };
-  }, [query, reloadNonce]);
+  }, [query, reloadNonce, argumentMode]);
+
+  // Preview the URL the typed argument would open, so the row tracks the chip.
+  useEffect(() => {
+    if (!argumentMode) return;
+    let live = true;
+    void window.api.quicklink
+      .preview(argumentMode.action.id, query)
+      .then((subtitle) => {
+        if (live) setArgumentPreview(subtitle);
+      });
+    return () => {
+      live = false;
+    };
+  }, [argumentMode, query]);
 
   // The list feeds Base UI's Autocomplete (inside ListScreen): the
   // calculation, when present, is the first row, then the ranked actions.
@@ -100,18 +129,46 @@ function LauncherScreen() {
   // scrolling) made it lose track and fall back to re-highlighting the first
   // row — which then yanked the list back to the top.
   const rows = useMemo<Row[]>(() => {
+    if (argumentMode) {
+      const { action } = argumentMode;
+      return [
+        {
+          key: action.id,
+          kind: "action",
+          action: argumentPreview
+            ? { ...action, subtitle: argumentPreview }
+            : action,
+        },
+      ];
+    }
     const list: Row[] = [];
     if (calculation) list.push({ key: "__calc__", kind: "calc", calculation });
     for (const action of results) {
       list.push({ key: action.id, kind: "action", action });
     }
     return list;
-  }, [calculation, results]);
+  }, [calculation, results, argumentMode, argumentPreview]);
 
   function dismiss(): void {
     setQuery("");
+    setArgumentMode(null);
+    setArgumentPreview(null);
     reset();
     if (!pinned) window.api.hide();
+  }
+
+  /** Tab — lock `action` in and hand the search box over to its argument. */
+  function enterArgumentMode(action: LauncherAction): void {
+    setArgumentMode({ action, savedQuery: query });
+    setArgumentPreview(null);
+    setQuery("");
+  }
+
+  /** Escape / Backspace on an empty chip — put the search query back. */
+  function exitArgumentMode(mode: NonNullable<typeof argumentMode>): void {
+    setQuery(mode.savedQuery);
+    setArgumentMode(null);
+    setArgumentPreview(null);
   }
 
   /**
@@ -153,6 +210,17 @@ function LauncherScreen() {
       return;
     }
     const { action } = row;
+    if (argumentMode) {
+      // The box holds the argument; `savedQuery` is what the user actually
+      // searched, which is the signal usage-ranking wants.
+      void window.api
+        .execute(action.id, argumentMode.savedQuery, query)
+        .then((result) => {
+          if (result.navigate) push(result.navigate);
+          else dismiss();
+        });
+      return;
+    }
     if (action.type === "widget" || action.type === "calculation") {
       // The row is a value, not an action — Enter copies it, like the calc row.
       // Ask for the current value directly (cheap: a no-op refresh resolves
@@ -247,6 +315,24 @@ function LauncherScreen() {
     e: KeyboardEvent<HTMLInputElement>,
     active: Row | null,
   ): void {
+    if (argumentMode) {
+      // Escape, or Backspace with nothing left to delete, gives the chip back.
+      const backspaceOnEmpty = e.key === "Backspace" && !query;
+      if (e.key === "Escape" || backspaceOnEmpty) {
+        e.preventDefault();
+        exitArgumentMode(argumentMode);
+      }
+      return;
+    }
+    if (
+      e.key === "Tab" &&
+      active?.kind === "action" &&
+      active.action.takesArgument
+    ) {
+      e.preventDefault();
+      enterArgumentMode(active.action);
+      return;
+    }
     if (e.key === "Enter" && active?.kind === "calc") {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.shiftKey) {
@@ -301,7 +387,29 @@ function LauncherScreen() {
       inputValue={query}
       onInputChange={setQuery}
       onInputKeyDown={onInputKeyDown}
-      placeholder="Search actions..."
+      placeholder={argumentMode ? "Enter query…" : "Search actions..."}
+      inputPrefix={
+        argumentMode ? (
+          <span
+            className="flex shrink-0 items-center gap-1.5 rounded bg-item-selected px-2 py-1 text-sm [-webkit-app-region:no-drag]"
+            title="Backspace to go back"
+          >
+            {argumentMode.action.icon &&
+              (/^(https?:|data:|file:)/.test(argumentMode.action.icon) ? (
+                <img
+                  src={argumentMode.action.icon}
+                  alt=""
+                  className="h-3.5 w-3.5 shrink-0 object-contain"
+                />
+              ) : (
+                <span className="shrink-0">{argumentMode.action.icon}</span>
+              ))}
+            <span className="max-w-[16ch] truncate">
+              {argumentMode.action.title}
+            </span>
+          </span>
+        ) : undefined
+      }
       autoRefocus
       onActivate={runRow}
       onExit={() => window.api.hide()}

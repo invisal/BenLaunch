@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -160,21 +161,10 @@ const Item = forwardRef<HTMLDivElement, ItemProps>(function Item(
     >
       <ItemIcon icon={icon} />
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span
-          className={cn(
-            "truncate",
-            // With a subtitle/shortcut to share the row with, keep title at
-            // its natural width and let *that* trailing content shrink
-            // first (below). With nothing else on the row, title is the
-            // only thing that can give — let it shrink and truncate
-            // instead of overflowing the row uncut.
-            (shortcut && highlighted) || subtitle
-              ? "shrink-0"
-              : "min-w-0 flex-1",
-          )}
-        >
-          {title}
-        </span>
+        {/* Shrinkable, not `shrink-0`: in a narrow column (the master/detail
+            layout) a long title has to truncate rather than push the row wide
+            and give the list a horizontal scrollbar. */}
+        <span className="min-w-0 truncate">{title}</span>
         {shortcut && highlighted ? (
           <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
             {formatShortcut(shortcut)}
@@ -215,6 +205,13 @@ interface ListScreenBaseProps<T> {
   menu?: (highlighted: T | null) => FooterMenuItem[];
   /** Click / Enter on a row. */
   onActivate?: (item: T) => void;
+  /**
+   * Opt into a master/detail layout: the list narrows to a column on the left
+   * and this renders a scrolling pane beside it for the highlighted row (the
+   * same target `menu` gets, so the two always describe the same thing). Omit
+   * for the usual full-width list.
+   */
+  detail?: (highlighted: T | null) => ReactNode;
   /** Escape with an empty query (a non-empty query is cleared first).
    *  Defaults to popping this screen off the launcher's route stack — every
    *  `ListScreen` is pushed there, so a caller only needs this to override
@@ -250,21 +247,24 @@ interface ListScreenBaseProps<T> {
 
   footerLabel?: ReactNode | ((visibleCount: number) => ReactNode);
   /** Escape hatch replacing `Footer.Left` entirely (a count label plus a
-   *  Pin toggle, say) — takes over from `footerLabel` when set. */
-  customFooter?: ReactNode;
+   *  Pin toggle, say) — takes over from `footerLabel` when set. As a function
+   *  it also receives the search input's ref, which a second `Footer.Menu` in
+   *  the footer (a filter, say) wants as its `finalFocus` so closing it puts
+   *  the cursor back in the search box rather than on its own trigger. */
+  customFooter?:
+    | ReactNode
+    | ((ctx: { inputRef: RefObject<HTMLInputElement | null> }) => ReactNode);
   loadingLabel?: ReactNode;
   emptyLabel?: ReactNode;
   noMatchLabel?: ReactNode;
 
+  /** Rendered inside the search header, before the input — the launcher's
+   *  argument chip sits here, so what you type reads as the chip's value. */
+  inputPrefix?: ReactNode;
   /** Row is inert — keyboard nav skips it and click/Enter/⌘K ignore it.
    *  For a non-interactive row inlined into `data`, e.g. a section heading
    *  (see `ClipboardHistoryListScreen` for the pattern). */
   isDisabled?: (item: T) => boolean;
-  /** Render a detail/preview pane to the right of the list, synced to the
-   *  current highlighted row (or the first selectable row, like `menu`'s
-   *  target — `null` while loading/empty). Narrows the list to a left
-   *  column with a vertical divider instead of the full-width default. */
-  detail?: (item: T | null) => ReactNode;
   /** Fires whenever the highlighted row changes — keyboard navigation,
    *  right-click (which highlights the row it opens the menu for), and
    *  Base UI's own auto-highlight on mount/filter. A caller driving its own
@@ -303,6 +303,7 @@ function ListScreenRoot<T>({
   renderItem,
   menu,
   onActivate,
+  detail,
   onExit,
   inputValue,
   onInputChange,
@@ -316,12 +317,12 @@ function ListScreenRoot<T>({
   loadingLabel = "Loading…",
   emptyLabel,
   noMatchLabel = "No matches.",
+  inputPrefix,
   autoRefocus = false,
   virtualized = false,
   itemHeight,
   measureItem,
   isDisabled,
-  detail,
   onHighlightChange,
 }: ListScreenProps<T>) {
   const { stack, pop } = useRouteStack();
@@ -422,6 +423,11 @@ function ListScreenRoot<T>({
       ? footerLabel(visible.length)
       : footerLabel;
 
+  const footer =
+    typeof customFooter === "function"
+      ? customFooter({ inputRef })
+      : customFooter;
+
   return (
     <Autocomplete.Root
       items={visible}
@@ -478,6 +484,7 @@ function ListScreenRoot<T>({
               <MagicIcon />
             </span>
           )}
+          {inputPrefix}
           <Autocomplete.Input
             ref={inputRef}
             onKeyDown={onInputKeyDown}
@@ -487,12 +494,12 @@ function ListScreenRoot<T>({
           />
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1">
           <div
             ref={scrollContainerRef}
             className={cn(
-              "overflow-y-auto p-2",
-              detail ? "w-56 shrink-0 border-r border-border" : "flex-1",
+              "min-h-0 overflow-y-auto p-2",
+              detail ? "w-[38%] shrink-0 border-r border-border" : "flex-1",
             )}
           >
             {virtualized ? (
@@ -539,9 +546,7 @@ function ListScreenRoot<T>({
                       }}
                       render={(props, state) =>
                         cloneElement(
-                          renderItem(item, {
-                            highlighted: state.highlighted,
-                          }),
+                          renderItem(item, { highlighted: state.highlighted }),
                           props,
                         )
                       }
@@ -568,9 +573,7 @@ function ListScreenRoot<T>({
                       }}
                       render={(props, state) =>
                         cloneElement(
-                          renderItem(item, {
-                            highlighted: state.highlighted,
-                          }),
+                          renderItem(item, { highlighted: state.highlighted }),
                           props,
                         )
                       }
@@ -586,16 +589,17 @@ function ListScreenRoot<T>({
               </div>
             )}
           </div>
-
           {detail && (
-            <div className="flex-1 overflow-y-auto">{detail(menuTarget)}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {detail(menuTarget)}
+            </div>
           )}
         </div>
 
         <Footer>
-          {(customFooter != null || label != null) && (
+          {(footer != null || label != null) && (
             <Footer.Left>
-              {customFooter ?? <Footer.Label>{label}</Footer.Label>}
+              {footer ?? <Footer.Label>{label}</Footer.Label>}
             </Footer.Left>
           )}
           {menu && (

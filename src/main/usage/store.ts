@@ -168,6 +168,12 @@ export class Usage {
     return this.state.byQuery[normalizeQuery(query)]?.[actionId] ?? 0;
   }
 
+  /** How often and how recently `actionId` has been run, or `undefined` if never. */
+  stat(actionId: string): Readonly<Stat> | undefined {
+    this.init();
+    return this.state.global[actionId];
+  }
+
   /** actionId → decayed global frecency, for ordering the empty-query suggestion list. */
   scores(): Map<string, number> {
     this.init();

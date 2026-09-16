@@ -2,42 +2,35 @@ import type { LauncherAction } from "@shared/types";
 import type {
   ContextMenuContext,
   ContextMenuContributor,
-  MenuActionItem,
 } from "@renderer/screens/launcher/context-menu/types";
+import {
+  createQuicklinkItem,
+  quicklinkMenuItems,
+  type QuicklinkMenuHost,
+} from "./menu-items";
 
-/** The "Open With" rows: the system default plus every resolved app, as one
- *  flat `section` (there are no submenus). */
-function openWithItems(
-  actionId: string,
+/** The launcher's side of `QuicklinkMenuHost` — the rows themselves live in `./menu-items`. */
+function host(
+  action: LauncherAction,
   ctx: ContextMenuContext,
-): MenuActionItem[] {
-  return [
-    {
-      id: "ow:__default",
-      section: "Open With",
-      label: "Default App",
-      onSelect: () => {
-        void window.api.quicklink.openQuicklinkWith(actionId, ctx.query, "");
-        ctx.dismiss();
-      },
-    },
-    ...ctx.apps.map((app) => ({
-      id: `ow:${app.path}`,
-      section: "Open With",
-      label: app.name,
-      icon: app.icon,
-      onSelect: () => {
-        void window.api.quicklink.openQuicklinkWith(actionId, ctx.query, app.path);
-        ctx.dismiss();
-      },
-    })),
-  ];
+): QuicklinkMenuHost {
+  return {
+    apps: ctx.apps,
+    query: ctx.query,
+    push: ctx.push,
+    reload: ctx.reload,
+    dismiss: ctx.dismiss,
+    open: () => ctx.runAction(action),
+  };
 }
 
 /**
  * Owns the Ctrl+K menu for quicklink rows (`ql:*`), and adds a single "Create
  * Quicklink" item to every other kind of row except Widgets and pinned
  * calculations (whose menus are only about the value, not about making links).
+ *
+ * The rows themselves come from `./menu-items`, shared with the "Search
+ * Quicklinks" manager screen so the two surfaces can't drift apart.
  */
 export const quicklinkContextMenu: ContextMenuContributor = {
   id: "quicklink",
@@ -48,104 +41,20 @@ export const quicklinkContextMenu: ContextMenuContributor = {
     if (!isQuicklink) {
       if (action.type === "widget" || action.type === "calculation")
         return null;
-      return [
-        {
-          id: "create-quicklink",
-          label: "Create Quicklink",
-          section: "Quicklink",
-          onSelect: () =>
-            ctx.push({
-              name: "quicklink-create",
-              payload: { seed: ctx.query },
-            }),
-        },
-      ];
+      return [createQuicklinkItem(host(action, ctx))];
     }
-
-    const actionId = action.id;
-    const id = actionId.slice(3);
-    const isPinned = !!action.pinned;
-    const isHidden = !!action.hidden;
 
     return {
       role: "primary" as const,
-      actions: [
+      actions: quicklinkMenuItems(
         {
-          id: "run",
-          label: "Open Quicklink",
-          shortcut: "Enter",
-          onSelect: () => ctx.runAction(action),
+          id: action.id.slice(3),
+          name: action.title,
+          pinned: action.pinned,
+          hidden: action.hidden,
         },
-        ...openWithItems(actionId, ctx),
-        {
-          id: "pin",
-          section: "Manage Quicklink",
-          label: isPinned ? "Unpin Quicklink" : "Pin Quicklink",
-          onSelect: async () => {
-            await window.api.quicklink.setQuicklinkPinned(id, !isPinned);
-            ctx.reload();
-          },
-        },
-        {
-          id: "edit",
-          section: "Manage Quicklink",
-          label: "Edit Quicklink",
-          onSelect: () => ctx.push({ name: "quicklink-edit", payload: { id } }),
-        },
-        {
-          id: "duplicate",
-          section: "Manage Quicklink",
-          label: "Duplicate Quicklink",
-          onSelect: () =>
-            ctx.push({ name: "quicklink-duplicate", payload: { id } }),
-        },
-        {
-          id: "hide",
-          section: "Manage Quicklink",
-          label: isHidden ? "Show in Root Search" : "Hide in Root Search",
-          onSelect: async () => {
-            await window.api.quicklink.setQuicklinkHidden(id, !isHidden);
-            ctx.reload();
-          },
-        },
-        {
-          id: "copy-name",
-          section: "Copy",
-          label: "Copy Name",
-          shortcut: "CommandOrControl+C",
-          onSelect: () => void navigator.clipboard.writeText(action.title),
-        },
-        {
-          id: "copy-link",
-          section: "Copy",
-          label: "Copy Link",
-          onSelect: async () => {
-            const ql = await window.api.quicklink.getQuicklink(id);
-            if (ql) await navigator.clipboard.writeText(ql.link);
-          },
-        },
-        {
-          id: "create-quicklink",
-          section: "Quicklink",
-          label: "Create Quicklink",
-          onSelect: () =>
-            ctx.push({
-              name: "quicklink-create",
-              payload: { seed: ctx.query },
-            }),
-        },
-        {
-          id: "delete",
-          section: "Danger Zone",
-          label: "Delete Quicklink",
-          confirmLabel: `Click again to delete "${action.title}"`,
-          danger: true,
-          onSelect: async () => {
-            await window.api.quicklink.deleteQuicklink(id);
-            ctx.reload();
-          },
-        },
-      ],
+        host(action, ctx),
+      ),
     };
   },
 };

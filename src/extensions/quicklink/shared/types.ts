@@ -28,6 +28,23 @@ export interface Quicklink {
   pinned?: boolean;
   /** Hidden from the root list, but still returned for an explicit search. */
   hidden?: boolean;
+  /** Epoch ms the link was created. Absent on links stored before this was tracked. */
+  createdAt?: number;
+  /** Epoch ms of the last edit through the form. Pin/hide don't count — they're
+   *  list preferences, not changes to the link itself. */
+  updatedAt?: number;
+}
+
+/**
+ * A quicklink as the manager screen sees it: the stored record plus how the
+ * launcher's usage store says it has been opened. Joined in main so the screen
+ * gets everything in one call.
+ */
+export interface QuicklinkEntry extends Quicklink {
+  /** How many times it has been opened from the launcher. */
+  opens: number;
+  /** Epoch ms it was last opened, absent if never. */
+  lastOpenedAt?: number;
 }
 
 /** A new quicklink as entered in the Create form, before it is assigned an id. */
@@ -90,6 +107,11 @@ export function normalizeTags(tags: readonly string[] | undefined): string[] {
   return [...seen];
 }
 
+/** `https://www.example.com/x?q=` → `www.example.com/x?q=` — for compact subtitles. */
+export function prettyLink(link: string): string {
+  return link.replace(/^[a-z]+:\/\//i, "").replace(/\/$/, "");
+}
+
 /** `"My Cool Link"` → `"my-cool-link"`; always yields a non-empty string. */
 export function slugify(name: string): string {
   const slug = name
@@ -148,15 +170,27 @@ export function monogramIcon(label: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+/**
+ * The icon to render for a stored quicklink: whatever was resolved for it, or a
+ * generated monogram. Shared so the launcher row, the manager list, the detail
+ * pane and the Create form all fall back the same way.
+ */
+export function displayIcon(link: Pick<Quicklink, "icon" | "name">): string {
+  return link.icon ?? monogramIcon(link.name);
+}
+
 /** IPC channels between the Create/Edit form (and the Ctrl+K menu) and main. */
 export const QUICKLINK_CHANNELS = {
   create: "quicklink:create",
   update: "quicklink:update",
   delete: "quicklink:delete",
   get: "quicklink:get",
+  list: "quicklink:list",
   setPinned: "quicklink:set-pinned",
   setHidden: "quicklink:set-hidden",
   openWith: "quicklink:open-with",
   pickPath: "quicklink:pick-path",
   openWithApps: "quicklink:open-with-apps",
+  icon: "quicklink:icon",
+  preview: "quicklink:preview",
 } as const;

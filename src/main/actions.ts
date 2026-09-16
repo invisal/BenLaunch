@@ -152,12 +152,19 @@ export async function openQuicklinkWith(
   text: string,
   appPath: string,
 ): Promise<void> {
-  await quicklinkSource.execute(id, text, appPath);
+  await quicklinkSource.execute(id, text, undefined, appPath);
   usage.record(id, text);
 }
 
 /** Personalized ranking signal — records what the user picks, boosts it next time. */
 const usage = new Usage({ dir: app.getPath("userData") });
+
+/** How often / how recently `actionId` has been run — the "Opened" row in the quicklink manager. */
+export function actionUsage(
+  actionId: string,
+): { count: number; lastUsedAt: number } | undefined {
+  return usage.stat(actionId);
+}
 
 /** Warm every source at startup (called from app `whenReady`). */
 export function initActionSources(): void {
@@ -220,8 +227,9 @@ export async function query(text: string): Promise<QueryResult> {
 export async function executeAction(
   id: string,
   text: string,
+  argument?: string,
 ): Promise<ExecuteResult> {
-  await sources.find((source) => source.owns(id))?.execute(id, text);
+  await sources.find((source) => source.owns(id))?.execute(id, text, argument);
   // `widget:edit:*` is a UI shortcut (open the editor), not a real action to rank.
   if (!id.startsWith("widget:edit:")) usage.record(id, text);
   return { navigate: takePendingNavigate() };

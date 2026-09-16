@@ -17,8 +17,13 @@ const api = {
   platform: process.platform,
   query: (text: string): Promise<QueryResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.query, text),
-  execute: (id: string, text: string): Promise<ExecuteResult> =>
-    ipcRenderer.invoke(IPC_CHANNELS.execute, id, text),
+  /** `argument` is the text typed into the launcher's argument chip, if any. */
+  execute: (
+    id: string,
+    text: string,
+    argument?: string,
+  ): Promise<ExecuteResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.execute, id, text, argument),
   hide: (): void => ipcRenderer.send(IPC_CHANNELS.hide),
   togglePin: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.togglePin),
 

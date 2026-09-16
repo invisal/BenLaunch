@@ -6,10 +6,12 @@ import type { Route } from "../router/types";
 /**
  * One entry in the Ctrl+K "Actions" menu, produced by the context-menu
  * contributors (`./registry`) and rendered by the shared `Footer.Menu` — a
- * flat, searchable list. It's exactly a `FooterMenuItem`: a leaf with an
- * `onSelect`, optionally carrying an `icon`, a `section` heading, `danger`
- * styling, or a `confirmLabel` (arm-then-confirm). No nesting — a group of
- * related actions is a `section`, not a submenu.
+ * searchable list. It's exactly a `FooterMenuItem`: a leaf with an `onSelect`,
+ * optionally carrying an `icon`, a `section` heading, `danger` styling, or a
+ * `confirmLabel` (arm-then-confirm). A group of related actions is normally a
+ * `section` in the same list; reach for `items` (a submenu the row opens, and
+ * Escape leaves) only when the group is long enough to bury everything else,
+ * as quicklinks' "Open With" is.
  */
 export type MenuActionItem = FooterMenuItem;
 
@@ -49,9 +51,7 @@ export interface ContextMenuContext {
  *    later primaries (including the default one) are skipped.
  */
 export type Contribution =
-  | null
-  | MenuActionItem[]
-  | { role: "primary"; actions: MenuActionItem[] };
+  null | MenuActionItem[] | { role: "primary"; actions: MenuActionItem[] };
 
 /** A module that contributes items to the Ctrl+K menu for some kinds of action. */
 export interface ContextMenuContributor {
