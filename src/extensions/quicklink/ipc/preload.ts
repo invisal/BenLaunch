@@ -5,9 +5,10 @@ import type {
   Quicklink,
   QuicklinkCreateResult,
   QuicklinkDraft,
+  QuicklinkEntry,
 } from "../shared/types";
 
-/** `window.api.quicklink` — the Create/Edit form's and the Ctrl+K menu's bridge to main. */
+/** `window.api.quicklink` — the Create/Edit form's, the manager screen's and the Ctrl+K menu's bridge to main. */
 export const quicklinkApi = {
   createQuicklink: (draft: QuicklinkDraft): Promise<QuicklinkCreateResult> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.create, draft),
@@ -18,6 +19,8 @@ export const quicklinkApi = {
     ipcRenderer.invoke(QUICKLINK_CHANNELS.update, id, draft),
   getQuicklink: (id: string): Promise<Quicklink | null> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.get, id),
+  listQuicklinks: (): Promise<QuicklinkEntry[]> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.list),
   deleteQuicklink: (id: string): Promise<void> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.delete, id),
   setQuicklinkPinned: (id: string, pinned: boolean): Promise<void> =>
@@ -34,4 +37,13 @@ export const quicklinkApi = {
     ipcRenderer.invoke(QUICKLINK_CHANNELS.pickPath, type),
   openWithApps: (): Promise<OpenWithApp[]> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.openWithApps),
+  /**
+   * The icon for a link — a site's favicon, a file's OS icon — inlined as a
+   * `data:` URI, since a referenced URL can't pass the CSP. Null if it has none.
+   */
+  icon: (link: string): Promise<string | null> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.icon, link),
+  /** Live subtitle for the argument chip: the URL `argument` would open. */
+  preview: (actionId: string, argument: string): Promise<string | null> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.preview, actionId, argument),
 };

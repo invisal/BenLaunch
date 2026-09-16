@@ -194,11 +194,6 @@ export function isWebTarget(target: string): boolean {
   );
 }
 
-/** `https://www.example.com/x?q=` → `www.example.com/x?q=` — for compact subtitles. */
-export function prettyLink(link: string): string {
-  return link.replace(/^[a-z]+:\/\//i, "").replace(/\/$/, "");
-}
-
 function isQuicklink(value: unknown): value is Quicklink {
   if (!value || typeof value !== "object") return false;
   const c = value as Partial<Quicklink>;
@@ -214,6 +209,8 @@ function isQuicklink(value: unknown): value is Quicklink {
     (c.openWith === undefined || typeof c.openWith === "string") &&
     (c.pinned === undefined || typeof c.pinned === "boolean") &&
     (c.hidden === undefined || typeof c.hidden === "boolean") &&
+    (c.createdAt === undefined || typeof c.createdAt === "number") &&
+    (c.updatedAt === undefined || typeof c.updatedAt === "number") &&
     (c.tags === undefined ||
       (Array.isArray(c.tags) && c.tags.every((tag) => typeof tag === "string")))
   );
@@ -259,6 +256,8 @@ export function sanitize(value: unknown): Quicklink[] {
       ...(entry.pinned ? { pinned: true } : {}),
       ...(entry.hidden ? { hidden: true } : {}),
       ...(tags.length ? { tags } : {}),
+      ...(entry.createdAt === undefined ? {} : { createdAt: entry.createdAt }),
+      ...(entry.updatedAt === undefined ? {} : { updatedAt: entry.updatedAt }),
     });
   }
   return out;
@@ -266,10 +265,12 @@ export function sanitize(value: unknown): Quicklink[] {
 
 export class QuicklinkStore {
   private readonly dir: string;
+  private readonly now: () => number;
   private cache: Quicklink[] | null = null;
 
-  constructor(opts: { dir: string }) {
+  constructor(opts: { dir: string; now?: () => number }) {
     this.dir = opts.dir;
+    this.now = opts.now ?? Date.now;
   }
 
   filePath(): string {
@@ -309,16 +310,70 @@ export class QuicklinkStore {
     const taken = new Set(existing.map((entry) => entry.id));
     const id = uniqueId(slugify(draft.name), taken);
 
-    const entry = draftToEntry(id, draft);
+    const stamp = this.now();
+    const entry: Quicklink = {
+      ...draftToEntry(id, draft),
+      createdAt: stamp,
+      updatedAt: stamp,
+    };
     this.cache = [...existing, entry];
     this.write(this.cache);
     return entry;
   }
 
   /**
+   * Append every draft that isn't already here, in one write — the import path.
+   * `isDuplicate` decides what "already here" means (Raycast's rule: same name
+   * and same link), and is checked against the drafts accepted so far too, so a
+   * file that repeats itself doesn't import the same link twice. Drafts that
+   * fail validation are counted, not thrown on: one bad row shouldn't abort an
+   * otherwise good import.
+   */
+  addMany(
+    drafts: readonly QuicklinkDraft[],
+    isDuplicate: (
+      draft: QuicklinkDraft,
+      existing: readonly Quicklink[],
+    ) => boolean,
+  ): { added: number; duplicates: number; invalid: number } {
+    const next = [...this.list()];
+    const taken = new Set(next.map((entry) => entry.id));
+    let added = 0;
+    let duplicates = 0;
+    let invalid = 0;
+
+    for (const draft of drafts) {
+      if (validateDraft(draft) || !normalizeLink(draft.link)) {
+        invalid += 1;
+        continue;
+      }
+      if (isDuplicate(draft, next)) {
+        duplicates += 1;
+        continue;
+      }
+      const id = uniqueId(slugify(draft.name), taken);
+      taken.add(id);
+      const stamp = this.now();
+      next.push({
+        ...draftToEntry(id, draft),
+        createdAt: stamp,
+        updatedAt: stamp,
+      });
+      added += 1;
+    }
+
+    if (added > 0) {
+      this.cache = next;
+      this.write(next);
+    }
+    return { added, duplicates, invalid };
+  }
+
+  /**
    * Replace the fields of the quicklink `id` from an Edit-form draft, keeping its
-   * id and its `pinned` / `hidden` flags. Throws a user-facing message if the
-   * draft is unusable or the quicklink is gone.
+   * id, its `pinned` / `hidden` flags and its `createdAt`, and restamping
+   * `updatedAt`. Throws a user-facing message if the draft is unusable or the
+   * quicklink is gone.
    */
   update(id: string, draft: QuicklinkDraft): Quicklink {
     const problem = validateDraft(draft);
@@ -335,6 +390,8 @@ export class QuicklinkStore {
       ...draftToEntry(id, draft),
       ...(prev.pinned ? { pinned: true } : {}),
       ...(prev.hidden ? { hidden: true } : {}),
+      ...(prev.createdAt === undefined ? {} : { createdAt: prev.createdAt }),
+      updatedAt: this.now(),
     };
     const next = [...existing];
     next[index] = entry;
