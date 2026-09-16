@@ -89,7 +89,32 @@ function originOf(link: string): string | null {
   }
 }
 
+/** A link that points at the filesystem — `~/x`, `/x`, `C:\x`, `file://x`. */
+function isLocalPath(link: string): boolean {
+  const trimmed = link.trim();
+  return (
+    /^file:\/\//i.test(trimmed) ||
+    /^[~/]/.test(trimmed) ||
+    /^[a-z]:[\\/]/i.test(trimmed)
+  );
+}
+
+/** `/Users/me/Notes/report.pdf` → `report`; `~/Downloads` → `Downloads`. */
+function nameFromPath(link: string): string {
+  const base =
+    link
+      .trim()
+      .replace(/^file:\/\//i, "")
+      .replace(/[\\/]+$/, "")
+      .split(/[\\/]/)
+      .pop() ?? "";
+  // Drop a trailing extension, but keep a dotfile (".env") whole — and keep
+  // the basename if that would leave nothing behind.
+  return base.replace(/^(.+)\.[A-Za-z0-9]{1,8}$/, "$1") || base;
+}
+
 function nameFromLink(link: string): string {
+  if (isLocalPath(link)) return nameFromPath(link);
   const host = hostOf(link);
   const label = (host ?? "").replace(/^www\./i, "").split(".")[0] ?? "";
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : "";
@@ -234,17 +259,27 @@ function CreateQuicklink({
     : state.name || nameFromLink(state.link);
   const host = hostOf(state.link);
   const origin = originOf(state.link);
+  const localPath = isLocalPath(state.link) ? state.link.trim() : null;
 
   /** Like `effectiveName`: derived from the link until the user picks their own. */
   const effectiveIcon = state.iconEdited ? state.icon : state.fetchedIcon;
 
-  // Look the favicon up in main (the CSP blocks remote images here, so it comes
-  // back inlined as a `data:` URI). Keyed on the origin, so editing a link's
-  // path or query doesn't re-fetch, and debounced so typing a URL doesn't fire
-  // a request per keystroke.
+  // Resolve the icon in main — the CSP blocks remote images here, so whichever
+  // kind it is comes back inlined as a `data:` URI. A web link uses its site's
+  // favicon; a file or folder uses the icon the OS draws for it, which is how a
+  // `.pdf` looks like a PDF and a folder looks like a folder.
+  //
+  // Keyed on the origin (not the whole link), so editing a URL's path or query
+  // doesn't re-fetch, and debounced so typing doesn't fire a lookup per
+  // keystroke.
   useEffect(() => {
     if (state.iconEdited) return;
-    if (!origin) {
+    const lookup = origin
+      ? () => window.api.quicklink.fetchFavicon(origin)
+      : localPath
+        ? () => window.api.quicklink.fileIcon(localPath)
+        : null;
+    if (!lookup) {
       setState((d) => {
         d.fetchedIcon = "";
         d.fetchingIcon = false;
@@ -256,7 +291,7 @@ function CreateQuicklink({
       d.fetchingIcon = true;
     });
     const timer = setTimeout(() => {
-      void window.api.quicklink.fetchFavicon(origin).then((icon) => {
+      void lookup().then((icon) => {
         if (!live) return;
         setState((d) => {
           d.fetchedIcon = icon ?? "";
@@ -268,7 +303,7 @@ function CreateQuicklink({
       live = false;
       clearTimeout(timer);
     };
-  }, [origin, state.iconEdited, setState]);
+  }, [origin, localPath, state.iconEdited, setState]);
 
   const previewIcon = useMemo(() => {
     const trimmed = effectiveIcon.trim();
@@ -451,10 +486,12 @@ function CreateQuicklink({
                               {state.iconEdited
                                 ? "Emoji only — a remote URL can't be shown here."
                                 : state.fetchingIcon
-                                  ? "Looking up the site's icon…"
-                                  : state.fetchedIcon
-                                    ? `Using ${host}'s icon.`
-                                    : "Type a link to pick up its icon."}
+                                  ? "Looking up the icon…"
+                                  : !state.fetchedIcon
+                                    ? "Type a link to pick up its icon."
+                                    : host
+                                      ? `Using ${host}'s icon.`
+                                      : "Using this file's icon."}
                             </p>
                             <button
                               type="button"

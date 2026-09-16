@@ -40,6 +40,9 @@ export const quicklinkApi = {
   /** The site's favicon as a `data:` URI — remote URLs can't pass the CSP. */
   fetchFavicon: (link: string): Promise<string | null> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.fetchFavicon, link),
+  /** The OS icon for a file/folder link, inlined as a `data:` URI. */
+  fileIcon: (link: string): Promise<string | null> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.fileIcon, link),
   /** Live subtitle for the argument chip: the URL `argument` would open. */
   preview: (actionId: string, argument: string): Promise<string | null> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.preview, actionId, argument),

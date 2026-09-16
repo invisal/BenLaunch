@@ -183,5 +183,6 @@ export const QUICKLINK_CHANNELS = {
   pickPath: "quicklink:pick-path",
   openWithApps: "quicklink:open-with-apps",
   fetchFavicon: "quicklink:fetch-favicon",
+  fileIcon: "quicklink:file-icon",
   preview: "quicklink:preview",
 } as const;
