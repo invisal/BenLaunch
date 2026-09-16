@@ -257,9 +257,23 @@ interface ListScreenBaseProps<T> {
   loadingLabel?: ReactNode;
   emptyLabel?: ReactNode;
   noMatchLabel?: ReactNode;
+
   /** Rendered inside the search header, before the input — the launcher's
    *  argument chip sits here, so what you type reads as the chip's value. */
   inputPrefix?: ReactNode;
+  /** Row is inert — keyboard nav skips it and click/Enter/⌘K ignore it.
+   *  For a non-interactive row inlined into `data`, e.g. a section heading
+   *  (see `ClipboardHistoryListScreen` for the pattern). */
+  isDisabled?: (item: T) => boolean;
+  /** Fires whenever the highlighted row changes — keyboard navigation,
+   *  right-click (which highlights the row it opens the menu for), and
+   *  Base UI's own auto-highlight on mount/filter. A caller driving its own
+   *  state off this (e.g. a `detail` pane) should ignore the occasional
+   *  `null` a plain click can still emit as a side effect of `Autocomplete`'s
+   *  built-in "commit and close" handling — `onActivate` already fires with
+   *  the clicked row itself, synchronously, so nothing is lost by ignoring
+   *  it here. */
+  onHighlightChange?: (item: T | null) => void;
 }
 
 type ListScreenVirtualProps<T> =
@@ -308,6 +322,8 @@ function ListScreenRoot<T>({
   virtualized = false,
   itemHeight,
   measureItem,
+  isDisabled,
+  onHighlightChange,
 }: ListScreenProps<T>) {
   const { stack, pop } = useRouteStack();
   const controlled = inputValue !== undefined;
@@ -368,9 +384,12 @@ function ListScreenRoot<T>({
     gap: 1,
   });
 
-  // The highlighted row, falling back to the first — the target both the
-  // `menu` builder and `onInputKeyDown`'s second arg receive.
-  const menuTarget = highlighted ?? visible[0] ?? null;
+  // The highlighted row, falling back to the first *selectable* one — the
+  // target both the `menu` builder and `onInputKeyDown`'s second arg
+  // receive. Skips a disabled row (e.g. a section heading inlined into
+  // `data`) rather than landing on it before anything's been highlighted.
+  const menuTarget =
+    highlighted ?? visible.find((item) => !isDisabled?.(item)) ?? null;
 
   // Whether this screen is pushed on top of something — i.e. whether "back"
   // is a real place to go, as opposed to the launcher root's `onExit`, which
@@ -428,6 +447,7 @@ function ListScreenRoot<T>({
       onItemHighlighted={(item, { index }) => {
         const value = (item as T | undefined) ?? null;
         setHighlighted(value);
+        onHighlightChange?.(value);
         // Rows are rebuilt (new object identities) whenever `data` changes,
         // which re-fires this even though the highlighted *index* hasn't
         // moved — only scroll on an actual index change, so a data refresh
@@ -491,15 +511,19 @@ function ListScreenRoot<T>({
                   const item = visible[virtualRow.index];
                   if (!item) return null;
                   const measure = measureItem?.(item) ?? false;
+                  const disabled = isDisabled?.(item) ?? false;
                   return (
                     <Autocomplete.Item
                       key={getId(item)}
                       value={item}
                       index={virtualRow.index}
-                      onClick={() => onActivate?.(item)}
+                      disabled={disabled}
+                      onClick={() => !disabled && onActivate?.(item)}
                       onContextMenu={(e) => {
+                        if (disabled) return;
                         e.preventDefault();
                         setHighlighted(item);
+                        onHighlightChange?.(item);
                         setMenuOpen(true);
                       }}
                       {...(measure
@@ -532,24 +556,30 @@ function ListScreenRoot<T>({
               </Autocomplete.List>
             ) : (
               <Autocomplete.List className="relative w-full">
-                {(item: T) => (
-                  <Autocomplete.Item
-                    key={getId(item)}
-                    value={item}
-                    onClick={() => onActivate?.(item)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setHighlighted(item);
-                      setMenuOpen(true);
-                    }}
-                    render={(props, state) =>
-                      cloneElement(
-                        renderItem(item, { highlighted: state.highlighted }),
-                        props,
-                      )
-                    }
-                  />
-                )}
+                {(item: T) => {
+                  const disabled = isDisabled?.(item) ?? false;
+                  return (
+                    <Autocomplete.Item
+                      key={getId(item)}
+                      value={item}
+                      disabled={disabled}
+                      onClick={() => !disabled && onActivate?.(item)}
+                      onContextMenu={(e) => {
+                        if (disabled) return;
+                        e.preventDefault();
+                        setHighlighted(item);
+                        onHighlightChange?.(item);
+                        setMenuOpen(true);
+                      }}
+                      render={(props, state) =>
+                        cloneElement(
+                          renderItem(item, { highlighted: state.highlighted }),
+                          props,
+                        )
+                      }
+                    />
+                  );
+                }}
               </Autocomplete.List>
             )}
 

@@ -7,6 +7,7 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
+import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
 import { groupApi } from "@extensions/group/ipc/preload";
 import { quicklinkApi } from "@extensions/quicklink/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
@@ -58,6 +59,9 @@ const api = {
 
   /** Calculator History (record, list, pin) ↔ main. */
   calculatorHistory: calculatorHistoryApi,
+
+  /** Clipboard History (list, pin, delete, copy-again) ↔ main. */
+  clipboardHistory: clipboardHistoryApi,
 
   /** Quicklinks: the Create/Edit/Duplicate form and the Ctrl+K menu ↔ main. */
   quicklink: quicklinkApi,

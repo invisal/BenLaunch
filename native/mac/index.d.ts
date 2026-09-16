@@ -48,6 +48,25 @@ export interface MacRect {
 }
 
 /**
+ * `NSPasteboard.generalPasteboard.changeCount` — a counter AppKit increments
+ * every time the general pasteboard's *content* changes (a copy, a cut, or
+ * any programmatic write), and never otherwise. macOS has no pasteboard
+ * "changed" notification/event at all — every clipboard-history app,
+ * Raycast included, is built around polling *something*; the point of this
+ * export is to make that something cheap. Reading it costs nothing (no IPC,
+ * no permission prompt, no clipboard format negotiation) — a poller can
+ * check this very frequently and only pay for an actual Electron
+ * `clipboard.read()` call on the rare tick where it's moved.
+ *
+ * `generalPasteboard` is a process-wide singleton the caller doesn't own
+ * (the selector isn't `alloc`/`new`/`copy`-prefixed), so it's never
+ * released — same manual-reference-counting convention every other
+ * Objective-C call in this codebase already assumes, just without a
+ * bridging crate to enforce it for us here.
+ */
+export declare function pasteboardChangeCount(): number
+
+/**
  * Toggles native macOS fullscreen on the focused window — the same effect as
  * clicking-and-holding the green traffic-light button and choosing "Enter/Exit
  * Full Screen." Not every window supports this; returns whether the write

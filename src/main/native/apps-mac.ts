@@ -216,7 +216,13 @@ async function writeFileAtomic(path: string, data: Buffer): Promise<void> {
   await rename(tmp, path)
 }
 
-async function resolveIcon(appPath: string): Promise<string | undefined> {
+/**
+ * The bundle's icon as a `${ICON_SIZE}px` PNG data URL, disk-cached — the
+ * same lookup `listMacApplications()` uses per installed app, exposed so
+ * other callers with an already-known `.app` path (e.g. clipboard history's
+ * "Source" field) don't have to reimplement the `.icns`→PNG pipeline.
+ */
+export async function resolveIcon(appPath: string): Promise<string | undefined> {
   try {
     const icnsPath = await findIcnsPath(appPath)
     return icnsPath ? await icnsToDataUrl(icnsPath) : undefined
