@@ -141,7 +141,7 @@ export async function openQuicklinkWith(
   text: string,
   appPath: string,
 ): Promise<void> {
-  await quicklinkSource.execute(id, text, appPath);
+  await quicklinkSource.execute(id, text, undefined, appPath);
   usage.record(id, text);
 }
 
@@ -216,8 +216,9 @@ export async function query(text: string): Promise<QueryResult> {
 export async function executeAction(
   id: string,
   text: string,
+  argument?: string,
 ): Promise<ExecuteResult> {
-  await sources.find((source) => source.owns(id))?.execute(id, text);
+  await sources.find((source) => source.owns(id))?.execute(id, text, argument);
   // `widget:edit:*` is a UI shortcut (open the editor), not a real action to rank.
   if (!id.startsWith("widget:edit:")) usage.record(id, text);
   return { navigate: takePendingNavigate() };

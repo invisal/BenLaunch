@@ -5,6 +5,7 @@ import {
   type QuicklinkDraft,
   type QuicklinkEntry,
 } from "../shared/types";
+import { fetchFavicon } from "../main/favicon";
 import type { QuicklinkSource } from "../index";
 
 /**
@@ -105,4 +106,15 @@ export function registerQuicklinkIpc(
   );
 
   ipcMain.handle(QUICKLINK_CHANNELS.openWithApps, () => listOpenWithApps());
+
+  ipcMain.handle(
+    QUICKLINK_CHANNELS.fetchFavicon,
+    (_event, link: string): Promise<string | null> => fetchFavicon(link),
+  );
+
+  ipcMain.handle(
+    QUICKLINK_CHANNELS.preview,
+    (_event, actionId: string, argument: string): string | null =>
+      source.preview(actionId, argument),
+  );
 }

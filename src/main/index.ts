@@ -145,9 +145,9 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     IPC_CHANNELS.execute,
-    async (_event, id: string, text: string) => {
+    async (_event, id: string, text: string, argument?: string) => {
       // `text` is threaded through so usage tracking can learn "typed X, picked Y".
-      const result = await executeAction(id, text);
+      const result = await executeAction(id, text, argument);
       // Hide as soon as execute() resolves, rather than waiting for the launched
       // app to grab focus and trigger `blur` — unless the action asked the
       // launcher to navigate instead (`ctx.navigate`), in which case it stays

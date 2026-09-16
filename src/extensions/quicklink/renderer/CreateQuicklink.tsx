@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "cnfast";
 import { useImmer } from "use-immer";
 import { Menu } from "@base-ui/react/menu";
@@ -41,7 +41,14 @@ interface FormState {
   /** The name field has been typed in — stop deriving it from the link. */
   nameEdited: boolean;
   keyword: string;
+  /** The user's own icon — emoji or URL. Empty means "derive it from the link". */
   icon: string;
+  /** The icon field has been set explicitly — stop deriving it from the link. */
+  iconEdited: boolean;
+  /** The link's favicon, inlined by main as a `data:` URI. */
+  fetchedIcon: string;
+  /** A favicon lookup is in flight. */
+  fetchingIcon: boolean;
   openWith: string;
   tags: string[];
   tagDraft: string;
@@ -65,6 +72,18 @@ const looksLikeLink = (text: string): boolean =>
 function hostOf(link: string): string | null {
   try {
     return new URL(link.replace(/\{[^}]*\}/g, "x")).hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+/** `https://example.com/x?q={query}` → `https://example.com`; null unless http(s). */
+function originOf(link: string): string | null {
+  try {
+    const url = new URL(link.replace(/\{[^}]*\}/g, "x"));
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.origin
+      : null;
   } catch {
     return null;
   }
@@ -154,6 +173,9 @@ function CreateQuicklink({
     nameEdited: false,
     keyword: "",
     icon: "",
+    iconEdited: false,
+    fetchedIcon: "",
+    fetchingIcon: false,
     openWith: "",
     tags: [],
     tagDraft: "",
@@ -189,6 +211,7 @@ function CreateQuicklink({
           d.nameEdited = true;
           d.keyword = ql.keyword ?? "";
           d.icon = ql.icon ?? "";
+          d.iconEdited = true;
           d.openWith = ql.openWith ?? "";
           d.tags = ql.tags ?? [];
         }
@@ -210,12 +233,56 @@ function CreateQuicklink({
     ? state.name
     : state.name || nameFromLink(state.link);
   const host = hostOf(state.link);
+  const origin = originOf(state.link);
+
+  /** Like `effectiveName`: derived from the link until the user picks their own. */
+  const effectiveIcon = state.iconEdited ? state.icon : state.fetchedIcon;
+
+  // Look the favicon up in main (the CSP blocks remote images here, so it comes
+  // back inlined as a `data:` URI). Keyed on the origin, so editing a link's
+  // path or query doesn't re-fetch, and debounced so typing a URL doesn't fire
+  // a request per keystroke.
+  useEffect(() => {
+    if (state.iconEdited) return;
+    if (!origin) {
+      setState((d) => {
+        d.fetchedIcon = "";
+        d.fetchingIcon = false;
+      });
+      return;
+    }
+    let live = true;
+    setState((d) => {
+      d.fetchingIcon = true;
+    });
+    const timer = setTimeout(() => {
+      void window.api.quicklink.fetchFavicon(origin).then((icon) => {
+        if (!live) return;
+        setState((d) => {
+          d.fetchedIcon = icon ?? "";
+          d.fetchingIcon = false;
+        });
+      });
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [origin, state.iconEdited, setState]);
 
   const previewIcon = useMemo(() => {
-    const trimmed = state.icon.trim();
+    const trimmed = effectiveIcon.trim();
     if (trimmed) return trimmed;
     return monogramIcon(effectiveName || state.link || "Quicklink");
-  }, [state.icon, effectiveName, state.link]);
+  }, [effectiveIcon, effectiveName, state.link]);
+
+  // A hand-typed remote URL can't pass the CSP — show the monogram rather than
+  // a broken image.
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
+  useEffect(() => setIconLoadFailed(false), [previewIcon]);
+  const displayIcon = iconLoadFailed
+    ? monogramIcon(effectiveName || state.link || "Quicklink")
+    : previewIcon;
 
   function insertIntoLink(token: string): void {
     const el = linkRef.current;
@@ -253,7 +320,7 @@ function CreateQuicklink({
       link: state.link.trim(),
       name: (effectiveName || "").trim(),
       keyword: state.keyword.trim() || undefined,
-      icon: state.icon.trim() || undefined,
+      icon: effectiveIcon.trim() || undefined,
       openWith: state.openWith || undefined,
       tags: allTags.length ? allTags : undefined,
     };
@@ -343,14 +410,15 @@ function CreateQuicklink({
                       className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-input text-lg"
                       title="Change icon"
                     >
-                      {isImageIcon(previewIcon) ? (
+                      {isImageIcon(displayIcon) ? (
                         <img
-                          src={previewIcon}
+                          src={displayIcon}
                           alt=""
                           className="h-5 w-5 object-contain"
+                          onError={() => setIconLoadFailed(true)}
                         />
                       ) : (
-                        <span>{previewIcon}</span>
+                        <span>{displayIcon}</span>
                       )}
                     </Popover.Trigger>
                     <Popover.Portal>
@@ -362,47 +430,44 @@ function CreateQuicklink({
                         <Popover.Popup className="w-64 rounded-md border border-border bg-popover p-2 text-sm text-foreground shadow-lg outline-none">
                           <div className="flex flex-col gap-2">
                             <Form.Input
-                              value={state.icon}
+                              // An inlined favicon is a multi-KB data: URI —
+                              // never show that as editable text.
+                              value={
+                                state.icon.startsWith("data:") ? "" : state.icon
+                              }
                               onChange={(e) =>
                                 setState((d) => {
                                   d.icon = e.target.value;
+                                  // Clearing the field hands the icon back to
+                                  // the link's favicon.
+                                  d.iconEdited = e.target.value !== "";
                                 })
                               }
-                              placeholder="Emoji or image URL"
+                              placeholder="Emoji, e.g. 🚀"
                               spellCheck={false}
                               className={inputPadding}
                             />
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                disabled={!host}
-                                onClick={() =>
-                                  host &&
-                                  setState((d) => {
-                                    d.icon = `https://${host}/favicon.ico`;
-                                  })
-                                }
-                                className={cn(
-                                  "flex-1 rounded border border-border px-2 py-1 text-xs",
-                                  host
-                                    ? "hover:bg-item-hover"
-                                    : "cursor-not-allowed text-foreground-subtle",
-                                )}
-                              >
-                                Use favicon
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setState((d) => {
-                                    d.icon = "";
-                                  })
-                                }
-                                className="flex-1 rounded border border-border px-2 py-1 text-xs hover:bg-item-hover"
-                              >
-                                Automatic
-                              </button>
-                            </div>
+                            <p className="text-[11px] text-foreground-subtle">
+                              {state.iconEdited
+                                ? "Emoji only — a remote URL can't be shown here."
+                                : state.fetchingIcon
+                                  ? "Looking up the site's icon…"
+                                  : state.fetchedIcon
+                                    ? `Using ${host}'s icon.`
+                                    : "Type a link to pick up its icon."}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setState((d) => {
+                                  d.icon = "";
+                                  d.iconEdited = false;
+                                })
+                              }
+                              className="rounded border border-border px-2 py-1 text-xs hover:bg-item-hover"
+                            >
+                              Reset to automatic
+                            </button>
                           </div>
                         </Popover.Popup>
                       </Popover.Positioner>

@@ -257,6 +257,9 @@ interface ListScreenBaseProps<T> {
   loadingLabel?: ReactNode;
   emptyLabel?: ReactNode;
   noMatchLabel?: ReactNode;
+  /** Rendered inside the search header, before the input — the launcher's
+   *  argument chip sits here, so what you type reads as the chip's value. */
+  inputPrefix?: ReactNode;
 }
 
 type ListScreenVirtualProps<T> =
@@ -300,6 +303,7 @@ function ListScreenRoot<T>({
   loadingLabel = "Loading…",
   emptyLabel,
   noMatchLabel = "No matches.",
+  inputPrefix,
   autoRefocus = false,
   virtualized = false,
   itemHeight,
@@ -460,6 +464,7 @@ function ListScreenRoot<T>({
               <MagicIcon />
             </span>
           )}
+          {inputPrefix}
           <Autocomplete.Input
             ref={inputRef}
             onKeyDown={onInputKeyDown}

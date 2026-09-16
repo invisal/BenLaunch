@@ -124,6 +124,20 @@ export class QuicklinkSource extends Extension {
     return this.store.list();
   }
 
+  /**
+   * Subtitle for `actionId` with `argument` substituted in — what the launcher's
+   * argument chip shows live as the user types, so the row previews the URL that
+   * Enter will actually open.
+   */
+  preview(actionId: string, argument: string): string | null {
+    const link = this.store
+      .list()
+      .find((entry) => `ql:${entry.id}` === actionId);
+    if (!link) return null;
+    const resolved = expandDynamic(resolveLink(link.link, argument));
+    return `Open ${prettyLink(resolved)}`;
+  }
+
   /** Delete the quicklink `id`. */
   remove(id: string): void {
     this.store.remove(id);
@@ -140,7 +154,9 @@ export class QuicklinkSource extends Extension {
   }
 
   /**
-   * Run a quicklink or the built-in "Edit Quicklinks" action. `openWithOverride`
+   * Run a quicklink or the built-in "Edit Quicklinks" action. `argument` is the
+   * text typed into the launcher's argument chip; when set it *is* the
+   * `{query}` value, so the alias-prefix parsing is skipped. `openWithOverride`
    * comes from the Ctrl+K menu's "Open With" rows: a path forces that app,
    * an empty string forces the system default (ignoring the link's saved
    * `openWith`), and `undefined` uses whatever the link was saved with.
@@ -148,6 +164,7 @@ export class QuicklinkSource extends Extension {
   async execute(
     actionId: string,
     query: string,
+    argument?: string,
     openWithOverride?: string,
   ): Promise<void> {
     if (actionId === CREATE_ACTION_ID) {
@@ -170,7 +187,10 @@ export class QuicklinkSource extends Extension {
       .find((entry) => `ql:${entry.id}` === actionId);
     if (!link) return;
 
-    const withArgument = resolveLink(link.link, parseArgument(query, link));
+    const withArgument = resolveLink(
+      link.link,
+      argument ?? parseArgument(query, link),
+    );
     const needsClipboard = /\{\s*clipboard\s*\}/i.test(withArgument);
     const target = expandDynamic(withArgument, {
       clipboard: needsClipboard ? await clipboard.readText() : undefined,
@@ -230,6 +250,7 @@ export class QuicklinkSource extends Extension {
         subtitle,
         icon: link.icon ?? monogramIcon(link.name),
         type: "quicklink",
+        ...(takesArgument ? { takesArgument: true } : {}),
         ...(link.keyword ? { keyword: link.keyword } : {}),
         ...(link.tags?.length ? { tags: link.tags } : {}),
         ...(link.pinned ? { pinned: true } : {}),

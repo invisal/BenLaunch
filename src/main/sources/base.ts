@@ -35,15 +35,25 @@ export interface ActionSource {
    * query-driven source — whose `provide("")` isn't a meaningful "everything"
    * list — should implement this to stay resolvable by id.
    */
-  provideByIds?(ids: string[]): ActionDefinition[] | Promise<ActionDefinition[]>;
+  provideByIds?(
+    ids: string[],
+  ): ActionDefinition[] | Promise<ActionDefinition[]>;
 
   /**
    * Run the action identified by `actionId` (which this source `owns`). `query`
    * is the text in the search box at the moment of execution — query-driven
    * sources (e.g. quicklinks) parse their argument out of it; most sources
    * ignore it.
+   *
+   * `argument` is set when the launcher captured one explicitly (the user hit
+   * Tab on a row that takes an argument and typed into the chip), in which case
+   * it wins over anything the source would parse out of `query`.
    */
-  execute(actionId: string, query: string): void | Promise<void>;
+  execute(
+    actionId: string,
+    query: string,
+    argument?: string,
+  ): void | Promise<void>;
 
   /** Warm-up hook, called once at startup. */
   init?(): void;

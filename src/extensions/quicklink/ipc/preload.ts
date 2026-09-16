@@ -37,4 +37,10 @@ export const quicklinkApi = {
     ipcRenderer.invoke(QUICKLINK_CHANNELS.pickPath, type),
   openWithApps: (): Promise<OpenWithApp[]> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.openWithApps),
+  /** The site's favicon as a `data:` URI — remote URLs can't pass the CSP. */
+  fetchFavicon: (link: string): Promise<string | null> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.fetchFavicon, link),
+  /** Live subtitle for the argument chip: the URL `argument` would open. */
+  preview: (actionId: string, argument: string): Promise<string | null> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.preview, actionId, argument),
 };
