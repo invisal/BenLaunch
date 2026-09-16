@@ -451,14 +451,23 @@ function Menu({
         <span className="min-w-0 truncate">{label}</span>
         <Kbd accelerator={shortcut} />
       </Autocomplete.Trigger>
-      {/* Zero-size, out-of-flow host for the portal (see `portalRef`). */}
-      <div ref={portalRef} className="fixed" />
+      {/* Zero-size, out-of-flow host for the portal (see `portalRef`), pinned
+          to the viewport origin. The positioner inside it is absolutely
+          positioned, so this host is its containing block and its origin: left
+          at `auto` the host sits at its static position in the footer row, and
+          every popup coordinate — already computed against the viewport —
+          picks up that offset on top, landing the popup outside the window. */}
+      <div ref={portalRef} className="fixed left-0 top-0" />
       <Autocomplete.Portal container={portalRef}>
         <Autocomplete.Positioner
           side="top"
           align="end"
           sideOffset={8}
           collisionPadding={8}
+          // Above the list it overlaps: the portal host sits in the footer,
+          // which paints below the scrolling body it hangs over. Same `z-50`
+          // the "Open With" picker's positioner carries in `AppPicker`.
+          className="z-50"
         >
           {/* The popup is capped at the space the window actually has
               (`--available-height`, from the positioner) and the list scrolls

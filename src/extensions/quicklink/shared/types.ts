@@ -28,6 +28,23 @@ export interface Quicklink {
   pinned?: boolean;
   /** Hidden from the root list, but still returned for an explicit search. */
   hidden?: boolean;
+  /** Epoch ms the link was created. Absent on links stored before this was tracked. */
+  createdAt?: number;
+  /** Epoch ms of the last edit through the form. Pin/hide don't count — they're
+   *  list preferences, not changes to the link itself. */
+  updatedAt?: number;
+}
+
+/**
+ * A quicklink as the manager screen sees it: the stored record plus how the
+ * launcher's usage store says it has been opened. Joined in main so the screen
+ * gets everything in one call.
+ */
+export interface QuicklinkEntry extends Quicklink {
+  /** How many times it has been opened from the launcher. */
+  opens: number;
+  /** Epoch ms it was last opened, absent if never. */
+  lastOpenedAt?: number;
 }
 
 /** A new quicklink as entered in the Create form, before it is assigned an id. */
@@ -88,6 +105,11 @@ export function normalizeTags(tags: readonly string[] | undefined): string[] {
     if (tag) seen.add(tag);
   }
   return [...seen];
+}
+
+/** `https://www.example.com/x?q=` → `www.example.com/x?q=` — for compact subtitles. */
+export function prettyLink(link: string): string {
+  return link.replace(/^[a-z]+:\/\//i, "").replace(/\/$/, "");
 }
 
 /** `"My Cool Link"` → `"my-cool-link"`; always yields a non-empty string. */
@@ -154,6 +176,7 @@ export const QUICKLINK_CHANNELS = {
   update: "quicklink:update",
   delete: "quicklink:delete",
   get: "quicklink:get",
+  list: "quicklink:list",
   setPinned: "quicklink:set-pinned",
   setHidden: "quicklink:set-hidden",
   openWith: "quicklink:open-with",

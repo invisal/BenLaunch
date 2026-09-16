@@ -3,9 +3,10 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { Extension } from "@core/base";
 import type { ActionDefinition } from "@main/types";
-import type {
-  QuicklinkCreateResult,
-  QuicklinkDraft,
+import {
+  prettyLink,
+  type QuicklinkCreateResult,
+  type QuicklinkDraft,
 } from "./shared/types";
 import {
   QuicklinkStore,
@@ -14,7 +15,6 @@ import {
   isWebTarget,
   monogramIcon,
   parseArgument,
-  prettyLink,
   resolveLink,
   type Quicklink,
 } from "./main/store";
@@ -22,6 +22,7 @@ import {
 /** Ids of the built-in management actions this source also provides. */
 const EDIT_ACTION_ID = "ql:__edit";
 const CREATE_ACTION_ID = "ql:__create";
+const SEARCH_ACTION_ID = "ql:__search";
 
 /**
  * User-defined quicklinks (`ql:` ids) — named shortcuts to a URL, optionally with
@@ -57,6 +58,16 @@ export class QuicklinkSource extends Extension {
           title: "Create Quicklink",
           subtitle: "Add a shortcut to a URL, file, or folder",
           icon: "➕",
+          type: "command",
+        },
+        run: () => {},
+      },
+      {
+        action: {
+          id: SEARCH_ACTION_ID,
+          title: "Search Quicklinks",
+          subtitle: "Browse, open and manage your quicklinks",
+          icon: "🔎",
           type: "command",
         },
         run: () => {},
@@ -108,6 +119,11 @@ export class QuicklinkSource extends Extension {
     return this.store.get(id);
   }
 
+  /** Every quicklink, for the "Search Quicklinks" manager screen. */
+  list(): Quicklink[] {
+    return this.store.list();
+  }
+
   /** Delete the quicklink `id`. */
   remove(id: string): void {
     this.store.remove(id);
@@ -136,6 +152,11 @@ export class QuicklinkSource extends Extension {
   ): Promise<void> {
     if (actionId === CREATE_ACTION_ID) {
       this.ctx.navigate("quicklink-create", { seed: query });
+      return;
+    }
+
+    if (actionId === SEARCH_ACTION_ID) {
+      this.ctx.navigate("quicklink-search");
       return;
     }
 

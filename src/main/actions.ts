@@ -148,6 +148,13 @@ export async function openQuicklinkWith(
 /** Personalized ranking signal — records what the user picks, boosts it next time. */
 const usage = new Usage({ dir: app.getPath("userData") });
 
+/** How often / how recently `actionId` has been run — the "Opened" row in the quicklink manager. */
+export function actionUsage(
+  actionId: string,
+): { count: number; lastUsedAt: number } | undefined {
+  return usage.stat(actionId);
+}
+
 /** Warm every source at startup (called from app `whenReady`). */
 export function initActionSources(): void {
   usage.init();

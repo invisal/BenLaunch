@@ -6,6 +6,7 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import {
+  actionUsage,
   executeAction,
   getCalculatorSettings,
   updateCalculatorSettings,
@@ -135,6 +136,7 @@ app.whenReady().then(() => {
     hideAfterOpen: () => {
       if (!pinned) hideLauncher();
     },
+    usageOf: actionUsage,
   });
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {

@@ -2,6 +2,7 @@ import { createScreen } from "@renderer/screens/launcher/router/createScreen";
 import { useRouteStack } from "@renderer/screens/launcher/router/context";
 import { useLauncherHost } from "@renderer/screens/launcher/host";
 import CreateQuicklink from "./renderer/CreateQuicklink";
+import SearchQuicklinksScreen from "./renderer/SearchQuicklinksScreen";
 
 /**
  * Adapter that connects the prop-driven `CreateQuicklink` form to the navigation
@@ -36,7 +37,30 @@ function QuicklinkForm({
   );
 }
 
+/** The manager list, which lives in `./renderer` and knows nothing about the router. */
+function SearchQuicklinks() {
+  const { push, reset } = useRouteStack();
+  const { setQuery } = useLauncherHost();
+
+  return (
+    <SearchQuicklinksScreen
+      push={push}
+      dismiss={() => {
+        // Opening a link has to reach past the stack: the launcher should be
+        // gone afterwards, and back where it started next time it opens.
+        setQuery("");
+        reset();
+        window.api.hide();
+      }}
+    />
+  );
+}
+
 export default [
+  createScreen({
+    name: "quicklink-search",
+    component: () => <SearchQuicklinks />,
+  }),
   createScreen({
     name: "quicklink-create",
     component: (payload) => (

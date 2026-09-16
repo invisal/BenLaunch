@@ -1,6 +1,10 @@
 import { dialog, ipcMain, type BrowserWindow } from "electron";
 import { listOpenWithApps } from "@main/sources/apps/open-with";
-import { QUICKLINK_CHANNELS, type QuicklinkDraft } from "../shared/types";
+import {
+  QUICKLINK_CHANNELS,
+  type QuicklinkDraft,
+  type QuicklinkEntry,
+} from "../shared/types";
 import type { QuicklinkSource } from "../index";
 
 /**
@@ -14,6 +18,14 @@ export interface QuicklinkIpcHost {
   setSuppressAutoHide: (value: boolean) => void;
   /** Hide the launcher after a link opens, unless it's pinned open. */
   hideAfterOpen: () => void;
+  /**
+   * How often / how recently the action `ql:<id>` has been run, from the
+   * launcher's usage store (owned by `actions.ts`, not by this extension) —
+   * the manager screen's "Opened" row.
+   */
+  usageOf: (
+    actionId: string,
+  ) => { count: number; lastUsedAt: number } | undefined;
 }
 
 /** Wires the Create/Edit form's and the Ctrl+K menu's quicklink calls to the source. */
@@ -32,6 +44,16 @@ export function registerQuicklinkIpc(
   ipcMain.handle(
     QUICKLINK_CHANNELS.get,
     (_event, id: string) => source.get(id) ?? null,
+  );
+  ipcMain.handle(QUICKLINK_CHANNELS.list, (): QuicklinkEntry[] =>
+    source.list().map((link) => {
+      const used = host.usageOf(`ql:${link.id}`);
+      return {
+        ...link,
+        opens: used?.count ?? 0,
+        ...(used ? { lastOpenedAt: used.lastUsedAt } : {}),
+      };
+    }),
   );
   ipcMain.handle(QUICKLINK_CHANNELS.delete, (_event, id: string) => {
     source.remove(id);

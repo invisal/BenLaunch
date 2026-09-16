@@ -9,6 +9,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -160,7 +161,10 @@ const Item = forwardRef<HTMLDivElement, ItemProps>(function Item(
     >
       <ItemIcon icon={icon} />
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
-        <span className="shrink-0 truncate">{title}</span>
+        {/* Shrinkable, not `shrink-0`: in a narrow column (the master/detail
+            layout) a long title has to truncate rather than push the row wide
+            and give the list a horizontal scrollbar. */}
+        <span className="min-w-0 truncate">{title}</span>
         {shortcut && highlighted ? (
           <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
             {formatShortcut(shortcut)}
@@ -201,6 +205,13 @@ interface ListScreenBaseProps<T> {
   menu?: (highlighted: T | null) => FooterMenuItem[];
   /** Click / Enter on a row. */
   onActivate?: (item: T) => void;
+  /**
+   * Opt into a master/detail layout: the list narrows to a column on the left
+   * and this renders a scrolling pane beside it for the highlighted row (the
+   * same target `menu` gets, so the two always describe the same thing). Omit
+   * for the usual full-width list.
+   */
+  detail?: (highlighted: T | null) => ReactNode;
   /** Escape with an empty query (a non-empty query is cleared first).
    *  Defaults to popping this screen off the launcher's route stack — every
    *  `ListScreen` is pushed there, so a caller only needs this to override
@@ -236,8 +247,13 @@ interface ListScreenBaseProps<T> {
 
   footerLabel?: ReactNode | ((visibleCount: number) => ReactNode);
   /** Escape hatch replacing `Footer.Left` entirely (a count label plus a
-   *  Pin toggle, say) — takes over from `footerLabel` when set. */
-  customFooter?: ReactNode;
+   *  Pin toggle, say) — takes over from `footerLabel` when set. As a function
+   *  it also receives the search input's ref, which a second `Footer.Menu` in
+   *  the footer (a filter, say) wants as its `finalFocus` so closing it puts
+   *  the cursor back in the search box rather than on its own trigger. */
+  customFooter?:
+    | ReactNode
+    | ((ctx: { inputRef: RefObject<HTMLInputElement | null> }) => ReactNode);
   loadingLabel?: ReactNode;
   emptyLabel?: ReactNode;
   noMatchLabel?: ReactNode;
@@ -270,6 +286,7 @@ function ListScreenRoot<T>({
   renderItem,
   menu,
   onActivate,
+  detail,
   onExit,
   inputValue,
   onInputChange,
@@ -383,6 +400,11 @@ function ListScreenRoot<T>({
       ? footerLabel(visible.length)
       : footerLabel;
 
+  const footer =
+    typeof customFooter === "function"
+      ? customFooter({ inputRef })
+      : customFooter;
+
   return (
     <Autocomplete.Root
       items={visible}
@@ -447,44 +469,73 @@ function ListScreenRoot<T>({
           />
         </div>
 
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2">
-          {virtualized ? (
-            <Autocomplete.List
-              className="relative w-full"
-              style={{ height: virtualizer.getTotalSize() }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const item = visible[virtualRow.index];
-                if (!item) return null;
-                const measure = measureItem?.(item) ?? false;
-                return (
+        <div className="flex min-h-0 flex-1">
+          <div
+            ref={scrollContainerRef}
+            className={cn(
+              "min-h-0 overflow-y-auto p-2",
+              detail ? "w-[38%] shrink-0 border-r border-border" : "flex-1",
+            )}
+          >
+            {virtualized ? (
+              <Autocomplete.List
+                className="relative w-full"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const item = visible[virtualRow.index];
+                  if (!item) return null;
+                  const measure = measureItem?.(item) ?? false;
+                  return (
+                    <Autocomplete.Item
+                      key={getId(item)}
+                      value={item}
+                      index={virtualRow.index}
+                      onClick={() => onActivate?.(item)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setHighlighted(item);
+                        setMenuOpen(true);
+                      }}
+                      {...(measure
+                        ? {
+                            ref: virtualizer.measureElement,
+                            "data-index": virtualRow.index,
+                          }
+                        : {})}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        // A measured row must size to its own content — pinning
+                        // it to `virtualRow.size` would clip what grows past the
+                        // estimate and feed that same pinned height back into
+                        // the measurement, so it could never grow.
+                        height: measure ? undefined : virtualRow.size,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                      render={(props, state) =>
+                        cloneElement(
+                          renderItem(item, { highlighted: state.highlighted }),
+                          props,
+                        )
+                      }
+                    />
+                  );
+                })}
+              </Autocomplete.List>
+            ) : (
+              <Autocomplete.List className="relative w-full">
+                {(item: T) => (
                   <Autocomplete.Item
                     key={getId(item)}
                     value={item}
-                    index={virtualRow.index}
                     onClick={() => onActivate?.(item)}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setHighlighted(item);
                       setMenuOpen(true);
-                    }}
-                    {...(measure
-                      ? {
-                          ref: virtualizer.measureElement,
-                          "data-index": virtualRow.index,
-                        }
-                      : {})}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      // A measured row must size to its own content — pinning
-                      // it to `virtualRow.size` would clip what grows past the
-                      // estimate and feed that same pinned height back into
-                      // the measurement, so it could never grow.
-                      height: measure ? undefined : virtualRow.size,
-                      transform: `translateY(${virtualRow.start}px)`,
                     }}
                     render={(props, state) =>
                       cloneElement(
@@ -493,43 +544,27 @@ function ListScreenRoot<T>({
                       )
                     }
                   />
-                );
-              })}
-            </Autocomplete.List>
-          ) : (
-            <Autocomplete.List className="relative w-full">
-              {(item: T) => (
-                <Autocomplete.Item
-                  key={getId(item)}
-                  value={item}
-                  onClick={() => onActivate?.(item)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setHighlighted(item);
-                    setMenuOpen(true);
-                  }}
-                  render={(props, state) =>
-                    cloneElement(
-                      renderItem(item, { highlighted: state.highlighted }),
-                      props,
-                    )
-                  }
-                />
-              )}
-            </Autocomplete.List>
-          )}
+                )}
+              </Autocomplete.List>
+            )}
 
-          {visible.length === 0 && (
-            <div className="px-3 py-2 text-sm text-foreground-subtle">
-              {emptyMessage}
+            {visible.length === 0 && (
+              <div className="px-3 py-2 text-sm text-foreground-subtle">
+                {emptyMessage}
+              </div>
+            )}
+          </div>
+          {detail && (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {detail(menuTarget)}
             </div>
           )}
         </div>
 
         <Footer>
-          {(customFooter != null || label != null) && (
+          {(footer != null || label != null) && (
             <Footer.Left>
-              {customFooter ?? <Footer.Label>{label}</Footer.Label>}
+              {footer ?? <Footer.Label>{label}</Footer.Label>}
             </Footer.Left>
           )}
           {menu && (
