@@ -8,7 +8,6 @@ import { ClipboardPoller, type ImageSource } from "./main/poller";
 import { pasteboardChangeEvent as pasteboardChangeEventLinux } from "./main/pasteboard-change-linux";
 import { pasteboardChangeSignal } from "./main/pasteboard-change-mac";
 import { pasteboardChangeEvent as pasteboardChangeEventWin } from "./main/pasteboard-change-win";
-import { entryId, entryRow, writeEntryToClipboard } from "./main/row";
 import { frontmostApp } from "./main/source-app-mac";
 import { ClipboardStore } from "./main/store";
 import { CLIPBOARD_HISTORY_ROUTE, type SourceApp } from "./shared/types";
@@ -23,10 +22,13 @@ async function resolveSourceApp(): Promise<SourceApp | undefined> {
 /**
  * Clipboard History (Raycast's "Clipboard History"): watches the system
  * clipboard, keeps a searchable, persisted history of copied text and
- * images, and lets the user re-copy, paste, pin or delete past entries —
- * both from its own list screen (`../screen.tsx`, route
- * `clipboard-history`) and, for pinned/matching entries, directly from the
- * root launcher search (see `main/row.ts::entryRow`).
+ * images, and lets the user re-copy, paste, pin or delete past entries from
+ * its own list screen (`../screen.tsx`, route `clipboard-history`). Entries
+ * never appear in the root launcher search — only the "Clipboard History"
+ * command itself does (`provide()` below); the fuzzy matcher scores a whole
+ * haystack, and entry previews can run to full copied documents, so scoping
+ * matches to a query the user typed for *this list* keeps a short query like
+ * "create" from surfacing unrelated clipboard entries app-wide.
  *
  * As the extension's composition root it owns the `ClipboardStore`
  * (persisted through `this.storage`,
@@ -102,30 +104,23 @@ export class ClipboardHistoryExtension extends Extension {
   }
 
   provide(): ActionDefinition[] {
-    const open: ActionDefinition = {
-      action: {
-        id: "clipboard-history:open",
-        title: "Clipboard History",
-        subtitle: "Search, copy, paste and pin recent clipboard items",
-        icon: "📋",
-        type: "command",
+    return [
+      {
+        action: {
+          id: "clipboard-history:open",
+          title: "Clipboard History",
+          subtitle: "Search, copy, paste and pin recent clipboard items",
+          icon: "📋",
+          type: "command",
+        },
+        run: () => {},
       },
-      run: () => {},
-    };
-    const entries = this.store.list().map((entry) => ({
-      action: entryRow(entry),
-      run: () => {},
-    }));
-    return [open, ...entries];
+    ];
   }
 
   async execute(actionId: string): Promise<void> {
     if (actionId === "clipboard-history:open") {
       this.ctx.navigate(CLIPBOARD_HISTORY_ROUTE);
-      return;
     }
-    const id = entryId(actionId);
-    const entry = id ? this.store.get(id) : undefined;
-    if (entry) await writeEntryToClipboard(entry, this.poller);
   }
 }

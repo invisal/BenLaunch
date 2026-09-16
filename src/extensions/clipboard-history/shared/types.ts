@@ -58,9 +58,6 @@ export type RecordInput =
 /** Route name of the history list screen (`../screen.tsx`). */
 export const CLIPBOARD_HISTORY_ROUTE = "clipboard-history";
 
-/** Action id prefix of an entry's launcher row: `clipboard-history:entry:<entryId>`. */
-export const ENTRY_ACTION_PREFIX = "clipboard-history:entry:";
-
 export const CLIPBOARD_HISTORY_CHANNELS = {
   list: "clipboard-history:list",
   delete: "clipboard-history:delete",
