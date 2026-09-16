@@ -23,12 +23,18 @@
 //! be moved by any external process on Linux. Wayland's security model has no
 //! cross-app window-control protocol; there is no workaround from here.
 
+use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
 use napi_derive::napi;
+use std::sync::mpsc;
 use std::sync::OnceLock;
+use std::thread::JoinHandle;
 use x11rb::connection::Connection;
+use x11rb::protocol::xfixes::{ConnectionExt as XfixesConnectionExt, SelectionEventMask};
 use x11rb::protocol::xproto::{
-  Atom, AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt, EventMask, Window,
+  Atom, AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt, CreateWindowAux,
+  EventMask, Window, WindowClass,
 };
+use x11rb::protocol::Event;
 use x11rb::rust_connection::RustConnection;
 
 struct X11 {
@@ -192,4 +198,161 @@ pub fn toggle_fullscreen(id: i64) -> bool {
     return false;
   };
   send_wm_state(x11, id as u32, NET_WM_STATE_TOGGLE, fullscreen, 0)
+}
+
+/// Custom `ClientMessage` type atom `ClipboardWatcher::stop` sends to wake the
+/// watcher thread's blocking `wait_for_event()` loop. `SendEvent` only
+/// delivers to clients that have selected the given `event-mask` on the
+/// destination window, so the watcher creates its own (otherwise-unused)
+/// window and selects `PROPERTY_CHANGE` on it purely so `stop()` — running on
+/// a different connection, since the watcher's own connection is busy
+/// blocking in `wait_for_event()` — has a mask that routes the message back
+/// to it specifically, rather than nowhere.
+const CLIPBOARD_WATCHER_STOP_ATOM: &str = "MAGIBAR_CLIPBOARD_WATCHER_STOP";
+
+/// Handle for the background clipboard watcher `start_clipboard_watcher` starts. Dropping this
+/// without calling `stop()` leaks the watcher's X11 connection and thread for the rest of the
+/// process's life — callers must `stop()` it explicitly (e.g. on app quit), matching
+/// `ClipboardPoller.stop()` on the TS side and `@magibar/win`'s `ClipboardWatcher`.
+#[napi]
+pub struct ClipboardWatcher {
+  window: u32,
+  thread: Option<JoinHandle<()>>,
+}
+
+#[napi]
+impl ClipboardWatcher {
+  /// Wakes the watcher thread (via a self-addressed `ClientMessage`, since
+  /// `wait_for_event()` is otherwise blocked on the socket) and joins it.
+  /// Idempotent — a second call is a no-op.
+  #[napi]
+  pub fn stop(&mut self) {
+    if self.window != 0 {
+      // A fresh, short-lived connection: the watcher's own connection is busy
+      // blocking in `wait_for_event()` on its thread, so the wake-up has to
+      // come from a separate client — any connection to the same X server can
+      // `SendEvent` to a window it doesn't own.
+      if let Ok((conn, _)) = RustConnection::connect(None) {
+        if let Some(stop_atom) = atom(&conn, CLIPBOARD_WATCHER_STOP_ATOM) {
+          let event = ClientMessageEvent::new(32, self.window, stop_atom, [0u32; 5]);
+          let _ = conn.send_event(false, self.window, EventMask::PROPERTY_CHANGE, event);
+          let _ = conn.flush();
+        }
+      }
+      self.window = 0;
+    }
+    if let Some(thread) = self.thread.take() {
+      let _ = thread.join();
+    }
+  }
+}
+
+/// Starts watching the system clipboard for changes via a true OS push notification instead of
+/// polling: a background thread opens its own X11 connection, registers for `XFixes`
+/// `SelectionNotify` events on the `CLIPBOARD` selection (`XFixesSelectSelectionInput` — the same
+/// mechanism the `clipnotify` CLI tool is built on), and invokes `callback` with no arguments
+/// once for every clipboard-ownership change. This is what lets the TS `ClipboardPoller` (see
+/// `main/pasteboard-change-linux.ts`) skip its `setInterval` fallback entirely on Linux, the same
+/// way `@magibar/win`'s `startClipboardWatcher` does on Windows.
+///
+/// `XFixesSelectionNotify` only fires on a selection *ownership* change (a new copy), not on
+/// every write within the same ownership — exactly the granularity `ClipboardPoller` wants.
+///
+/// Blocks briefly waiting for the background thread to finish connecting and subscribing before
+/// returning, so a failure (no X server/XWayland reachable, or the XFixes extension missing) can
+/// be reported by returning a watcher whose internal window is already `0` rather than a handle
+/// that silently never calls back.
+#[napi]
+pub fn start_clipboard_watcher(callback: ThreadsafeFunction<()>) -> ClipboardWatcher {
+  let (tx, rx) = mpsc::channel::<u32>();
+
+  let thread = std::thread::spawn(move || {
+    let Ok((conn, screen_num)) = RustConnection::connect(None) else {
+      let _ = tx.send(0);
+      return;
+    };
+    let Some(root) = conn.setup().roots.get(screen_num).map(|screen| screen.root) else {
+      let _ = tx.send(0);
+      return;
+    };
+
+    // The XFixes extension requires clients to negotiate a version before
+    // issuing any other request against it.
+    let version_ok = match conn.xfixes_query_version(5, 0) {
+      Ok(cookie) => cookie.reply().is_ok(),
+      Err(_) => false,
+    };
+    if !version_ok {
+      let _ = tx.send(0);
+      return;
+    }
+
+    let (Some(clipboard_atom), Some(stop_atom)) =
+      (atom(&conn, "CLIPBOARD"), atom(&conn, CLIPBOARD_WATCHER_STOP_ATOM))
+    else {
+      let _ = tx.send(0);
+      return;
+    };
+
+    let Ok(window) = conn.generate_id() else {
+      let _ = tx.send(0);
+      return;
+    };
+    // An InputOnly window (never mapped/shown) purely to give the watcher an
+    // identity of its own — see `CLIPBOARD_WATCHER_STOP_ATOM` for why. Depth
+    // and visual must both be `0`/`CopyFromParent` for this window class.
+    // Selecting `PROPERTY_CHANGE` (otherwise unused — the window's properties
+    // are never touched) is what makes `stop()`'s synthetic `ClientMessage`
+    // (sent with that same mask) route to this connection specifically,
+    // rather than nowhere: `SendEvent` only delivers to clients that have
+    // selected the event's mask on the destination window.
+    let created = conn.create_window(
+      0,
+      window,
+      root,
+      0,
+      0,
+      1,
+      1,
+      0,
+      WindowClass::INPUT_ONLY,
+      0,
+      &CreateWindowAux::new().event_mask(EventMask::PROPERTY_CHANGE),
+    );
+    if created.is_err() {
+      let _ = tx.send(0);
+      return;
+    }
+
+    let selected = conn.xfixes_select_selection_input(
+      window,
+      clipboard_atom,
+      SelectionEventMask::SET_SELECTION_OWNER,
+    );
+    if selected.is_err() || conn.flush().is_err() {
+      let _ = tx.send(0);
+      return;
+    }
+
+    let _ = tx.send(window);
+
+    loop {
+      let event = match conn.wait_for_event() {
+        Ok(event) => event,
+        Err(_) => break,
+      };
+      match event {
+        Event::XfixesSelectionNotify(_) => {
+          callback.call(Ok(()), ThreadsafeFunctionCallMode::NonBlocking);
+        }
+        Event::ClientMessage(message) if message.window == window && message.type_ == stop_atom => {
+          break;
+        }
+        _ => {}
+      }
+    }
+  });
+
+  let window = rx.recv().unwrap_or(0);
+  ClipboardWatcher { window, thread: Some(thread) }
 }

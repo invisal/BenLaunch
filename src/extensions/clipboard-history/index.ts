@@ -5,8 +5,9 @@ import { resolveIcon } from "@main/native/apps-mac";
 import { registerClipboardHistoryIpc } from "./ipc/handlers";
 import { downsize } from "./main/image";
 import { ClipboardPoller, type ImageSource } from "./main/poller";
+import { pasteboardChangeEvent as pasteboardChangeEventLinux } from "./main/pasteboard-change-linux";
 import { pasteboardChangeSignal } from "./main/pasteboard-change-mac";
-import { pasteboardChangeEvent } from "./main/pasteboard-change-win";
+import { pasteboardChangeEvent as pasteboardChangeEventWin } from "./main/pasteboard-change-win";
 import { entryId, entryRow, writeEntryToClipboard } from "./main/row";
 import { frontmostApp } from "./main/source-app-mac";
 import { ClipboardStore } from "./main/store";
@@ -32,11 +33,12 @@ async function resolveSourceApp(): Promise<SourceApp | undefined> {
  * `<userData>/extensions/clipboard-history.json`) and the `ClipboardPoller`
  * that watches Electron's `clipboard` module. Electron itself has no native
  * clipboard-change event, so absent a platform-specific `changeEvent` this
- * falls back to a background `setInterval` — on Windows, `pasteboardChangeEvent()`
- * supplies a real push notification instead (`AddClipboardFormatListener` via
- * `@magibar/win`), so no interval runs there at all. Either way the poller is
- * started at `init()` and stopped at `stopPolling()` (called from
- * `main/index.ts`'s `will-quit` handler).
+ * falls back to a background `setInterval` — on Windows and Linux,
+ * `pasteboardChangeEvent()` supplies a real push notification instead
+ * (`AddClipboardFormatListener` via `@magibar/win`, or an XFixes `CLIPBOARD`
+ * selection watch via `@magibar/linux`), so no interval runs there at all.
+ * Either way the poller is started at `init()` and stopped at `stopPolling()`
+ * (called from `main/index.ts`'s `will-quit` handler).
  *
  * Captured content may include sensitive data (passwords, tokens); see the
  * privacy note in `main/store.ts`.
@@ -55,7 +57,7 @@ export class ClipboardHistoryExtension extends Extension {
       undefined, // default intervalMs
       undefined, // default readFile
       pasteboardChangeSignal(),
-      pasteboardChangeEvent(),
+      pasteboardChangeEventWin() ?? pasteboardChangeEventLinux(),
     );
   }
 
