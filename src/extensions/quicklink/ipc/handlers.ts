@@ -35,6 +35,10 @@ export function registerQuicklinkIpc(
   openWith: (id: string, text: string, appPath: string) => Promise<void>,
   host: QuicklinkIpcHost,
 ): void {
+  // Import/Export run from launcher rows (in main), not over IPC, but they open
+  // a file dialog and so need the same window state `pickPath` below does.
+  source.useDialogs(host);
+
   ipcMain.handle(QUICKLINK_CHANNELS.create, (_event, draft: QuicklinkDraft) =>
     source.create(draft),
   );

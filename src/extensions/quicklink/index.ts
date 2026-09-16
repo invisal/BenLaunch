@@ -1,8 +1,19 @@
-import { app, clipboard, shell } from "electron";
+import { app, clipboard, dialog, shell, type BrowserWindow } from "electron";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import { Extension } from "@core/base";
+import { listOpenWithApps } from "@main/sources/apps/open-with";
 import type { ActionDefinition } from "@main/types";
+import { fetchFavicon } from "./main/favicon";
+import {
+  fillMissingIcons,
+  isDuplicate,
+  parseRaycastJson,
+  toDraft,
+  toRaycast,
+  type ImportSummary,
+} from "./main/transfer";
 import {
   prettyLink,
   type QuicklinkCreateResult,
@@ -23,6 +34,18 @@ import {
 const EDIT_ACTION_ID = "ql:__edit";
 const CREATE_ACTION_ID = "ql:__create";
 const SEARCH_ACTION_ID = "ql:__search";
+const IMPORT_ACTION_ID = "ql:__import";
+const EXPORT_ACTION_ID = "ql:__export";
+
+/**
+ * The launcher-window state a modal file dialog needs: a parent to hang the
+ * sheet off, and the blur-to-hide suppression so the launcher doesn't vanish
+ * behind it. Owned by `main/index.ts` and handed over when the IPC is wired.
+ */
+export interface QuicklinkDialogHost {
+  getLauncherWindow: () => BrowserWindow | null;
+  setSuppressAutoHide: (value: boolean) => void;
+}
 
 /**
  * User-defined quicklinks (`ql:` ids) — named shortcuts to a URL, optionally with
@@ -34,9 +57,15 @@ const SEARCH_ACTION_ID = "ql:__search";
  */
 export class QuicklinkSource extends Extension {
   private readonly store = new QuicklinkStore({ dir: app.getPath("userData") });
+  private dialogs: QuicklinkDialogHost | null = null;
 
   constructor() {
     super("ql");
+  }
+
+  /** Lets Import/Export open a file dialog parented to the launcher window. */
+  useDialogs(host: QuicklinkDialogHost): void {
+    this.dialogs = host;
   }
 
   init(): void {
@@ -68,6 +97,26 @@ export class QuicklinkSource extends Extension {
           title: "Search Quicklinks",
           subtitle: "Browse, open and manage your quicklinks",
           icon: "🔎",
+          type: "command",
+        },
+        run: () => {},
+      },
+      {
+        action: {
+          id: IMPORT_ACTION_ID,
+          title: "Import Quicklinks",
+          subtitle: "Add quicklinks from a Raycast JSON file",
+          icon: "📥",
+          type: "command",
+        },
+        run: () => {},
+      },
+      {
+        action: {
+          id: EXPORT_ACTION_ID,
+          title: "Export Quicklinks",
+          subtitle: "Save your quicklinks as a Raycast JSON file",
+          icon: "📤",
           type: "command",
         },
         run: () => {},
@@ -125,6 +174,115 @@ export class QuicklinkSource extends Extension {
   }
 
   /**
+   * Pick a Raycast quicklinks JSON file and merge it in. Returns the summary, or
+   * `null` if the user cancelled. Throws a user-facing message when the file
+   * can't be read or isn't the array the format calls for.
+   */
+  private async importFromFile(): Promise<ImportSummary | null> {
+    const parent = this.dialogs?.getLauncherWindow() ?? null;
+    const options = {
+      title: "Import Quicklinks",
+      properties: ["openFile"] as Array<"openFile">,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    };
+
+    this.dialogs?.setSuppressAutoHide(true);
+    let path: string | undefined;
+    try {
+      const picked = parent
+        ? await dialog.showOpenDialog(parent, options)
+        : await dialog.showOpenDialog(options);
+      if (picked.canceled) return null;
+      path = picked.filePaths[0];
+    } finally {
+      this.dialogs?.setSuppressAutoHide(false);
+    }
+    if (!path) return null;
+
+    let text: string;
+    try {
+      text = await readFile(path, "utf8");
+    } catch {
+      throw new Error("That file could not be read.");
+    }
+
+    const parsed = parseRaycastJson(text);
+    if (!parsed) throw new Error("That file isn't a JSON array of quicklinks.");
+
+    const apps = await listOpenWithApps();
+    const drafts = parsed.entries.map((entry) => toDraft(entry, apps));
+
+    // An entry with no `iconName` gets its site's favicon, like the Create form
+    // does. Only for the ones that will actually be stored — re-importing a
+    // file you already have shouldn't hit the network at all.
+    const existing = this.store.list();
+    await fillMissingIcons(
+      drafts.filter((draft) => !isDuplicate(draft, existing)),
+      fetchFavicon,
+    );
+
+    const summary = this.store.addMany(drafts, isDuplicate);
+    return { ...summary, invalid: summary.invalid + parsed.invalid };
+  }
+
+  /**
+   * Run an import/export and report it in a message box — the launcher is on its
+   * way out by the time either finishes, so there's nowhere in-app to show the
+   * result. A cancelled dialog (`null`) says nothing; a failure reports itself
+   * rather than dying silently in the console.
+   */
+  private async runTransfer<T>(
+    run: () => Promise<T | null>,
+    describe: (result: T) => { message: string; detail: string },
+  ): Promise<void> {
+    try {
+      const result = await run();
+      if (result === null) return;
+      const { message, detail } = describe(result);
+      await dialog.showMessageBox({ type: "info", message, detail });
+    } catch (error) {
+      await dialog.showMessageBox({
+        type: "error",
+        message: "Quicklinks",
+        detail:
+          error instanceof Error ? error.message : "Something went wrong.",
+      });
+    }
+  }
+
+  /** Write every quicklink to a Raycast-format JSON file. Null if cancelled. */
+  private async exportToFile(): Promise<string | null> {
+    const parent = this.dialogs?.getLauncherWindow() ?? null;
+    const options = {
+      title: "Export Quicklinks",
+      defaultPath: "quicklinks.json",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    };
+
+    this.dialogs?.setSuppressAutoHide(true);
+    let path: string | undefined;
+    try {
+      const picked = parent
+        ? await dialog.showSaveDialog(parent, options)
+        : await dialog.showSaveDialog(options);
+      if (picked.canceled) return null;
+      path = picked.filePath;
+    } finally {
+      this.dialogs?.setSuppressAutoHide(false);
+    }
+    if (!path) return null;
+
+    const apps = await listOpenWithApps();
+    const payload = this.store.list().map((link) => toRaycast(link, apps));
+    try {
+      await writeFile(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+    } catch {
+      throw new Error("That file could not be written.");
+    }
+    return path;
+  }
+
+  /**
    * Subtitle for `actionId` with `argument` substituted in — what the launcher's
    * argument chip shows live as the user types, so the row previews the URL that
    * Enter will actually open.
@@ -179,6 +337,31 @@ export class QuicklinkSource extends Extension {
 
     if (actionId === EDIT_ACTION_ID) {
       await shell.openPath(this.store.filePath());
+      return;
+    }
+
+    if (actionId === IMPORT_ACTION_ID) {
+      await this.runTransfer(
+        () => this.importFromFile(),
+        (summary) => {
+          const parts = [`Added ${summary.added}`];
+          if (summary.duplicates)
+            parts.push(`skipped ${summary.duplicates} duplicate`);
+          if (summary.invalid) parts.push(`${summary.invalid} unusable`);
+          return {
+            message: "Import complete",
+            detail: `${parts.join(", ")}.`,
+          };
+        },
+      );
+      return;
+    }
+
+    if (actionId === EXPORT_ACTION_ID) {
+      await this.runTransfer(
+        () => this.exportToFile(),
+        (path) => ({ message: "Quicklinks exported", detail: path }),
+      );
       return;
     }
 

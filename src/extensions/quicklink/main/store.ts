@@ -322,6 +322,54 @@ export class QuicklinkStore {
   }
 
   /**
+   * Append every draft that isn't already here, in one write — the import path.
+   * `isDuplicate` decides what "already here" means (Raycast's rule: same name
+   * and same link), and is checked against the drafts accepted so far too, so a
+   * file that repeats itself doesn't import the same link twice. Drafts that
+   * fail validation are counted, not thrown on: one bad row shouldn't abort an
+   * otherwise good import.
+   */
+  addMany(
+    drafts: readonly QuicklinkDraft[],
+    isDuplicate: (
+      draft: QuicklinkDraft,
+      existing: readonly Quicklink[],
+    ) => boolean,
+  ): { added: number; duplicates: number; invalid: number } {
+    const next = [...this.list()];
+    const taken = new Set(next.map((entry) => entry.id));
+    let added = 0;
+    let duplicates = 0;
+    let invalid = 0;
+
+    for (const draft of drafts) {
+      if (validateDraft(draft) || !normalizeLink(draft.link)) {
+        invalid += 1;
+        continue;
+      }
+      if (isDuplicate(draft, next)) {
+        duplicates += 1;
+        continue;
+      }
+      const id = uniqueId(slugify(draft.name), taken);
+      taken.add(id);
+      const stamp = this.now();
+      next.push({
+        ...draftToEntry(id, draft),
+        createdAt: stamp,
+        updatedAt: stamp,
+      });
+      added += 1;
+    }
+
+    if (added > 0) {
+      this.cache = next;
+      this.write(next);
+    }
+    return { added, duplicates, invalid };
+  }
+
+  /**
    * Replace the fields of the quicklink `id` from an Edit-form draft, keeping its
    * id, its `pinned` / `hidden` flags and its `createdAt`, and restamping
    * `updatedAt`. Throws a user-facing message if the draft is unusable or the
