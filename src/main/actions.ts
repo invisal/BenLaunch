@@ -7,7 +7,7 @@ import type {
   RequestSubtitleOptions,
 } from "../shared/types";
 import { evaluate } from "./calculator";
-import { matchAction } from "./search";
+import { matchAction } from "@shared/search";
 import { takePendingNavigate } from "./navigate";
 import { SettingsStore } from "./settings/store";
 import type { ActionSource } from "./sources/base";

@@ -193,4 +193,5 @@ export const QUICKLINK_CHANNELS = {
   openWithApps: "quicklink:open-with-apps",
   icon: "quicklink:icon",
   preview: "quicklink:preview",
+  filePreview: "quicklink:file-preview",
 } as const;

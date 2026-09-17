@@ -6,6 +6,8 @@ import {
   type QuicklinkEntry,
 } from "../shared/types";
 import { resolveIcon } from "../main/icon";
+import { previewLink } from "../main/preview";
+import type { QuicklinkPreview } from "../shared/preview";
 import type { QuicklinkDialogHost, QuicklinkSource } from "../index";
 
 /**
@@ -135,5 +137,10 @@ export function registerQuicklinkIpc(
     QUICKLINK_CHANNELS.preview,
     (_event, actionId: string, argument: string): string | null =>
       source.preview(actionId, argument),
+  );
+
+  ipcMain.handle(
+    QUICKLINK_CHANNELS.filePreview,
+    (_event, link: string): Promise<QuicklinkPreview> => previewLink(link),
   );
 }

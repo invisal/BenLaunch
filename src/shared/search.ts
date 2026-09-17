@@ -1,3 +1,10 @@
+/**
+ * Fuzzy matching and ranking, shared by every list that searches: the
+ * launcher's own action search (in main) and the manager screens in the
+ * renderer (Search Quicklinks). Pure and web-safe — no `node:*`, no Electron —
+ * so one scoring rule serves both processes and the `node --test` suite.
+ */
+
 /** Points added when a matched character starts a new word ("code" → the "C" in "VS Code"). */
 const WORD_START_BONUS = 1;
 /** Points added when a matched character immediately follows the previous match. */
@@ -47,13 +54,13 @@ export function fuzzyMatch(needle: string, haystack: string): MatchResult {
 }
 
 /** Score for an action whose keyword is exactly the query's first word. */
-const KEYWORD_EXACT_SCORE = 100
+const KEYWORD_EXACT_SCORE = 100;
 /** Score for an action whose keyword the query's first word fuzzy-matches. */
-const KEYWORD_FUZZY_SCORE = 10
+const KEYWORD_FUZZY_SCORE = 10;
 /** Score when a tag equals the whole query — a deliberate "show me everything tagged X". */
-const TAG_EXACT_SCORE = 20
+const TAG_EXACT_SCORE = 20;
 /** Score when a tag equals one word of a multi-word query. */
-const TAG_WORD_SCORE = 3
+const TAG_WORD_SCORE = 3;
 
 /**
  * Match `query` against an action, considering its title, its optional `keyword`
@@ -68,33 +75,33 @@ export function matchAction(
   query: string,
   action: { title: string; keyword?: string; tags?: string[] },
 ): MatchResult {
-  const titleMatch = fuzzyMatch(query, action.title)
-  let best = titleMatch
+  const titleMatch = fuzzyMatch(query, action.title);
+  let best = titleMatch;
 
-  const keyword = action.keyword?.trim()
+  const keyword = action.keyword?.trim();
   if (keyword) {
-    const firstWord = query.trim().split(/\s+/, 1)[0] ?? ""
+    const firstWord = query.trim().split(/\s+/, 1)[0] ?? "";
     if (fuzzyMatch(firstWord, keyword).match) {
       const keywordScore =
         firstWord.toLowerCase() === keyword.toLowerCase()
           ? KEYWORD_EXACT_SCORE
-          : KEYWORD_FUZZY_SCORE
-      best = { match: true, score: Math.max(best.score, keywordScore) }
+          : KEYWORD_FUZZY_SCORE;
+      best = { match: true, score: Math.max(best.score, keywordScore) };
     }
   }
 
   if (action.tags?.length) {
-    const normalized = query.trim().toLowerCase()
-    const words = new Set(normalized.split(/\s+/).filter(Boolean))
-    const tags = action.tags.map((tag) => tag.toLowerCase())
+    const normalized = query.trim().toLowerCase();
+    const words = new Set(normalized.split(/\s+/).filter(Boolean));
+    const tags = action.tags.map((tag) => tag.toLowerCase());
     if (tags.includes(normalized)) {
-      best = { match: true, score: Math.max(best.score, TAG_EXACT_SCORE) }
+      best = { match: true, score: Math.max(best.score, TAG_EXACT_SCORE) };
     } else if (!best.match && tags.some((tag) => words.has(tag))) {
-      best = { match: true, score: TAG_WORD_SCORE }
+      best = { match: true, score: TAG_WORD_SCORE };
     }
   }
 
-  return best
+  return best;
 }
 
 /** Is every character of `needle` present in `haystack`, in order? */
