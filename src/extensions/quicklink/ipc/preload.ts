@@ -1,5 +1,6 @@
 import { ipcRenderer } from "electron";
 import { QUICKLINK_CHANNELS } from "../shared/types";
+import type { QuicklinkPreview } from "../shared/preview";
 import type {
   OpenWithApp,
   Quicklink,
@@ -46,4 +47,11 @@ export const quicklinkApi = {
   /** Live subtitle for the argument chip: the URL `argument` would open. */
   preview: (actionId: string, argument: string): Promise<string | null> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.preview, actionId, argument),
+  /**
+   * What a file/folder link actually contains, for the manager's detail pane:
+   * an inlined image or OS thumbnail, a text/CSV head, a folder listing — plus
+   * the metadata to draw a file card when none of those apply.
+   */
+  filePreview: (link: string): Promise<QuicklinkPreview> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.filePreview, link),
 };

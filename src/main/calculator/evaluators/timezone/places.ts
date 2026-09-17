@@ -3,7 +3,7 @@ import {
   getCountryForTimezone,
 } from "countries-and-timezones";
 import { getTimezoneOffset } from "date-fns-tz";
-import { fuzzyMatch } from "../../../search.ts";
+import { fuzzyMatch } from "../../../../shared/search.ts";
 
 export interface PlaceEntry {
   /** Display name, e.g. "New York". */

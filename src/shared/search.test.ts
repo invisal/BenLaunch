@@ -17,7 +17,11 @@ import { fuzzyMatch, matchAction } from "./search.ts";
  * Add a row whenever real usage turns up an ordering that feels wrong.
  */
 
-const matchCases: ReadonlyArray<{ query: string; title: string; match: boolean }> = [
+const matchCases: ReadonlyArray<{
+  query: string;
+  title: string;
+  match: boolean;
+}> = [
   { query: "", title: "Visual Studio Code", match: true },
   { query: "code", title: "Visual Studio Code", match: true },
   { query: "vsc", title: "Visual Studio Code", match: true },
@@ -35,7 +39,11 @@ for (const { query, title, match } of matchCases) {
   });
 }
 
-const scoreCases: ReadonlyArray<{ query: string; title: string; score: number }> = [
+const scoreCases: ReadonlyArray<{
+  query: string;
+  title: string;
+  score: number;
+}> = [
   { query: "", title: "Visual Studio Code", score: 0 }, // empty query is neutral
   { query: "Code", title: "code", score: Infinity }, // exact, case-insensitive
   { query: "abc", title: "abc", score: Infinity }, // exact
@@ -61,7 +69,10 @@ const rankingCases: ReadonlyArray<{ query: string; titles: string[] }> = [
   // Start-of-string bonus beats a start-of-later-word bonus.
   { query: "v", titles: ["Vim", "Event Viewer"] },
   // "vi": a literal prefix, then split across two words, then on a later word.
-  { query: "vi", titles: ["Vim", "Visual Studio", "Voom Intel", "Event Viewer"] },
+  {
+    query: "vi",
+    titles: ["Vim", "Visual Studio", "Voom Intel", "Event Viewer"],
+  },
   // Among equally-good prefixes, the shorter title wins (length tiebreak).
   { query: "vi", titles: ["Visual Studio", "Visual Studio Code"] },
   { query: "chr", titles: ["Chrome", "Chromium", "Google Chrome"] },
@@ -69,7 +80,10 @@ const rankingCases: ReadonlyArray<{ query: string; titles: string[] }> = [
   { query: "o", titles: ["Outlook", "Google Chrome"] },
   { query: "note", titles: ["Notepad", "Notepad++", "Keep Notes"] },
   // All match "Code" as a whole word; rank by how much unmatched tail follows.
-  { query: "code", titles: ["VS Code", "QR Code Generator", "Visual Studio Code"] },
+  {
+    query: "code",
+    titles: ["VS Code", "QR Code Generator", "Visual Studio Code"],
+  },
 ];
 
 for (const { query, titles } of rankingCases) {
@@ -80,7 +94,11 @@ for (const { query, titles } of rankingCases) {
       .sort((a, b) => b.score - a.score);
 
     for (const r of ranked) {
-      assert.equal(r.match, true, `${JSON.stringify(query)} should match ${JSON.stringify(r.title)}`);
+      assert.equal(
+        r.match,
+        true,
+        `${JSON.stringify(query)} should match ${JSON.stringify(r.title)}`,
+      );
     }
     assert.deepEqual(
       ranked.map((r) => r.title),
@@ -138,20 +156,23 @@ test("matchAction: an unrelated query matches neither title nor keyword", () => 
 });
 
 test("matchAction: a tag equal to the whole query is a strong match", () => {
-  const m = matchAction("work", { title: "Internal Dashboard", tags: ["work", "ops"] });
+  const m = matchAction("work", {
+    title: "Internal Dashboard",
+    tags: ["work", "ops"],
+  });
   assert.equal(m.match, true);
   assert.equal(m.score, 20);
 });
 
 test("matchAction: a tag matching one word of a longer query is only a weak nudge", () => {
-  const m = matchAction("work stuff", { title: "Internal Dashboard", tags: ["work"] });
+  const m = matchAction("work stuff", {
+    title: "Internal Dashboard",
+    tags: ["work"],
+  });
   assert.equal(m.match, true);
   assert.equal(m.score, 3);
 });
 
 test("matchAction: tags don't match a partial word", () => {
-  assert.equal(
-    matchAction("wor", { title: "X", tags: ["work"] }).match,
-    false,
-  );
+  assert.equal(matchAction("wor", { title: "X", tags: ["work"] }).match, false);
 });
