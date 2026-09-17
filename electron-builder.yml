@@ -1,4 +1,4 @@
-appId: com.benpocket.magibar
+appId: app.magibar
 productName: Magibar
 
 directories:
@@ -53,3 +53,36 @@ nsis:
   oneClick: true
   perMachine: false
   allowToChangeInstallationDirectory: false
+
+mac:
+  category: public.app-category.utilities
+  target:
+    - dmg
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Only signs/notarizes when release.yml's Apple secrets are present (see
+  # that workflow's "Import Apple certificate" step) — CSC_IDENTITY_AUTO_DISCOVERY
+  # is left at its default so a plain `npm run dist:mac` locally without a
+  # keychain cert still produces an unsigned build for testing.
+  notarize: true
+
+dmg:
+  artifactName: ${productName}-${version}.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: Utility
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+# Windows has no codesigning certificate yet, so release.yml ships it
+# unsigned for now (SmartScreen will warn on install) until a cert (or
+# Azure Trusted Signing) is wired in via CSC_LINK/CSC_KEY_PASSWORD or a
+# signing action step. macOS is signed + notarized (see mac: above).
+publish:
+  provider: github
+  owner: invisal
+  repo: magibarapp

@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Imports the Developer ID Application cert into a throwaway keychain so
+      # electron-builder's mac.notarize step (electron-builder.yml) can sign +
+      # notarize. APPLE_CERTIFICATE_BASE64 is the .p12 export, base64-encoded
+      # (`base64 -i cert.p12 | pbcopy`); APPLE_CERTIFICATE_PASSWORD is the
+      # export password you set in Keychain Access.
+      - name: Import Apple certificate
+        if: runner.os == 'macOS'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "" build.keychain
+
+      # No Windows codesigning certificate yet, so this ships an unsigned
+      # installer (SmartScreen will warn on first run) until a cert (or Azure
+      # Trusted Signing) is wired in via CSC_LINK/CSC_KEY_PASSWORD or a
+      # signing action step — no other changes to this workflow should be
+      # needed then.
+      - name: Release (Windows)
+        if: runner.os == 'Windows'
+        run: npm run release:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release (Linux)
+        if: runner.os == 'Linux'
+        run: npm run release:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # APPLE_APP_SPECIFIC_PASSWORD: an app-specific password generated at
+      # appleid.apple.com for @electron/notarize to authenticate as APPLE_ID.
+      # APPLE_TEAM_ID: the Developer team ID the Developer ID cert belongs to.
+      - name: Release (macOS)
+        if: runner.os == 'macOS'
+        run: npm run release:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
