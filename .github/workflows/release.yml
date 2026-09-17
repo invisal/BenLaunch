@@ -69,7 +69,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # APPLE_APP_SPECIFIC_PASSWORD: an app-specific password generated at
-      # appleid.apple.com for @electron/notarize to authenticate as APPLE_ID.
+      # appleid.apple.com for @electron/notarize to authenticate as APPLE_ID —
+      # @electron/notarize reads this exact env var name, so it can't be
+      # renamed here; only the repo secret it pulls from (APPLE_APP_PASSWORD)
+      # is ours to name.
       # APPLE_TEAM_ID: the Developer team ID the Developer ID cert belongs to.
       - name: Release (macOS)
         if: runner.os == 'macOS'
@@ -77,5 +80,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
