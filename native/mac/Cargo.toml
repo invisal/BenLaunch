@@ -10,6 +10,14 @@ crate-type = ["cdylib"]
 napi = { version = "3", features = ["napi9"] }
 napi-derive = "3"
 core-foundation-sys = "0.8"
+# Text recognition (`recognize_png`) talks to Vision, an Objective-C framework
+# with by-value struct returns and NSRange arguments — an ABI that is easy to
+# get subtly, silently wrong by hand. These give the calls a checked signature
+# instead. Everything else in this crate still uses the plain C APIs directly.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSData", "NSString", "NSArray", "NSDictionary", "NSValue", "NSError", "NSRange", "NSGeometry", "NSObjCRuntime"] }
+objc2-vision = { version = "0.3", default-features = false, features = ["std", "VNRequest", "VNObservation", "VNRecognizeTextRequest", "VNRequestHandler", "VNTypes", "VNError", "objc2-core-foundation"] }
+objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFCGTypes"] }
 
 [build-dependencies]
 napi-build = "2"

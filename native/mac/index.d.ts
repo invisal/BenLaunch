@@ -47,6 +47,49 @@ export interface MacRect {
   height: number
 }
 
+export interface OcrPage {
+  language: string
+  lines: Array<OcrTextLine>
+}
+
+export interface OcrTextLine {
+  text: string
+  /**
+   * Vision scores a whole recognized candidate (a line), not each word in it,
+   * so this is the line's score and the TS side copies it onto its words.
+   */
+  confidence?: number
+  words: Array<OcrWordBox>
+}
+
+/** One recognized word, in source-image pixels, origin top-left. */
+export interface OcrWordBox {
+  text: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * The BCP-47 tags Vision can recognize, best-first, as it reports them for
+ * the accurate recognition level.
+ */
+export declare function ocrLanguages(): Array<string>
+
+/**
+ * Recognizes the text in `png` with Vision's `VNRecognizeTextRequest` — the
+ * same on-device recognizer behind Live Text. `language` is a tag from
+ * `ocr_languages()`; omit it to use Vision's own default order.
+ *
+ * Runs on the libuv threadpool rather than the JS thread: `performRequests:`
+ * is synchronous and takes real time on a full-page screenshot, and doing it
+ * inline would stall the launcher's UI for exactly as long. Vision is safe to
+ * call off the main thread, and no Objective-C object crosses back — only the
+ * plain Rust `OcrPage` built inside the autorelease pool.
+ */
+export declare function recognizePng(png: Buffer, language?: string | undefined | null): Promise<OcrPage>
+
 /**
  * `NSPasteboard.generalPasteboard.changeCount` — a counter AppKit increments
  * every time the general pasteboard's *content* changes (a copy, a cut, or

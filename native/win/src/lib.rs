@@ -12,8 +12,13 @@
 
 use napi::bindgen_prelude::*;
 use napi::threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode};
+use napi::Task;
 use napi_derive::napi;
 use windows::core::{Interface, PCWSTR, HSTRING};
+use windows::Globalization::Language;
+use windows::Graphics::Imaging::{BitmapDecoder, SoftwareBitmap};
+use windows::Media::Ocr::OcrEngine as WinOcrEngine;
+use windows::Storage::Streams::{DataWriter, InMemoryRandomAccessStream};
 use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::{
@@ -23,7 +28,7 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::Storage::EnhancedStorage::{PKEY_AppUserModel_ID, PKEY_ItemNameDisplay};
 use windows::Win32::System::Com::{
   CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, IPersistFile,
-  CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, STGM_READ
+  CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED, COINIT_MULTITHREADED, STGM_READ
 };
 use windows::Win32::System::DataExchange::{
   AddClipboardFormatListener, RemoveClipboardFormatListener
@@ -727,4 +732,199 @@ pub fn start_clipboard_watcher(callback: ThreadsafeFunction<()>) -> ClipboardWat
     hwnd,
     thread: Some(thread)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Text recognition (Windows.Media.Ocr)
+// ---------------------------------------------------------------------------
+
+/// One recognized word, in source-image pixels. `Windows.Media.Ocr` reports no
+/// confidence for a word or a line — only text and geometry — so none is
+/// carried here; the TS side (`ocr-win.ts`) surfaces that as `null` rather
+/// than inventing a score.
+#[napi(object)]
+pub struct OcrWordBox {
+  pub text: String,
+  pub x: f64,
+  pub y: f64,
+  pub width: f64,
+  pub height: f64
+}
+
+#[napi(object)]
+pub struct OcrTextLine {
+  pub text: String,
+  pub words: Vec<OcrWordBox>
+}
+
+#[napi(object)]
+pub struct OcrPage {
+  /// The BCP-47 tag the engine actually recognized with, which may differ from
+  /// the one requested (an unavailable tag falls back to the user's profile).
+  pub language: String,
+  pub lines: Vec<OcrTextLine>
+}
+
+#[napi(object)]
+pub struct OcrLanguageInfo {
+  pub tag: String,
+  pub name: String
+}
+
+/// COM/WinRT apartment for the worker thread `RecognizeTask::compute` runs on.
+///
+/// Deliberately MTA, unlike `ComGuard` above: this runs on a libuv threadpool
+/// thread rather than the JS thread, and the recognition path blocks on WinRT
+/// `IAsyncOperation`s. Blocking a wait on an STA thread — which has to keep
+/// pumping messages for the completion to ever arrive — is the classic way to
+/// deadlock, so the thread joins the multithreaded apartment instead, where a
+/// blocking `.get()` is exactly what's expected.
+struct MtaGuard(bool);
+
+impl MtaGuard {
+  fn new() -> Self {
+    let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+    Self(hr.is_ok())
+  }
+}
+
+impl Drop for MtaGuard {
+  fn drop(&mut self) {
+    if self.0 {
+      unsafe { CoUninitialize() };
+    }
+  }
+}
+
+/// The BCP-47 tags this machine can recognize — one per installed language
+/// pack that carries the optional "Optical character recognition" feature.
+/// Empty when none is installed, which is a real and common state on a fresh
+/// Windows install and is reported to the user as such rather than as a
+/// failure.
+#[napi]
+pub fn ocr_languages() -> Vec<OcrLanguageInfo> {
+  let mut out = Vec::new();
+  let Ok(languages) = WinOcrEngine::AvailableRecognizerLanguages() else {
+    return out;
+  };
+  for language in languages {
+    let Ok(tag) = language.LanguageTag() else {
+      continue;
+    };
+    let tag = tag.to_string();
+    if tag.is_empty() {
+      continue;
+    }
+    let name = language
+      .DisplayName()
+      .map(|value| value.to_string())
+      .unwrap_or_else(|_| tag.clone());
+    out.push(OcrLanguageInfo { tag, name });
+  }
+  out
+}
+
+/// Decodes PNG bytes into the `SoftwareBitmap` the OCR engine wants.
+///
+/// WinRT has no "decode these bytes" entry point — `BitmapDecoder` reads from
+/// an `IRandomAccessStream` — so the bytes are written into an in-memory
+/// stream first. `DetachStream` hands ownership back before rewinding, which
+/// is what keeps the `DataWriter`'s drop from closing the stream out from
+/// under the decoder.
+fn decode_png(png: &[u8]) -> windows::core::Result<SoftwareBitmap> {
+  let stream = InMemoryRandomAccessStream::new()?;
+  let writer = DataWriter::CreateDataWriter(&stream)?;
+  writer.WriteBytes(png)?;
+  writer.StoreAsync()?.join()?;
+  writer.FlushAsync()?.join()?;
+  writer.DetachStream()?;
+  stream.Seek(0)?;
+
+  let decoder = BitmapDecoder::CreateAsync(&stream)?.join()?;
+  decoder.GetSoftwareBitmapAsync()?.join()
+}
+
+fn recognize(png: &[u8], language: Option<&str>) -> windows::core::Result<OcrPage> {
+  let bitmap = decode_png(png)?;
+
+  // A requested tag with no recognizer installed is an error, not a silent
+  // fallback — the caller picked it from `ocr_languages()`, so if it's gone
+  // the honest answer is to say so.
+  let engine = match language {
+    Some(tag) => WinOcrEngine::TryCreateFromLanguage(&Language::CreateLanguage(&HSTRING::from(
+      tag
+    ))?)?,
+    None => WinOcrEngine::TryCreateFromUserProfileLanguages()?
+  };
+
+  let used = engine
+    .RecognizerLanguage()
+    .and_then(|language| language.LanguageTag())
+    .map(|tag| tag.to_string())
+    .unwrap_or_default();
+
+  let result = engine.RecognizeAsync(&bitmap)?.join()?;
+
+  let mut lines = Vec::new();
+  for line in result.Lines()? {
+    let mut words = Vec::new();
+    for word in line.Words()? {
+      let rect = word.BoundingRect()?;
+      words.push(OcrWordBox {
+        text: word.Text()?.to_string(),
+        x: rect.X as f64,
+        y: rect.Y as f64,
+        width: rect.Width as f64,
+        height: rect.Height as f64
+      });
+    }
+    lines.push(OcrTextLine {
+      text: line.Text()?.to_string(),
+      words
+    });
+  }
+
+  Ok(OcrPage {
+    language: used,
+    lines
+  })
+}
+
+pub struct RecognizeTask {
+  png: Vec<u8>,
+  language: Option<String>
+}
+
+impl Task for RecognizeTask {
+  type Output = OcrPage;
+  type JsValue = OcrPage;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    let _mta = MtaGuard::new();
+    recognize(&self.png, self.language.as_deref())
+      .map_err(|error| Error::from_reason(format!("Windows OCR failed: {error}")))
+  }
+
+  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    Ok(output)
+  }
+}
+
+/// Recognizes the text in `png` with `Windows.Media.Ocr`, the same on-device
+/// engine behind Windows' own Snipping Tool text actions. `language` is a tag
+/// from `ocr_languages()`; omit it to use the user's profile languages.
+///
+/// Runs on the libuv threadpool rather than the JS thread. OCR on a full-page
+/// screenshot is tens to hundreds of milliseconds of real work, and doing it
+/// inline would stall the launcher's UI for exactly as long.
+///
+/// The engine rejects images smaller than 40×40 or larger than 10000×10000;
+/// the caller scales into that range before getting here (see
+/// `src/extensions/text-from-image/main/image.ts`).
+#[napi(ts_return_type = "Promise<OcrPage>")]
+pub fn recognize_png(png: Buffer, language: Option<String>) -> AsyncTask<RecognizeTask> {
+  AsyncTask::new(RecognizeTask {
+    png: png.to_vec(),
+    language
+  })
 }

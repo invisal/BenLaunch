@@ -10,6 +10,7 @@ import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload
 import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
 import { groupApi } from "@extensions/group/ipc/preload";
 import { quicklinkApi } from "@extensions/quicklink/ipc/preload";
+import { textFromImageApi } from "@extensions/text-from-image/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
 import { windowApi } from "@extensions/window/ipc/preload";
 
@@ -65,6 +66,9 @@ const api = {
 
   /** Quicklinks: the Create/Edit/Duplicate form and the Ctrl+K menu ↔ main. */
   quicklink: quicklinkApi,
+
+  /** Text from Image (recognize, list, export to txt/JSON/CSV/Excel/PDF) ↔ main. */
+  textFromImage: textFromImageApi,
 
   /** Group manager screen ↔ main. */
   group: groupApi,

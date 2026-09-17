@@ -18,6 +18,7 @@ import {
   refreshActionSources,
   registerActionSourcesIpc,
   requestSubtitle,
+  textFromImage,
 } from "./actions";
 import { CLIPBOARD_HISTORY_CHANNELS } from "@extensions/clipboard-history/shared/types";
 import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
@@ -146,6 +147,15 @@ app.whenReady().then(() => {
       if (!pinned) hideLauncher();
     },
     usageOf: actionUsage,
+  });
+  // Text from Image's own IPC goes through `registerIpc()` above; only its
+  // file pickers need the launcher window's state, for the same reason
+  // Quicklinks' do.
+  textFromImage.useDialogs({
+    getLauncherWindow,
+    setSuppressAutoHide: (value) => {
+      suppressAutoHide = value;
+    },
   });
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {

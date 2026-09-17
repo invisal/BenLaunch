@@ -1,17 +1,26 @@
 #![cfg(target_os = "macos")]
-//! Native macOS window control for magibar-launcher.
+//! Native macOS integrations for magibar-launcher: window control, the
+//! pasteboard change counter, and Vision text recognition.
 //!
-//! Replaces the previous `osascript`/System Events shell-outs — every call there
-//! forks a whole process and JIT-compiles an AppleScript, which is why a tight
-//! timeout could (and did) spuriously fail under ordinary system load. This talks
-//! directly to the same two frameworks osascript was driving indirectly:
-//! CoreGraphics' window list (to find the frontmost app, no permission needed)
-//! and the Accessibility API (`AXUIElement`) to read/move/fullscreen its focused
-//! window (requires the same Accessibility consent the AppleScript path needed).
+//! Window control replaces the previous `osascript`/System Events shell-outs —
+//! every call there forks a whole process and JIT-compiles an AppleScript, which
+//! is why a tight timeout could (and did) spuriously fail under ordinary system
+//! load. It talks directly to the same two frameworks osascript was driving
+//! indirectly: CoreGraphics' window list (to find the frontmost app, no
+//! permission needed) and the Accessibility API (`AXUIElement`) to
+//! read/move/fullscreen its focused window (requires the same Accessibility
+//! consent the AppleScript path needed). Both are plain C APIs —
+//! `CGWindowListCopyWindowInfo` reports on-screen windows front-to-back by
+//! z-order, which is enough to find "the frontmost real app window" without
+//! `NSWorkspace`.
 //!
-//! No Objective-C runtime is used at all — `CGWindowListCopyWindowInfo` is a
-//! plain C API that reports on-screen windows front-to-back by z-order, which is
-//! enough to find "the frontmost real app window" without `NSWorkspace`.
+//! The other two exports do need Objective-C, at two different levels of
+//! ceremony. `pasteboard_change_count` is one scalar property read, done with a
+//! raw `objc_msgSend` rather than pulling in a bridging crate for it.
+//! `recognize_png` is a whole framework conversation — by-value `CGRect`
+//! returns, an `NSRange` argument, error out-parameters — so it uses the `objc2`
+//! bindings, where those signatures are checked at compile time instead of being
+//! asserted by hand.
 
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex, CFArrayRef};
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease, CFTypeRef};
@@ -414,4 +423,251 @@ pub fn toggle_fullscreen(pid: i32) -> bool {
     CFRelease(window);
     err == K_AX_ERROR_SUCCESS
   }
+}
+
+// ---------------------------------------------------------------------------
+// Text recognition (Vision)
+// ---------------------------------------------------------------------------
+
+use napi::bindgen_prelude::{AsyncTask, Buffer, Env, Error, Result};
+use napi::Task;
+use objc2::rc::{autoreleasepool, Retained};
+use objc2::{msg_send, AnyThread};
+use objc2_core_foundation::CGRect;
+use objc2_foundation::{NSArray, NSData, NSDictionary, NSError, NSRange, NSString};
+use objc2_vision::{
+  VNImageRequestHandler, VNRecognizeTextRequest, VNRectangleObservation, VNRequest,
+  VNRequestTextRecognitionLevel
+};
+
+/// One recognized word, in source-image pixels, origin top-left.
+#[napi(object)]
+pub struct OcrWordBox {
+  pub text: String,
+  pub x: f64,
+  pub y: f64,
+  pub width: f64,
+  pub height: f64
+}
+
+#[napi(object)]
+pub struct OcrTextLine {
+  pub text: String,
+  /// Vision scores a whole recognized candidate (a line), not each word in it,
+  /// so this is the line's score and the TS side copies it onto its words.
+  pub confidence: Option<f64>,
+  pub words: Vec<OcrWordBox>
+}
+
+#[napi(object)]
+pub struct OcrPage {
+  pub language: String,
+  pub lines: Vec<OcrTextLine>
+}
+
+/// An image's dimensions, read straight out of the PNG header.
+///
+/// Vision reports boxes in *normalized* coordinates (0-1, origin bottom-left),
+/// so converting them to pixels needs the image's size — and the caller always
+/// hands us a PNG (`image.ts` re-encodes whatever it was given), whose IHDR
+/// chunk is at a fixed offset. Cheaper and simpler than decoding the image a
+/// second time just to ask how big it is.
+fn png_size(png: &[u8]) -> Option<(f64, f64)> {
+  const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+  if png.len() < 24 || png[..8] != SIGNATURE || &png[12..16] != b"IHDR" {
+    return None;
+  }
+  let width = u32::from_be_bytes(png[16..20].try_into().ok()?);
+  let height = u32::from_be_bytes(png[20..24].try_into().ok()?);
+  if width == 0 || height == 0 {
+    return None;
+  }
+  Some((width as f64, height as f64))
+}
+
+/// The whitespace-separated words of `text`, each with its range in UTF-16
+/// code units — the unit `NSString`, and so `boundingBoxForRange:`, counts in.
+/// Counting Rust `char`s or bytes instead would put every box in the wrong
+/// place the moment a line contains an emoji or a non-BMP character.
+fn word_ranges(text: &str) -> Vec<(NSRange, String)> {
+  let mut out = Vec::new();
+  let mut offset = 0usize;
+  let mut start: Option<usize> = None;
+  let mut current = String::new();
+
+  for character in text.chars() {
+    if character.is_whitespace() {
+      if let Some(from) = start.take() {
+        out.push((
+          NSRange {
+            location: from,
+            length: offset - from
+          },
+          std::mem::take(&mut current)
+        ));
+      }
+    } else {
+      if start.is_none() {
+        start = Some(offset);
+      }
+      current.push(character);
+    }
+    offset += character.len_utf16();
+  }
+
+  if let Some(from) = start {
+    out.push((
+      NSRange {
+        location: from,
+        length: offset - from
+      },
+      current
+    ));
+  }
+  out
+}
+
+/// Vision's normalized, bottom-left-origin rect as top-left-origin pixels —
+/// the convention every other part of this feature uses.
+fn to_pixels(rect: CGRect, text: String, width: f64, height: f64) -> OcrWordBox {
+  OcrWordBox {
+    text,
+    x: rect.origin.x * width,
+    y: (1.0 - rect.origin.y - rect.size.height) * height,
+    width: rect.size.width * width,
+    height: rect.size.height * height
+  }
+}
+
+/// The BCP-47 tags Vision can recognize, best-first, as it reports them for
+/// the accurate recognition level.
+#[napi]
+pub fn ocr_languages() -> Vec<String> {
+  autoreleasepool(|pool| {
+    let request = unsafe { VNRecognizeTextRequest::new() };
+    request.setRecognitionLevel(VNRequestTextRecognitionLevel::Accurate);
+    let Ok(languages) = (unsafe { request.supportedRecognitionLanguagesAndReturnError() }) else {
+      return Vec::new();
+    };
+    languages
+      .iter()
+      .map(|tag| tag.to_str(pool).to_owned())
+      .collect()
+  })
+}
+
+fn recognize(png: &[u8], language: Option<&str>) -> std::result::Result<OcrPage, String> {
+  let (width, height) = png_size(png).ok_or("That image could not be read.")?;
+
+  autoreleasepool(|pool| {
+    let data = NSData::with_bytes(png);
+    let handler = VNImageRequestHandler::initWithData_options(
+      VNImageRequestHandler::alloc(),
+      &data,
+      &NSDictionary::new()
+    );
+
+    let request = unsafe { VNRecognizeTextRequest::new() };
+    // Accurate over Fast: this runs on a still image the user chose, not a
+    // video frame, so a few extra milliseconds for a materially better read is
+    // the right trade.
+    request.setRecognitionLevel(VNRequestTextRecognitionLevel::Accurate);
+    request.setUsesLanguageCorrection(true);
+    let used = match language {
+      Some(tag) => {
+        let tags = NSArray::from_retained_slice(&[NSString::from_str(tag)]);
+        unsafe { request.setRecognitionLanguages(&tags) };
+        tag.to_owned()
+      }
+      None => unsafe { request.recognitionLanguages() }
+        .firstObject()
+        .map(|tag| tag.to_str(pool).to_owned())
+        .unwrap_or_default()
+    };
+
+    let requests: Retained<NSArray<VNRequest>> =
+      NSArray::from_retained_slice(&[Retained::into_super(request.clone())]);
+    handler
+      .performRequests_error(&requests)
+      .map_err(|error| error.localizedDescription().to_str(pool).to_owned())?;
+
+    let mut lines = Vec::new();
+    for observation in request.results().into_iter().flatten() {
+      let candidates = observation.topCandidates(1);
+      let Some(candidate) = candidates.firstObject() else {
+        continue;
+      };
+      let text = candidate.string().to_str(pool).to_owned();
+      if text.trim().is_empty() {
+        continue;
+      }
+      let confidence = candidate.confidence() as f64;
+
+      let mut words = Vec::new();
+      for (range, word) in word_ranges(&text) {
+        // Not part of the generated bindings, so sent by selector. A failure
+        // here (Vision can refuse a range it can't map back to the image)
+        // falls back to the whole line's box rather than dropping the word.
+        let boxed: Option<Retained<VNRectangleObservation>> = unsafe {
+          msg_send![
+            &*candidate,
+            boundingBoxForRange: range,
+            error: std::ptr::null_mut::<*mut NSError>(),
+          ]
+        };
+        let rect = match &boxed {
+          Some(rectangle) => unsafe { rectangle.boundingBox() },
+          None => unsafe { observation.boundingBox() }
+        };
+        words.push(to_pixels(rect, word, width, height));
+      }
+
+      lines.push(OcrTextLine {
+        text,
+        confidence: Some(confidence),
+        words
+      });
+    }
+
+    Ok(OcrPage {
+      language: used,
+      lines
+    })
+  })
+}
+
+pub struct RecognizeTask {
+  png: Vec<u8>,
+  language: Option<String>
+}
+
+impl Task for RecognizeTask {
+  type Output = OcrPage;
+  type JsValue = OcrPage;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    recognize(&self.png, self.language.as_deref())
+      .map_err(|error| Error::from_reason(format!("Vision text recognition failed: {error}")))
+  }
+
+  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    Ok(output)
+  }
+}
+
+/// Recognizes the text in `png` with Vision's `VNRecognizeTextRequest` — the
+/// same on-device recognizer behind Live Text. `language` is a tag from
+/// `ocr_languages()`; omit it to use Vision's own default order.
+///
+/// Runs on the libuv threadpool rather than the JS thread: `performRequests:`
+/// is synchronous and takes real time on a full-page screenshot, and doing it
+/// inline would stall the launcher's UI for exactly as long. Vision is safe to
+/// call off the main thread, and no Objective-C object crosses back — only the
+/// plain Rust `OcrPage` built inside the autorelease pool.
+#[napi(ts_return_type = "Promise<OcrPage>")]
+pub fn recognize_png(png: Buffer, language: Option<String>) -> AsyncTask<RecognizeTask> {
+  AsyncTask::new(RecognizeTask {
+    png: png.to_vec(),
+    language
+  })
 }

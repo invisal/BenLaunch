@@ -65,6 +65,63 @@ export declare function getWindowRect(hwnd: number): WinRect | null
  */
 export declare function listStartApps(): Array<StartApp>
 
+export interface OcrLanguageInfo {
+  tag: string
+  name: string
+}
+
+/**
+ * The BCP-47 tags this machine can recognize — one per installed language
+ * pack that carries the optional "Optical character recognition" feature.
+ * Empty when none is installed, which is a real and common state on a fresh
+ * Windows install and is reported to the user as such rather than as a
+ * failure.
+ */
+export declare function ocrLanguages(): Array<OcrLanguageInfo>
+
+export interface OcrPage {
+  /**
+   * The BCP-47 tag the engine actually recognized with, which may differ from
+   * the one requested (an unavailable tag falls back to the user's profile).
+   */
+  language: string
+  lines: Array<OcrTextLine>
+}
+
+export interface OcrTextLine {
+  text: string
+  words: Array<OcrWordBox>
+}
+
+/**
+ * One recognized word, in source-image pixels. `Windows.Media.Ocr` reports no
+ * confidence for a word or a line — only text and geometry — so none is
+ * carried here; the TS side (`ocr-win.ts`) surfaces that as `null` rather
+ * than inventing a score.
+ */
+export interface OcrWordBox {
+  text: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * Recognizes the text in `png` with `Windows.Media.Ocr`, the same on-device
+ * engine behind Windows' own Snipping Tool text actions. `language` is a tag
+ * from `ocr_languages()`; omit it to use the user's profile languages.
+ *
+ * Runs on the libuv threadpool rather than the JS thread. OCR on a full-page
+ * screenshot is tens to hundreds of milliseconds of real work, and doing it
+ * inline would stall the launcher's UI for exactly as long.
+ *
+ * The engine rejects images smaller than 40×40 or larger than 10000×10000;
+ * the caller scales into that range before getting here (see
+ * `src/extensions/text-from-image/main/image.ts`).
+ */
+export declare function recognizePng(png: Buffer, language?: string | undefined | null): Promise<OcrPage>
+
 /**
  * Reads a `.lnk` shortcut's target path and icon location, replacing the
  * `WScript.Shell` COM object previously driven from PowerShell.

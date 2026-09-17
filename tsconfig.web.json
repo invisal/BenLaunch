@@ -12,6 +12,11 @@
     "noEmit": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Extension code under `src/extensions/*/shared/` is compiled by this
+    // project *and* by tsconfig.node.json, and is exercised directly by
+    // `node --test`, whose type stripping needs the explicit extension on a
+    // value import. Allow it here too so one file can satisfy all three.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@renderer/*": ["./src/renderer/src/*"],
       "@shared/*": ["./src/shared/*"],

@@ -29,6 +29,7 @@ import { GroupExtension } from "@extensions/group";
 import type { ActionDefinition } from "./types";
 import { CalculatorHistoryExtension } from "@extensions/calculator-history";
 import { ClipboardHistoryExtension } from "@extensions/clipboard-history";
+import { TextFromImageExtension } from "@extensions/text-from-image";
 
 // Point extensions at `<userData>/extensions/` before any is constructed below.
 configureExtensions(app.getPath("userData"));
@@ -67,6 +68,14 @@ const calculatorHistory = new CalculatorHistoryExtension(evaluate);
  * `registerIpc()`. Exposed so `index.ts` can stop the poller at `will-quit`.
  */
 export const clipboardHistory = new ClipboardHistoryExtension();
+
+/**
+ * The Text from Image extension. It owns its `ExtensionStorage`
+ * (`<userData>/extensions/text-from-image.json`) and wires the
+ * recognize/list/export IPC to it itself, via `registerIpc()`. Exposed so
+ * `index.ts` can hand it the launcher window its file pickers need.
+ */
+export const textFromImage = new TextFromImageExtension();
 
 /** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`, gated by a setting. */
 const cryptoPriceSource = new CryptoPriceSource();
@@ -113,6 +122,7 @@ const sources: ActionSource[] = [
   widgetSource,
   calculatorHistory,
   clipboardHistory,
+  textFromImage,
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),
