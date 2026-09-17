@@ -184,6 +184,13 @@ function ClipboardHistoryListScreen({
     reload();
   }, [reload]);
 
+  // The poller records new entries in the background regardless of whether
+  // this screen is open — without this, a copy made while already viewing
+  // the list only shows up after leaving and re-entering the screen.
+  useEffect(() => {
+    return window.api.clipboardHistory.onUpdated(reload);
+  }, [reload]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return entries ?? [];

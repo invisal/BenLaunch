@@ -48,6 +48,8 @@ async function resolveSourceApp(): Promise<SourceApp | undefined> {
 export class ClipboardHistoryExtension extends Extension {
   readonly store: ClipboardStore;
   private readonly poller: ClipboardPoller;
+  /** Set by `main/index.ts` to push `updated` to the launcher window. */
+  private onRecorded: (() => void) | null = null;
 
   constructor() {
     super("clipboard-history");
@@ -64,11 +66,12 @@ export class ClipboardHistoryExtension extends Extension {
   }
 
   private async recordText(text: string): Promise<void> {
-    this.store.record({
+    const entry = this.store.record({
       contentType: "text",
       text,
       sourceApp: await resolveSourceApp(),
     });
+    if (entry) this.onRecorded?.();
   }
 
   private async recordImage(png: Buffer, source?: ImageSource): Promise<void> {
@@ -87,6 +90,12 @@ export class ClipboardHistoryExtension extends Extension {
       sourcePath: source?.path,
       sourceApp: await resolveSourceApp(),
     });
+    this.onRecorded?.();
+  }
+
+  /** Called whenever the poller records a new entry — lets `main/index.ts` push `updated` to the launcher window. */
+  onRecord(cb: () => void): void {
+    this.onRecorded = cb;
   }
 
   init(): void {
