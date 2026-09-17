@@ -64,4 +64,6 @@ export const CLIPBOARD_HISTORY_CHANNELS = {
   clear: "clipboard-history:clear",
   setPinned: "clipboard-history:set-pinned",
   copyAgain: "clipboard-history:copy-again",
+  /** Main → renderer push: the poller recorded a new entry. No payload — listeners re-fetch via `list`. */
+  updated: "clipboard-history:updated",
 } as const;

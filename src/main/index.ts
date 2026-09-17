@@ -19,6 +19,7 @@ import {
   registerActionSourcesIpc,
   requestSubtitle,
 } from "./actions";
+import { CLIPBOARD_HISTORY_CHANNELS } from "@extensions/clipboard-history/shared/types";
 import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
 import {
@@ -122,6 +123,13 @@ app.whenReady().then(() => {
   // Warm every action source now (apps: disk cache, then a background worker run)
   // instead of waiting for the renderer's first search.
   initActionSources();
+
+  // Push a lightweight "list changed" event to the launcher window whenever
+  // the poller records a new entry in the background, so the history screen
+  // refreshes live instead of only on its next mount.
+  clipboardHistory.onRecord(() => {
+    getLauncherWindow()?.webContents.send(CLIPBOARD_HISTORY_CHANNELS.updated);
+  });
 
   // Each extension wires its own `ipcMain` handlers via `registerIpc()`.
   registerActionSourcesIpc(ipcMain);

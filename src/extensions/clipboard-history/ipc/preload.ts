@@ -6,6 +6,15 @@ import type { ClipboardEntry } from "../shared/types";
 export const clipboardHistoryApi = {
   list: (): Promise<ClipboardEntry[]> =>
     ipcRenderer.invoke(CLIPBOARD_HISTORY_CHANNELS.list),
+  /** Fires whenever the background poller records a new entry, so an open
+   *  history screen can refresh without waiting for a remount. Returns an
+   *  unsubscribe function. */
+  onUpdated: (callback: () => void): (() => void) => {
+    const listener = () => callback();
+    ipcRenderer.on(CLIPBOARD_HISTORY_CHANNELS.updated, listener);
+    return () =>
+      ipcRenderer.removeListener(CLIPBOARD_HISTORY_CHANNELS.updated, listener);
+  },
   delete: (id: string): Promise<void> =>
     ipcRenderer.invoke(CLIPBOARD_HISTORY_CHANNELS.delete, id),
   /** Drop every unpinned entry. */
