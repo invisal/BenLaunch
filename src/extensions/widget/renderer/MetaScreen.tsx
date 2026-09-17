@@ -1,21 +1,135 @@
 import { useEffect, useState } from "react";
+import { cn } from "cnfast";
+import { Combobox } from "@base-ui/react/combobox";
 import { Form, Layout } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
-import { DEFAULT_CODE } from "../shared/default-code";
+import { WIDGET_TEMPLATES, getWidgetTemplate, type WidgetTemplate } from "../shared/templates";
 
 /** Shared sizing for `Form.Input` / `Form.TextArea` — tighter than the
  *  default so this form's fields match Create Quicklink's. */
 const inputPadding = "px-2.5 py-1.5 text-[13px]";
+
+/** Selected-item indicator inside the template list. */
+function CheckIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+/** Trigger's dropdown affordance — rotates when the popup is open. */
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className={cn("shrink-0 transition-transform", className)}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+/**
+ * A searchable, theme-matched replacement for a native `<select>` — same
+ * building blocks as Quicklink's `AppPicker` ("Open With"). Only meaningful on
+ * create: picking a template seeds the code the Widget starts with, plus (for
+ * anything but "From Scratch") the Name/Description fields below.
+ */
+function TemplatePicker({
+  value,
+  onChange,
+}: {
+  value: WidgetTemplate;
+  onChange: (template: WidgetTemplate) => void;
+}) {
+  return (
+    <Combobox.Root
+      items={WIDGET_TEMPLATES}
+      value={value}
+      onValueChange={(template: WidgetTemplate | null) => template && onChange(template)}
+    >
+      <Combobox.Trigger
+        autoFocus
+        className={cn(
+          "group flex w-full items-center gap-2 rounded border border-border bg-input",
+          "px-2.5 py-1.5 text-left text-[13px] outline-none focus:border-foreground-subtle",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">
+          <Combobox.Value>
+            {(template: WidgetTemplate | null) => template?.name ?? "Choose a template"}
+          </Combobox.Value>
+        </span>
+        <ChevronDownIcon className="text-foreground-subtle group-data-[popup-open]:rotate-180" />
+      </Combobox.Trigger>
+
+      <Combobox.Portal>
+        <Combobox.Positioner sideOffset={6} collisionPadding={10} className="z-50">
+          <Combobox.Popup
+            className={cn(
+              "flex max-h-[min(18rem,var(--available-height))] w-[var(--anchor-width)] flex-col overflow-hidden",
+              "rounded-md border border-border bg-popover text-sm text-foreground shadow-lg outline-none",
+            )}
+          >
+            <div className="border-b border-border p-1">
+              <Combobox.Input
+                placeholder="Search templates…"
+                className="w-full bg-transparent px-1.5 py-1 text-[13px] outline-none placeholder:text-foreground-subtle"
+              />
+            </div>
+            <Combobox.List className="flex flex-col gap-0.5 overflow-y-auto p-1">
+              {(template: WidgetTemplate) => (
+                <Combobox.Item
+                  key={template.id}
+                  value={template}
+                  className={cn(
+                    "flex cursor-default items-center gap-2 rounded px-2 py-1.5 outline-none",
+                    "data-[highlighted]:bg-item-selected",
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate">{template.name}</span>
+                  <Combobox.ItemIndicator className="shrink-0 text-foreground-subtle">
+                    <CheckIcon />
+                  </Combobox.ItemIndicator>
+                </Combobox.Item>
+              )}
+            </Combobox.List>
+          </Combobox.Popup>
+        </Combobox.Positioner>
+      </Combobox.Portal>
+    </Combobox.Root>
+  );
+}
 
 /**
  * The metadata for a Widget — name, description, "expose as command" — as a
  * screen pushed onto the launcher's navigation stack (not a framed window). The
  * code lives in its own window (`CodeScreen`).
  *
- * Create mode is deliberately minimal: just Name and Description. There's no
- * Code row or Expose switch yet — a new Widget is always exposed, seeded with
- * `DEFAULT_CODE`, and Save drops you straight into the code editor window.
- * The Expose switch and the "edit code" row only appear once the Widget exists.
+ * Create mode is deliberately minimal: Template, Name and Description. There's
+ * no Code row or Expose switch yet — a new Widget is always exposed, and Save
+ * drops you straight into the code editor window with the picked template's
+ * code already in it. The Expose switch and the "edit code" row only appear
+ * once the Widget exists.
  *
  * On edit we deliberately never send `code` back on save — the store keeps the
  * existing code when a draft omits it — so saving here can't clobber an edit
@@ -31,11 +145,20 @@ function MetaScreen({
   onDone: () => void;
 }) {
   const isCreate = id === null;
+  const [template, setTemplate] = useState(() => getWidgetTemplate(undefined));
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [exposed, setExposed] = useState(true);
   const [loaded, setLoaded] = useState(isCreate);
   const [busy, setBusy] = useState(false);
+
+  /** Picking a template also seeds Name/Description — "From Scratch" has
+   *  no real name of its own, so it clears them instead. */
+  function pickTemplate(next: WidgetTemplate): void {
+    setTemplate(next);
+    setName(next.id === "blank" ? "" : next.name);
+    setDescription(next.id === "blank" ? "" : next.description);
+  }
 
   useEffect(() => {
     if (isCreate) return;
@@ -59,7 +182,7 @@ function MetaScreen({
       name: name.trim(),
       description: description.trim() || undefined,
       // Seed code only on create; on edit, omit it so the code window wins.
-      code: isCreate ? DEFAULT_CODE : undefined,
+      code: isCreate ? template.code : undefined,
       // New Widgets are always exposed; the switch only exists on edit.
       exposed: isCreate ? true : exposed,
     });
@@ -108,6 +231,12 @@ function MetaScreen({
             <p className="text-sm text-foreground-subtle">Loading…</p>
           ) : (
             <Form labelWidth={90} controlWidth={420} className="mt-0 gap-3">
+              {isCreate && (
+                <Form.Field label="Template" description={template.description}>
+                  <TemplatePicker value={template} onChange={pickTemplate} />
+                </Form.Field>
+              )}
+
               <Form.Field
                 label="Name"
                 description="What you see and type when searching the launcher."
@@ -116,7 +245,7 @@ function MetaScreen({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Node stars"
-                  autoFocus
+                  autoFocus={!isCreate}
                   className={inputPadding}
                 />
               </Form.Field>

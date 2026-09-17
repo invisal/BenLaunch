@@ -81,6 +81,8 @@ const SANDBOX_GLOBALS_PATH = 'globals.d.ts'
 const SANDBOX_GLOBALS_SOURCE = `declare const module: { exports: any }
 declare const exports: any
 declare function require(id: string): any
+/** What a Widget's exported function must resolve to — see \`normalize()\` in run-user-code.ts. */
+type Result = { value: string | number | null }
 `
 
 let tsEnvPromise: Promise<VirtualTypeScriptEnvironment> | null = null
