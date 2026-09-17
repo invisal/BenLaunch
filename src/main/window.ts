@@ -4,8 +4,8 @@ import { applyLiquidGlass } from './native'
 import { restoredPosition } from './window-chrome'
 import { settings } from './actions'
 
-const WINDOW_WIDTH = 640
-const WINDOW_HEIGHT = 420
+const WINDOW_WIDTH = 760
+const WINDOW_HEIGHT = 500
 
 /** How long to wait after the last `moved` event before writing the launcher's position to disk. */
 const MOVE_SAVE_DEBOUNCE_MS = 400

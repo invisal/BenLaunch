@@ -117,7 +117,8 @@ const sources: ActionSource[] = [
   new InstalledAppSource(),
   new ExchangeRateSource(),
   cryptoPriceSource,
-  new GroupExtension(),
+  // Group is still an in-progress testing command — keep it out of packaged builds.
+  ...(app.isPackaged ? [] : [new GroupExtension()]),
 ];
 
 /**
