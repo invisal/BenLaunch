@@ -18,14 +18,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      # tsconfig.node.json maps @magibar/{win,mac,linux} straight to their
-      # committed native/<os>/index.d.ts via `paths`, so typecheck resolves
-      # all three regardless of which optionalDependency actually installed
-      # on this OS — no need to build native addons just to typecheck.
       - run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
 
       - name: Format check
         run: npm run format:check
@@ -53,6 +46,16 @@ jobs:
 
       - run: npm ci
 
+      # Runs per-OS (not just once on ubuntu) because a handful of types come
+      # from optionalDependencies that only install on their matching platform
+      # (@magibar/{win,mac,linux}, macOS-only electron-liquid-glass) — this is
+      # the only way to catch a platform's real installed types disagreeing
+      # with the committed/ambient declarations the other platforms fall back
+      # to (tsconfig.node.json `paths` for @magibar/*, an ambient `declare
+      # module` for electron-liquid-glass).
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Build
         run: npm run build
 
@@ -63,14 +66,14 @@ jobs:
       # app), so this stays fast and needs no Apple secrets.
       - name: Package (Windows)
         if: runner.os == 'Windows'
-        run: npx electron-builder --win --dir
+        run: npx electron-builder --win --dir --publish never
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
-        run: npx electron-builder --mac --dir
+        run: npx electron-builder --mac --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Package (Linux)
         if: runner.os == 'Linux'
-        run: npx electron-builder --linux AppImage --dir
+        run: npx electron-builder --linux AppImage --dir --publish never
