@@ -58,10 +58,10 @@ export declare function getWindowRect(hwnd: number): WinRect | null
 
 /**
  * Terminates `pid` via `TerminateProcess` — `force` has no effect on
- * Windows (see the module comment in `src/lib.rs`); kept for a call shape
- * identical to macOS/Linux. Returns `false` if the process no longer exists
- * or access is denied; the caller can't tell those apart from the bool
- * alone and doesn't need to — both are surfaced as the same inline error.
+ * Windows (see the module comment above); kept for a call-shape identical
+ * to macOS/Linux. Returns `false` if the process no longer exists or
+ * access is denied; the caller can't tell those apart from the bool alone
+ * and doesn't need to — both are surfaced as the same inline error.
  */
 export declare function killProcess(pid: number, force: boolean): boolean
 
