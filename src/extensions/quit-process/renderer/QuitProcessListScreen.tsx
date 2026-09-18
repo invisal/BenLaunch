@@ -88,24 +88,27 @@ function PlaceholderIcon() {
  *   `arrange`;
  * - while the ⌘K menu is open, incoming snapshots are held back entirely.
  *
- * The background poller (`main/poller.ts`) only runs while this screen is
- * both mounted *and* actually visible: pushing this route doesn't unmount it
- * again until it's popped (`router/Outlet.tsx` keeps a backgrounded screen's
- * state alive in a hidden `<Activity>`), and hiding the whole launcher
- * window (`Escape`-free — the global toggle shortcut, or losing focus) never
- * touches the route stack at all, so a plain mount/unmount effect alone
- * would leave the poller running against a window nobody can see. Electron
- * gives a hidden `BrowserWindow`'s page the same `document.visibilitychange`
- * a backgrounded browser tab gets, so that's paired with the mount effect
- * below to actually stop it.
+ * Hiding the launcher window leaves this screen: `hideLauncher()` never
+ * touches the route stack, so without this the launcher would reopen on Quit
+ * Processes instead of the main search. Electron gives a hidden
+ * `BrowserWindow`'s page the same `document.visibilitychange` a backgrounded
+ * browser tab gets, which is what triggers `onWindowHidden` (and stops the
+ * background poller, `main/poller.ts`, which only runs while this screen is
+ * open — a route that's still on the stack keeps its effects alive in a
+ * hidden `<Activity>`, see `router/Outlet.tsx`, so unmounting is not
+ * something to count on when only the window goes away).
  *
  * Knows nothing about the router: navigation is handed in by `../screen.tsx`.
  */
 function QuitProcessListScreen({
-  onDismiss: _onDismiss,
+  onWindowHidden,
 }: {
-  onDismiss: () => void;
+  /** The launcher window was hidden — leave this screen (back to the root
+   *  search), so it doesn't reopen on Quit Processes. */
+  onWindowHidden: () => void;
 }) {
+  const onWindowHiddenRef = useRef(onWindowHidden);
+  onWindowHiddenRef.current = onWindowHidden;
   const [rawRows, setRawRows] = useState<ProcessRow[] | null>(null);
   const [items, setItems] = useState<ProcessItem[] | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("cpu");
@@ -135,16 +138,13 @@ function QuitProcessListScreen({
 
   // The poller only runs while this screen is open — started/stopped here
   // rather than at extension `init()`, unlike clipboard history's poller,
-  // which has to watch continuously in the background. `visibilitychange`
-  // catches the launcher window being hidden/reshown without this screen's
-  // route ever being popped (see the component doc comment above); start()/
-  // stop() are both idempotent, so the mount effect and this one stepping on
-  // each other's state is harmless.
+  // which has to watch continuously in the background.
   useEffect(() => {
     void window.api.quitProcess.start();
     function handleVisibilityChange(): void {
-      if (document.hidden) void window.api.quitProcess.stop();
-      else void window.api.quitProcess.start();
+      if (!document.hidden) return;
+      void window.api.quitProcess.stop();
+      onWindowHiddenRef.current();
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {

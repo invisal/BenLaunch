@@ -7,14 +7,7 @@ import { QUIT_PROCESS_ROUTE } from "./shared/types";
 function QuitProcess() {
   const { reset } = useRouteStack();
 
-  return (
-    <QuitProcessListScreen
-      onDismiss={() => {
-        reset();
-        window.api.hide();
-      }}
-    />
-  );
+  return <QuitProcessListScreen onWindowHidden={reset} />;
 }
 
 export default [
