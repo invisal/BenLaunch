@@ -14,7 +14,8 @@ export interface Quicklink {
   id: string;
   /** Display name, shown in the result list and fuzzy-matched. */
   name: string;
-  /** Target URL or path. May contain one `{query}` / `{argument}` / `{}` placeholder. */
+  /** Target URL or path. May contain `{query}` / `{}` or several named
+   *  `{argument name="…"}` placeholders — see `../shared/arguments.ts`. */
   link: string;
   /** Optional short alias: typing it as the query's first word invokes this link. */
   keyword?: string;
@@ -81,6 +82,11 @@ export const DYNAMIC_PLACEHOLDERS: ReadonlyArray<{
   hint: string;
 }> = [
   { token: "{query}", label: "Query", hint: "What you type after the alias" },
+  {
+    token: '{argument name="name"}',
+    label: "Named Argument",
+    hint: "One of several values, filled left to right",
+  },
   {
     token: "{clipboard}",
     label: "Clipboard Text",
@@ -193,5 +199,6 @@ export const QUICKLINK_CHANNELS = {
   openWithApps: "quicklink:open-with-apps",
   icon: "quicklink:icon",
   preview: "quicklink:preview",
+  argumentNames: "quicklink:argument-names",
   filePreview: "quicklink:file-preview",
 } as const;
