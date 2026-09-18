@@ -3,6 +3,7 @@ import { Extension } from "@core/base";
 import type { ActionDefinition } from "@main/types";
 import { registerQuitProcessIpc } from "./ipc/handlers";
 import { QuitProcessPoller } from "./main/poller";
+import { QUIT_PROCESS_ICON } from "./shared/icon";
 import { QUIT_PROCESS_ROUTE, type ProcessRow } from "./shared/types";
 
 /**
@@ -59,7 +60,7 @@ export class QuitProcessExtension extends Extension {
           id: "quit-process:open",
           title: "Quit Processes",
           subtitle: "View running processes and quit or force quit them",
-          icon: "⚙️",
+          icon: QUIT_PROCESS_ICON,
           type: "command",
         },
         run: () => {},
