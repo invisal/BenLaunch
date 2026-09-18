@@ -127,6 +127,16 @@ export interface ExecuteResult {
   navigate?: NavigateRequest;
 }
 
+/**
+ * Result of a `hotkeySet` call. `false` means the accelerator couldn't be
+ * grabbed (e.g. another app already holds it) — `hotkey` is then the
+ * previous binding, which stays registered so the launcher remains reachable.
+ */
+export interface HotkeySetResult {
+  success: boolean;
+  hotkey: string;
+}
+
 export const IPC_CHANNELS = {
   query: "launcher:query",
   execute: "launcher:execute",
@@ -146,4 +156,7 @@ export const IPC_CHANNELS = {
   /** Settings window ↔ main: read / patch `CalculatorSettings`. */
   calculatorSettingsGet: "settings:calculator-get",
   calculatorSettingsSet: "settings:calculator-set",
+  /** Settings window ↔ main: read / rebind the global toggle shortcut. */
+  hotkeyGet: "settings:hotkey-get",
+  hotkeySet: "settings:hotkey-set",
 } as const;

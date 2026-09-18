@@ -131,6 +131,70 @@ export function matchesShortcut(
   return event.key.toLowerCase() === (alias[key] ?? key)
 }
 
+const CODE_TO_KEY: Record<string, string> = {
+  Space: 'Space',
+  ArrowUp: 'Up',
+  ArrowDown: 'Down',
+  ArrowLeft: 'Left',
+  ArrowRight: 'Right',
+  Escape: 'Escape',
+  Tab: 'Tab',
+  Enter: 'Return',
+  NumpadEnter: 'Return',
+  Backspace: 'Backspace',
+  Delete: 'Delete',
+  Comma: ',',
+  Period: '.',
+  Slash: '/',
+  Backslash: '\\',
+  Semicolon: ';',
+  Quote: "'",
+  BracketLeft: '[',
+  BracketRight: ']',
+  Minus: '-',
+  Equal: '=',
+  Backquote: '`'
+}
+
+/** Physical key (independent of modifiers/layout) for an accelerator, or null if this key has no accelerator equivalent. */
+function keyFromCode(code: string): string | null {
+  if (code.startsWith('Key')) return code.slice(3) // KeyA -> A
+  if (code.startsWith('Digit')) return code.slice(5) // Digit1 -> 1
+  if (/^F([1-9]|1\d|2[0-4])$/.test(code)) return code // F1..F24
+  return CODE_TO_KEY[code] ?? null
+}
+
+/**
+ * Builds an Electron accelerator string (e.g. "Command+Shift+Space") from a
+ * keydown event, for a shortcut-recorder UI. Returns null while only
+ * modifier keys are held, for a key with no accelerator equivalent, or when
+ * no modifier is held at all — a global shortcut needs at least one so it
+ * doesn't collide with normal typing.
+ */
+export function eventToAccelerator(
+  event: KeyboardEvent,
+  mac: boolean = isMac()
+): string | null {
+  const key = keyFromCode(event.code)
+  if (!key) return null
+
+  const modifiers: string[] = []
+  if (mac) {
+    if (event.metaKey) modifiers.push('Command')
+    if (event.ctrlKey) modifiers.push('Control')
+    if (event.altKey) modifiers.push('Option')
+  } else {
+    if (event.ctrlKey) modifiers.push('Ctrl')
+    if (event.altKey) modifiers.push('Alt')
+    if (event.metaKey) modifiers.push('Super')
+  }
+  if (event.shiftKey) modifiers.push('Shift')
+
+  if (modifiers.length === 0) return null
+
+  return [...modifiers, key].join('+')
+}
+
 export function formatShortcut(accelerator: string, mac: boolean = isMac()): string {
   const map = mac ? MAC_SYMBOLS : OTHER_LABELS
   const tokens = accelerator

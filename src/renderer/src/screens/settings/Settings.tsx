@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CalculatorSettings, NumberFormatPreference } from "@shared/types";
-import { formatShortcut } from "@renderer/lib/shortcut";
+import { eventToAccelerator, formatShortcut } from "@renderer/lib/shortcut";
 import { WindowFrame } from "@renderer/shared/ui";
-
-const TOGGLE_SHORTCUT =
-  window.api.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
 
 function Row({
   title,
@@ -37,6 +34,79 @@ function Row({
       </div>
       <div className="shrink-0">{children}</div>
     </div>
+  );
+}
+
+function HotkeyRow() {
+  const [hotkey, setHotkey] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    window.api.hotkey.get().then(setHotkey);
+  }, []);
+
+  async function applyHotkey(accelerator: string): Promise<void> {
+    setRecording(false);
+    setError(null);
+    const result = await window.api.hotkey.set(accelerator);
+    setHotkey(result.hotkey);
+    setError(
+      result.success
+        ? null
+        : "That shortcut is already in use — kept the previous one.",
+    );
+  }
+
+  useEffect(() => {
+    if (!recording) return;
+
+    function onKeyDown(e: KeyboardEvent): void {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat) return;
+
+      if (e.key === "Escape") {
+        setRecording(false);
+        return;
+      }
+
+      const accelerator = eventToAccelerator(e);
+      if (!accelerator) return;
+
+      void applyHotkey(accelerator);
+    }
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [recording]);
+
+  return (
+    <Row
+      title="Toggle shortcut"
+      description="Global hotkey that shows and hides the launcher."
+    >
+      <div className="flex flex-col items-end gap-1">
+        <button
+          onClick={() => {
+            setError(null);
+            setRecording(true);
+          }}
+          className="rounded border border-border px-2 py-1 font-sans text-xs text-foreground-subtle hover:bg-item-hover"
+        >
+          {recording
+            ? "Press keys… (Esc to cancel)"
+            : hotkey
+              ? formatShortcut(hotkey)
+              : "…"}
+        </button>
+        {error && (
+          <span className="max-w-64 text-right text-xs text-red-500">
+            {error}
+          </span>
+        )}
+      </div>
+    </Row>
   );
 }
 
@@ -187,14 +257,7 @@ function Settings() {
           <h2 className="text-xs font-medium uppercase tracking-wide text-foreground-subtle">
             General
           </h2>
-          <Row
-            title="Toggle shortcut"
-            description="Global hotkey that shows and hides the launcher."
-          >
-            <kbd className="rounded border border-border px-2 py-1 font-sans text-xs text-foreground-subtle">
-              {formatShortcut(TOGGLE_SHORTCUT)}
-            </kbd>
-          </Row>
+          <HotkeyRow />
           <Row
             title="Launch at login"
             controlId="setting-launch-at-login"

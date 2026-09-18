@@ -1,5 +1,6 @@
 import { app } from "electron";
 import type { IpcMain } from "electron";
+import { join } from "node:path";
 import type {
   CalculatorSettings,
   ExecuteResult,
@@ -29,6 +30,8 @@ import { GroupExtension } from "@extensions/group";
 import type { ActionDefinition } from "./types";
 import { CalculatorHistoryExtension } from "@extensions/calculator-history";
 import { ClipboardHistoryExtension } from "@extensions/clipboard-history";
+import { ExtensionStorage } from "@core/storage";
+import { HotkeyBindingStore } from "@extensions/hotkey/main/store";
 
 // Point extensions at `<userData>/extensions/` before any is constructed below.
 configureExtensions(app.getPath("userData"));
@@ -70,6 +73,21 @@ export const clipboardHistory = new ClipboardHistoryExtension();
 
 /** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`, gated by a setting. */
 const cryptoPriceSource = new CryptoPriceSource();
+
+/**
+ * Per-action global hotkey bindings (Ctrl+K menu's "Set Hotkey…" — see
+ * `@extensions/hotkey`). Not an `Extension`/`ActionSource` itself — it
+ * doesn't contribute search rows, just attaches an optional `globalShortcut`
+ * to any existing action — so it isn't in `sources` below; `index.ts` wires
+ * its `globalShortcut` registration and IPC directly, the same way it wires
+ * Quicklink's launcher-window-dependent IPC by hand.
+ */
+export const actionHotkeys = new HotkeyBindingStore(
+  new ExtensionStorage(
+    join(app.getPath("userData"), "extensions", "hotkey.json"),
+    "ext:hotkey",
+  ),
+);
 
 /**
  * Push the calculator settings into the calculator's module-level state: the
