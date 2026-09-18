@@ -71,6 +71,8 @@ function LauncherScreen() {
   } | null>(null);
   /** Live "Open …" subtitle for the locked row, resolved in main. */
   const [argumentPreview, setArgumentPreview] = useState<string | null>(null);
+  /** The values the locked quicklink wants, in order — the chip's prompt. */
+  const [argumentNames, setArgumentNames] = useState<string[]>([]);
 
   async function togglePin(): Promise<void> {
     setPinned(await window.api.togglePin());
@@ -116,6 +118,25 @@ function LauncherScreen() {
     };
   }, [argumentMode, query]);
 
+  // What the chip asks for. A link can want several values ("org", "repo"),
+  // and naming them is the only hint the user gets about what to type or in
+  // which order — so this is fetched once per locked row, not per keystroke.
+  useEffect(() => {
+    if (!argumentMode) {
+      setArgumentNames([]);
+      return;
+    }
+    let live = true;
+    void window.api.quicklink
+      .argumentNames(argumentMode.action.id)
+      .then((names) => {
+        if (live) setArgumentNames(names);
+      });
+    return () => {
+      live = false;
+    };
+  }, [argumentMode]);
+
   // The list feeds Base UI's Autocomplete (inside ListScreen): the
   // calculation, when present, is the first row, then the ranked actions.
   // Filtering/ranking stays in the main process — `serverFiltered` below.
@@ -153,6 +174,7 @@ function LauncherScreen() {
     setQuery("");
     setArgumentMode(null);
     setArgumentPreview(null);
+    setArgumentNames([]);
     reset();
     if (!pinned) window.api.hide();
   }
@@ -169,6 +191,7 @@ function LauncherScreen() {
     setQuery(mode.savedQuery);
     setArgumentMode(null);
     setArgumentPreview(null);
+    setArgumentNames([]);
   }
 
   /**
@@ -387,7 +410,11 @@ function LauncherScreen() {
       inputValue={query}
       onInputChange={setQuery}
       onInputKeyDown={onInputKeyDown}
-      placeholder={argumentMode ? "Enter query…" : "Search actions..."}
+      placeholder={
+        argumentMode
+          ? `Enter ${argumentNames.length ? argumentNames.join(", ") : "query"}…`
+          : "Search actions..."
+      }
       inputPrefix={
         argumentMode ? (
           <span

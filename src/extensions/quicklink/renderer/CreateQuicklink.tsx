@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import { cn } from "cnfast";
 import { useImmer } from "use-immer";
 import { Menu } from "@base-ui/react/menu";
@@ -6,6 +6,7 @@ import { Popover } from "@base-ui/react/popover";
 import { Form, Layout, useField } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
 import AppPicker from "./AppPicker";
+import { parseArguments } from "../shared/arguments";
 import { hostOf, isImageUri, isLocalPath, originOf } from "../shared/link";
 import {
   DYNAMIC_PLACEHOLDERS,
@@ -372,17 +373,7 @@ function CreateQuicklink({
                   onInsertToken={insertIntoLink}
                   onPickPath={(type) => void pickPath(type)}
                 />
-                <p className="text-[11px] text-foreground-subtle">
-                  Insert{" "}
-                  <code className="rounded bg-item-hover px-1">
-                    {"{query}"}
-                  </code>{" "}
-                  or{" "}
-                  <code className="rounded bg-item-hover px-1">
-                    {"{clipboard}"}
-                  </code>{" "}
-                  to pass context into the link.
-                </p>
+                <ArgumentHint link={state.link} />
               </Form.Field>
 
               <Form.Field label="Name & Icon">
@@ -549,6 +540,46 @@ function CreateQuicklink({
         </Layout.Footer>
       </Layout>
     </div>
+  );
+}
+
+/**
+ * What the link being typed will ask for when it runs — the one place the
+ * author finds out that `{argument name="org"}/{argument name="repo"}` means
+ * "two values, org first". A link with a single bare `{query}` says nothing
+ * new, so it keeps the general hint about placeholders instead.
+ */
+function ArgumentHint({ link }: { link: string }) {
+  const args = useMemo(() => parseArguments(link), [link]);
+  const named = args.length > 1 || args.some((argument) => argument.named);
+
+  if (!named) {
+    return (
+      <p className="text-[11px] text-foreground-subtle">
+        Insert <code className="rounded bg-item-hover px-1">{"{query}"}</code>{" "}
+        or <code className="rounded bg-item-hover px-1">{"{clipboard}"}</code>{" "}
+        to pass context into the link.
+      </p>
+    );
+  }
+
+  const optional = args.filter((argument) => argument.default !== undefined);
+  return (
+    <p className="text-[11px] text-foreground-subtle">
+      Takes{" "}
+      {args.map((argument, index) => (
+        <Fragment key={argument.name}>
+          {index > 0 && ", "}
+          <code className="rounded bg-item-hover px-1">
+            {argument.named ? argument.name : "query"}
+          </code>
+          {argument.default !== undefined && ` (${argument.default})`}
+        </Fragment>
+      ))}
+      , typed in that order.
+      {optional.length > 0 &&
+        ` The bracketed defaults stand unless you name one — ${optional[0].name}=…`}
+    </p>
   );
 }
 

@@ -140,6 +140,11 @@ export function registerQuicklinkIpc(
   );
 
   ipcMain.handle(
+    QUICKLINK_CHANNELS.argumentNames,
+    (_event, actionId: string): string[] => source.argumentNames(actionId),
+  );
+
+  ipcMain.handle(
     QUICKLINK_CHANNELS.filePreview,
     (_event, link: string): Promise<QuicklinkPreview> => previewLink(link),
   );
