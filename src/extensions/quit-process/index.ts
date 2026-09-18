@@ -29,6 +29,13 @@ export class QuitProcessExtension extends Extension {
     this.poller = new QuitProcessPoller((rows) => this.onUpdate?.(rows));
   }
 
+  /** Warms the process list and icon cache a few seconds after launch, off
+   *  the startup path, so the first time the screen opens it has nothing
+   *  cold to wait on (a cold first `list()` measured ~140 ms, warm ~10 ms). */
+  init(): void {
+    setTimeout(() => this.poller.prime(), 3000);
+  }
+
   /** Called whenever the poller refreshes — lets `main/index.ts` push
    *  `updated` (with the fresh rows) to the launcher window. */
   onRefresh(cb: (rows: ProcessRow[]) => void): void {

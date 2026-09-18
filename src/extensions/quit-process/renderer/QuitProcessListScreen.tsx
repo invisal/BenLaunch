@@ -17,6 +17,9 @@ import {
 } from "../shared/items";
 import type { ProcessRow } from "../shared/types";
 
+/** How often an unforced refresh may reorder the list. */
+const RESORT_INTERVAL_MS = 10_000;
+
 /**
  * The header segmented control: switches the list's sort order and which
  * metric each row shows on its right. Rendered via `ListScreen`'s `inputSuffix`
@@ -117,6 +120,8 @@ function QuitProcessListScreen({
   const selectedIdRef = useRef<string | null>(null);
   const lastIndexRef = useRef(0);
   const lastKeyRef = useRef("");
+  const lastSortAtRef = useRef(0);
+  const firstLiveResortRef = useRef(false);
 
   /** Applies a snapshot — or, while the menu is open, holds it for when it closes. */
   const receive = useCallback((rows: ProcessRow[]) => {
@@ -148,10 +153,31 @@ function QuitProcessListScreen({
     };
   }, []);
 
+  // Open instantly, without a loading state: on the previous visit's last
+  // snapshot when there is one (its order is already roughly right, and the
+  // first live snapshot only updates values in place), else on a direct read
+  // and one forced re-rank when the first warmed-up snapshot lands (a
+  // never-primed read has no CPU% to rank by).
   useEffect(() => {
-    reload();
-    return window.api.quitProcess.onUpdated(receive);
-  }, [reload, receive]);
+    let cancelled = false;
+    void window.api.quitProcess.snapshot().then(async (cached) => {
+      const rows = cached ?? (await window.api.quitProcess.list());
+      if (cancelled) return;
+      if (!cached) firstLiveResortRef.current = true;
+      receive(rows);
+    });
+    const unsubscribe = window.api.quitProcess.onUpdated((rows) => {
+      if (firstLiveResortRef.current) {
+        firstLiveResortRef.current = false;
+        setReloadNonce((n) => n + 1);
+      }
+      receive(rows);
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [receive]);
 
   // Turns snapshots into the displayed order. A full re-sort only when asked
   // for (sort/group toggle, Reload) or when nothing below the top is selected
@@ -166,7 +192,12 @@ function QuitProcessListScreen({
       const atTop =
         selectedIdRef.current === null ||
         prev?.[0]?.id === selectedIdRef.current;
-      return arrange(prev, fresh, sortBy, forced || atTop);
+      // Even with nothing selected, re-rank at most every RESORT_INTERVAL_MS —
+      // CPU% jitters every tick, and re-sorting on each one shuffles rows.
+      const due = Date.now() - lastSortAtRef.current >= RESORT_INTERVAL_MS;
+      const resort = !prev || forced || (atTop && due);
+      if (resort) lastSortAtRef.current = Date.now();
+      return arrange(prev, fresh, sortBy, resort);
     });
   }, [rawRows, sortBy, groupApps, reloadNonce]);
 

@@ -32,6 +32,9 @@ export const QUIT_PROCESS_ROUTE = "quit-process";
 
 export const QUIT_PROCESS_CHANNELS = {
   list: "quit-process:list",
+  /** The poller's most recent snapshot (`null` before its first), for a screen
+   *  to open on instantly instead of waiting out the warm-up. */
+  snapshot: "quit-process:snapshot",
   /** Start/stop the background poller — only runs while the screen is open. */
   start: "quit-process:start",
   stop: "quit-process:stop",

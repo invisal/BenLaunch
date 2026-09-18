@@ -7,6 +7,9 @@ export const quitProcessApi = {
   /** One-shot fetch, independent of whether the background poller is running. */
   list: (): Promise<ProcessRow[]> =>
     ipcRenderer.invoke(QUIT_PROCESS_CHANNELS.list),
+  /** The poller's last snapshot, or `null` if it has never ticked. */
+  snapshot: (): Promise<ProcessRow[] | null> =>
+    ipcRenderer.invoke(QUIT_PROCESS_CHANNELS.snapshot),
   /** Starts the background poller — call on screen mount. */
   start: (): Promise<void> => ipcRenderer.invoke(QUIT_PROCESS_CHANNELS.start),
   /** Stops the background poller — call on screen unmount, so BenLaunch never

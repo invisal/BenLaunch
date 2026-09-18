@@ -66,6 +66,25 @@ async function fetchIcon(target: string): Promise<string | null> {
   return image.isEmpty() ? null : image.toDataURL();
 }
 
+/** Lookups allowed in flight at once. A cold first listing meets ~100 distinct
+ *  apps; starting a `plutil` + `sips` for each simultaneously stalls the main
+ *  process (and so every IPC reply) for well over 100 ms. */
+const MAX_CONCURRENT = 4;
+const queue: string[] = [];
+let active = 0;
+
+function pump(): void {
+  while (active < MAX_CONCURRENT && queue.length > 0) {
+    const target = queue.shift()!;
+    active++;
+    void resolve(target).finally(() => {
+      active--;
+      pending.delete(target);
+      pump();
+    });
+  }
+}
+
 async function resolve(target: string): Promise<void> {
   let icon: string | null = null;
   try {
@@ -95,7 +114,11 @@ export function cachedProcessIcon(
 
   if (!pending.has(target)) {
     pending.add(target);
-    void resolve(target).finally(() => pending.delete(target));
+    queue.push(target);
+    // Off this call's stack: the caller is mid-way through building a
+    // snapshot for the renderer, and starting a lookup (a child process
+    // spawn on macOS) is not free.
+    setTimeout(pump, 0);
   }
   return undefined;
 }

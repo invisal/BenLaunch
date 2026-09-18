@@ -11,6 +11,7 @@ export function registerQuitProcessIpc(
   poller: QuitProcessPoller,
 ): void {
   ipc.handle(QUIT_PROCESS_CHANNELS.list, () => listProcesses());
+  ipc.handle(QUIT_PROCESS_CHANNELS.snapshot, () => poller.lastRows);
   ipc.handle(QUIT_PROCESS_CHANNELS.start, () => {
     poller.start();
   });
