@@ -23,22 +23,31 @@ export type ShortcutMap = Record<string, ShortcutHandler | false | null | undefi
  *   })
  *
  * The map may be a fresh object each render; handlers are always read live.
+ *
+ * `{ capture: true }` listens before the focused element does and, on a
+ * match, stops the event there — for chords a focused widget would otherwise
+ * swallow first (a Base UI combobox input consumes every Enter, modifiers or
+ * not, to click its highlighted row).
  */
-export function useShortcut(map: ShortcutMap): void {
+export function useShortcut(
+  map: ShortcutMap,
+  { capture = false }: { capture?: boolean } = {}
+): void {
   const mapRef = useRef(map)
   mapRef.current = map
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.defaultPrevented) return
+      if (!capture && event.defaultPrevented) return
       for (const [accelerator, handler] of Object.entries(mapRef.current)) {
         if (!handler || !matchesShortcut(accelerator, event)) continue
         event.preventDefault()
+        if (capture) event.stopPropagation()
         handler(event)
         return
       }
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+    window.addEventListener('keydown', onKeyDown, capture)
+    return () => window.removeEventListener('keydown', onKeyDown, capture)
+  }, [capture])
 }

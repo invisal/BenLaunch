@@ -6,6 +6,7 @@ import {
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
+import { quitProcessApi } from "@extensions/quit-process/ipc/preload";
 import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
 import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
 import { groupApi } from "@extensions/group/ipc/preload";
@@ -62,6 +63,9 @@ const api = {
 
   /** Clipboard History (list, pin, delete, copy-again) ↔ main. */
   clipboardHistory: clipboardHistoryApi,
+
+  /** Activity Monitor (list, start/stop polling, kill) ↔ main. */
+  quitProcess: quitProcessApi,
 
   /** Quicklinks: the Create/Edit/Duplicate form and the Ctrl+K menu ↔ main. */
   quicklink: quicklinkApi,
