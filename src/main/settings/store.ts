@@ -21,6 +21,16 @@ const SETTINGS_VERSION = 1;
 /** Default "preferred gap" (px) a custom layout's `useGap` inserts around it, absent a saved override. */
 const DEFAULT_GAP_PX = 8;
 
+/**
+ * Default global toggle shortcut, absent a saved override. Alt+Space is free
+ * on Windows, but on macOS Option+Space is commonly remapped (e.g. to Mission
+ * Control/Spotlight variants) and Cmd+Space/Cmd+Option+Space/Cmd+Ctrl+Space
+ * are all reserved by the OS, so macOS gets its own default. See `main/index.ts`
+ * for why Linux additionally can't rely on `globalShortcut.register` at all.
+ */
+const DEFAULT_HOTKEY =
+  process.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
+
 /** Which movable/resizable window a saved position+size belongs to. */
 export type WindowBoundsKey = "settings" | "widget" | "launcher";
 
@@ -63,12 +73,15 @@ interface SettingsFile {
   numberFormat?: NumberFormatPreference;
   /** Last position+size of each movable window, keyed by `WindowBoundsKey`. Optional — missing means "let Electron pick". */
   windowBounds?: Partial<Record<WindowBoundsKey, WindowBounds>>;
+  /** Electron accelerator string for the global toggle shortcut. Optional — missing means the platform default. */
+  hotkey?: string;
 }
 
 /** In-memory state — unlike `SettingsFile`, every field is populated (defaulted on load). */
 interface State extends CalculatorSettings {
   gapPx: number;
   windowBounds: Partial<Record<WindowBoundsKey, WindowBounds>>;
+  hotkey: string;
 }
 
 const DEFAULT_CALCULATOR: CalculatorSettings = {
@@ -83,7 +96,12 @@ const NUMBER_FORMATS: readonly NumberFormatPreference[] = [
 ];
 
 function emptyState(): State {
-  return { gapPx: DEFAULT_GAP_PX, windowBounds: {}, ...DEFAULT_CALCULATOR };
+  return {
+    gapPx: DEFAULT_GAP_PX,
+    windowBounds: {},
+    hotkey: DEFAULT_HOTKEY,
+    ...DEFAULT_CALCULATOR,
+  };
 }
 
 function isSettingsFile(value: unknown): value is SettingsFile {
@@ -103,7 +121,9 @@ function isSettingsFile(value: unknown): value is SettingsFile {
           ([key, bounds]) =>
             WINDOW_BOUNDS_KEYS.includes(key as WindowBoundsKey) &&
             isWindowBounds(bounds),
-        )))
+        ))) &&
+    (candidate.hotkey === undefined ||
+      (typeof candidate.hotkey === "string" && candidate.hotkey.length > 0))
   );
 }
 
@@ -129,6 +149,7 @@ export class SettingsStore {
             parsed.cryptoEnabled ?? DEFAULT_CALCULATOR.cryptoEnabled,
           numberFormat: parsed.numberFormat ?? DEFAULT_CALCULATOR.numberFormat,
           windowBounds: parsed.windowBounds ?? {},
+          hotkey: parsed.hotkey ?? DEFAULT_HOTKEY,
         };
       }
     } catch (error) {
@@ -173,6 +194,19 @@ export class SettingsStore {
     return this.getCalculatorSettings();
   }
 
+  /** The global toggle shortcut, as an Electron accelerator string. */
+  getHotkey(): string {
+    this.init();
+    return this.state.hotkey;
+  }
+
+  /** Persists immediately. Caller is responsible for actually re-registering the accelerator with `globalShortcut`. */
+  setHotkey(accelerator: string): void {
+    this.init();
+    this.state.hotkey = accelerator;
+    this.persist();
+  }
+
   /** The last saved position+size for `key`, or `undefined` if it's never been moved/resized. */
   getWindowBounds(key: WindowBoundsKey): WindowBounds | undefined {
     this.init();
@@ -201,6 +235,7 @@ export class SettingsStore {
       cryptoEnabled: this.state.cryptoEnabled,
       numberFormat: this.state.numberFormat,
       windowBounds: this.state.windowBounds,
+      hotkey: this.state.hotkey,
     };
     try {
       writeFileSync(tmp, JSON.stringify(payload));

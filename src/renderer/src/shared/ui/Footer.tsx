@@ -238,6 +238,13 @@ interface FooterMenuItemBase {
    * items of one section next to each other in the array.
    */
   section?: string;
+  /**
+   * Draw a plain divider line above this item instead of a `section` text
+   * heading — for a row that just needs visual separation from what's above
+   * it without a label (e.g. one lone row tacked onto the end of the menu).
+   * Ignored where a `section` heading already draws one, and at index 0.
+   */
+  separator?: boolean;
 }
 
 /** A row that runs something when picked. */
@@ -250,20 +257,27 @@ interface FooterMenuLeaf extends FooterMenuItemBase {
   confirmLabel?: string;
   onSelect: () => void;
   items?: never;
+  /**
+   * Keep the popup open after this row runs, instead of the usual
+   * select-and-close — for a row whose `onSelect` starts something the popup
+   * needs to keep showing the live state of (e.g. "press a key to record a
+   * hotkey"). Default false.
+   */
+  keepOpen?: boolean;
 }
 
 /**
  * A row that opens a list of its own instead of running: picking it replaces
- * the menu's contents with `items` (and its search box filters those), and
- * Escape — or the back button in the popup's header — returns to the list it
- * came from. For a long, self-contained group like quicklinks' "Open With",
- * which contributes a row per installed app and would otherwise bury the rest
- * of the menu under it.
+ * the menu's contents with `items` (and its search box filters those); Escape
+ * returns to the list it came from. For a long, self-contained group like
+ * quicklinks' "Open With", which contributes a row per installed app and
+ * would otherwise bury the rest of the menu under it.
  */
 interface FooterMenuSubmenu extends FooterMenuItemBase {
   items: FooterMenuItem[];
   confirmLabel?: never;
   onSelect?: never;
+  keepOpen?: never;
 }
 
 export type FooterMenuItem = FooterMenuLeaf | FooterMenuSubmenu;
@@ -284,6 +298,16 @@ export interface FooterMenuProps {
   onOpenChange?: (open: boolean) => void;
   /** Where focus lands when the popup closes. Defaults to the trigger. */
   finalFocus?: RefObject<HTMLElement | null>;
+  /**
+   * Position the popup against this instead of its own trigger, and skip
+   * rendering that trigger (and its ⌘K binding) altogether — for a menu
+   * opened programmatically by something else (a row in another menu), which
+   * owns `open`/`onOpenChange` itself and has no on-screen trigger of its own
+   * for this popup to sit next to. Accepts anything Base UI's
+   * `Autocomplete.Positioner` `anchor` does: an element, a ref, a getter, or
+   * a virtual `{ getBoundingClientRect }` point.
+   */
+  anchor?: ComponentPropsWithoutRef<typeof Autocomplete.Positioner>["anchor"];
 }
 
 /**
@@ -319,6 +343,7 @@ function Menu({
   open: openProp,
   onOpenChange,
   finalFocus,
+  anchor,
 }: FooterMenuProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = openProp ?? uncontrolledOpen;
@@ -332,6 +357,10 @@ function Menu({
   // the menu looked like when it was opened.
   const [trail, setTrail] = useState<string[]>([]);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Row key `goBack()` wants the *real* (not just visual) highlight to land
+  // on once the popped-back-to list renders — see the effect below.
+  const pendingHighlightKeyRef = useRef<string | null>(null);
   // The popup is portalled into this element rather than `document.body`, so it
   // stays inside the owning screen's subtree. When an `onSelect` navigates and
   // React parks that screen in a hidden `<Activity>`, the `display:none` covers
@@ -393,12 +422,66 @@ function Menu({
     return keys;
   }, [activeItems]);
 
-  /** Leave the open submenu for the list it came from. */
+  /**
+   * Leave the open submenu for the list it came from — landing the *real*
+   * highlight back on the row that opened it, not whatever Autocomplete
+   * defaults to.
+   *
+   * There's no public API to set Autocomplete's highlighted item directly,
+   * and forcing it by reordering `items` or remounting the popup both crash
+   * its internals (verified against the library). What does work, without
+   * touching any internal state: drive it with the same synthetic key
+   * events a real Home-then-ArrowDown press would send — see the effect
+   * below, keyed off `pendingHighlightKeyRef`.
+   */
   const goBack = () => {
+    pendingHighlightKeyRef.current = parent
+      ? (parent.id ?? parent.label)
+      : null;
     setTrail((path) => path.slice(0, -1));
     setSearch("");
     setArmedId(null);
   };
+
+  // Consumes `pendingHighlightKeyRef` once the list `goBack()` returned to
+  // has actually rendered: finds that row's index in it, then dispatches a
+  // Home press (reliably lands on index 0) followed by that many ArrowDowns
+  // — real keydown events on the popup's own input, so Autocomplete moves
+  // its highlight through its normal navigation path instead of anything
+  // reaching into its state. Two animation frames give its own
+  // layout-effect-driven highlight bookkeeping a turn to settle first.
+  useEffect(() => {
+    const targetKey = pendingHighlightKeyRef.current;
+    if (!targetKey) return;
+    pendingHighlightKeyRef.current = null;
+
+    const targetIndex = activeItems.findIndex(
+      (item) => (item.id ?? item.label) === targetKey,
+    );
+    if (targetIndex < 0) return;
+
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        const input = inputRef.current;
+        if (!input) return;
+        const dispatch = (key: string) =>
+          input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
+        dispatch("Home");
+        for (let i = 0; i < targetIndex; i++) dispatch("ArrowDown");
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [activeItems]);
 
   /** `"armed"` when the hit only armed a `confirmLabel` item, `"opened"` when
    *  it descended into a submenu — neither ran anything. */
@@ -422,14 +505,16 @@ function Menu({
       return "armed";
     }
     setArmedId(null);
-    setOpen(false);
+    if (!item.keepOpen) setOpen(false);
     item.onSelect();
     return "ran";
   };
 
   // The menu owns the ⌘K toggle whether controlled or not (setOpen routes to
   // the right place). Item shortcuts stay the screen's to bind via useShortcut.
-  useShortcut({ [shortcut]: () => setOpen(!open) });
+  // An anchored menu has no trigger of its own to toggle — the caller owns
+  // showing/hiding it — so it doesn't bind the shortcut at all.
+  useShortcut({ [shortcut]: anchor ? undefined : () => setOpen(!open) });
 
   return (
     <Autocomplete.Root
@@ -441,16 +526,18 @@ function Menu({
       itemToStringValue={(item) => item.label}
       autoHighlight="always"
     >
-      <Autocomplete.Trigger
-        ref={triggerRef}
-        className={cn(
-          ACTION_BASE,
-          open ? "bg-item-hover text-foreground" : "text-foreground-subtle",
-        )}
-      >
-        <span className="min-w-0 truncate">{label}</span>
-        <Kbd accelerator={shortcut} />
-      </Autocomplete.Trigger>
+      {!anchor && (
+        <Autocomplete.Trigger
+          ref={triggerRef}
+          className={cn(
+            ACTION_BASE,
+            open ? "bg-item-hover text-foreground" : "text-foreground-subtle",
+          )}
+        >
+          <span className="min-w-0 truncate">{label}</span>
+          <Kbd accelerator={shortcut} />
+        </Autocomplete.Trigger>
+      )}
       {/* Zero-size, out-of-flow host for the portal (see `portalRef`), pinned
           to the viewport origin. The positioner inside it is absolutely
           positioned, so this host is its containing block and its origin: left
@@ -460,6 +547,7 @@ function Menu({
       <div ref={portalRef} className="fixed left-0 top-0" />
       <Autocomplete.Portal container={portalRef}>
         <Autocomplete.Positioner
+          anchor={anchor}
           side="top"
           align="end"
           sideOffset={8}
@@ -491,21 +579,9 @@ function Menu({
             }}
             className="flex max-h-[min(24rem,var(--available-height))] w-60 flex-col overflow-hidden rounded-md border border-border bg-popover text-foreground shadow-lg outline-none [-webkit-app-region:no-drag]"
           >
-            {parent && (
-              <button
-                type="button"
-                onClick={goBack}
-                className="flex shrink-0 items-center gap-1.5 border-b border-border px-2 py-1.5 text-left text-xs font-medium text-foreground-subtle hover:text-foreground"
-              >
-                <span aria-hidden className="shrink-0">
-                  ‹
-                </span>
-                <span className="min-w-0 flex-1 truncate">{parent.label}</span>
-                <Kbd accelerator="Escape" />
-              </button>
-            )}
             <div className="shrink-0 border-b border-border p-1">
               <Autocomplete.Input
+                ref={inputRef}
                 placeholder={parent ? `Search ${parent.label}…` : placeholder}
                 className="w-full bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-foreground-subtle"
               />
@@ -516,7 +592,7 @@ function Menu({
                 const armed = armedId === key;
                 return (
                   <Fragment key={key}>
-                    {sectionFirstKeys.has(key) && (
+                    {sectionFirstKeys.has(key) ? (
                       <div
                         aria-hidden
                         className={cn(
@@ -526,18 +602,29 @@ function Menu({
                       >
                         {item.section}
                       </div>
+                    ) : (
+                      item.separator &&
+                      index !== 0 && (
+                        <div
+                          aria-hidden
+                          className="my-1 border-t border-border"
+                        />
+                      )
                     )}
                     <Autocomplete.Item
                       value={item}
                       disabled={item.disabled}
                       onClick={(event) => {
-                        // Only a hit that actually ran the action may go on to
-                        // Base UI's own item press: it selects the item —
-                        // closing the popup and writing the label into the
-                        // search box — which would disarm a confirm before its
-                        // second hit, or close the menu on a disabled row. (↵
+                        // Only a hit that actually ran the action, and wants
+                        // the popup closed, may go on to Base UI's own item
+                        // press: it selects the item — closing the popup and
+                        // writing the label into the search box — which would
+                        // disarm a confirm before its second hit, close the
+                        // menu on a disabled row, or close a `keepOpen` row
+                        // before its own `onSelect` has anything to show. (↵
                         // on a highlighted row arrives here as a click too.)
-                        if (choose(item) !== "ran")
+                        const result = choose(item);
+                        if (result !== "ran" || item.keepOpen)
                           event.preventBaseUIHandler();
                       }}
                       className={cn(
@@ -545,8 +632,8 @@ function Menu({
                         armed
                           ? "bg-red-500/25 text-red-300 ring-1 ring-inset ring-red-500/40"
                           : item.danger
-                            ? "text-red-400/90 data-[highlighted]:bg-red-500/15 data-[highlighted]:text-red-300"
-                            : "data-[highlighted]:bg-item-selected data-[highlighted]:text-foreground",
+                            ? "text-red-400/90 data-highlighted:bg-red-500/15 data-highlighted:text-red-300"
+                            : "data-highlighted:bg-item-selected data-highlighted:text-foreground",
                         item.disabled && "opacity-40",
                       )}
                     >
@@ -569,20 +656,12 @@ function Menu({
                             : item.label}
                         </span>
                       </span>
-                      {item.items ? (
-                        // Marks the row as a way in rather than an action.
-                        <span
-                          aria-hidden
-                          className="shrink-0 text-foreground-subtle"
-                        >
-                          ›
-                        </span>
-                      ) : item.shortcut ? (
+                      {item.shortcut && (
                         <Kbd
                           accelerator={item.shortcut}
                           className="border-border"
                         />
-                      ) : null}
+                      )}
                     </Autocomplete.Item>
                   </Fragment>
                 );

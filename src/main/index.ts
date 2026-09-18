@@ -1,4 +1,10 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  globalShortcut,
+  ipcMain,
+} from "electron";
 import { captureFocusedWindow } from "@extensions/window/main/control/control";
 import {
   IPC_CHANNELS,
@@ -6,6 +12,7 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import {
+  actionHotkeys,
   clipboardHistory,
   actionUsage,
   executeAction,
@@ -18,8 +25,14 @@ import {
   refreshActionSources,
   registerActionSourcesIpc,
   requestSubtitle,
+  settings,
 } from "./actions";
 import { CLIPBOARD_HISTORY_CHANNELS } from "@extensions/clipboard-history/shared/types";
+import {
+  HOTKEY_CHANNELS,
+  type ActionHotkeyBinding,
+  type ActionHotkeySetResult,
+} from "@extensions/hotkey/shared/types";
 import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
 import {
@@ -30,22 +43,18 @@ import {
 } from "./window";
 import { createTray } from "./tray";
 
-// Alt+Space is free on Windows, but on macOS Option+Space is commonly remapped
-// (e.g. to Mission Control/Spotlight variants) and Cmd+Space/Cmd+Option+Space/
-// Cmd+Ctrl+Space are all reserved by the OS, so macOS gets its own default.
-// Linux needs one too: Alt+Space is hard-bound at the window-manager level on
-// GNOME (`activate-window-menu`, and almost every other Linux DE reserves it
-// the same way for a "window menu" convention going back to Windows 3.x) — the
-// compositor grabs it before any app can, so `globalShortcut.register` always
-// fails for it, no matter what backend Electron runs on. Control+Alt+Space
-// isn't bound by any default GNOME keybinding.
-const TOGGLE_SHORTCUT =
-  process.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
-
-// On top of the modifier conflict above, GNOME ≥ 49 stopped honoring global
-// key grabs from XWayland clients at all, and Electron's Wayland-native
-// replacement (the `org.freedesktop.portal.GlobalShortcuts` portal) is broken
-// by an open upstream bug against xdg-desktop-portal ≥ 1.20 / GNOME 50
+// The default toggle shortcut (see `DEFAULT_HOTKEY` in `settings/store.ts` for
+// why macOS/Windows differ) can be rebound from Settings; the currently bound
+// accelerator always lives in `settings.getHotkey()`, never a local constant.
+// On Linux, Alt+Space is additionally hard-bound at the window-manager level
+// on GNOME (`activate-window-menu`, and almost every other Linux DE reserves
+// it the same way for a "window menu" convention going back to Windows 3.x) —
+// the compositor grabs it before any app can, so `globalShortcut.register`
+// always fails for it no matter what accelerator is picked. On top of that,
+// GNOME ≥ 49 stopped honoring global key grabs from XWayland clients at all,
+// and Electron's Wayland-native replacement (the
+// `org.freedesktop.portal.GlobalShortcuts` portal) is broken by an open
+// upstream bug against xdg-desktop-portal ≥ 1.20 / GNOME 50
 // (electron/electron#51875) — so `globalShortcut.register` below can fail on
 // Linux independent of which accelerator is picked, with no code-level fix.
 // The workaround: GNOME's own custom-keybindings feature (Settings →
@@ -100,12 +109,93 @@ function toggleLauncher(): void {
 }
 
 /**
+ * (Re-)grabs the currently configured accelerator if it isn't actually held
+ * right now. Registration can silently lapse without any `hotkeySet` call —
+ * a crashed previous instance can leave the OS-level grab orphaned until it
+ * exits, an `electron-vite` dev-mode main-process restart can race the old
+ * process's `will-quit` cleanup, etc. Called on startup and whenever Settings
+ * asks for the current hotkey, so the UI never reports a binding as active
+ * that isn't actually working.
+ */
+function ensureToggleShortcutRegistered(): void {
+  const accelerator = settings.getHotkey();
+  if (globalShortcut.isRegistered(accelerator)) return;
+  if (!globalShortcut.register(accelerator, toggleLauncher)) {
+    console.error(`Failed to register global shortcut: ${accelerator}`);
+  }
+}
+
+/**
+ * Runs the action bound to `actionId` the way pressing Enter on its row
+ * would — but without ever showing the launcher, unless the action itself
+ * asks to navigate somewhere (e.g. it opens an editor screen). Widget and
+ * pinned-calculation rows don't "run" so much as hold a value: selecting them
+ * in the launcher copies that value rather than calling `execute()` (see
+ * `LauncherScreen.runRow`), so a hotkey bound to one reproduces that copy
+ * here instead, main-side, since there's no renderer round-trip otherwise.
+ */
+async function runBoundAction(
+  actionId: string,
+  type: ActionHotkeyBinding["type"],
+): Promise<void> {
+  try {
+    if (type === "widget" || type === "calculation") {
+      const subtitle = await requestSubtitle(actionId);
+      if (subtitle) clipboard.writeText(subtitle);
+      return;
+    }
+
+    const result = await executeAction(actionId, "");
+    if (!result.navigate) return;
+
+    const win = getLauncherWindow();
+    if (!win) return;
+    captureFocusedWindow(launcherHandle(win));
+    showLauncher();
+    win.webContents.send(HOTKEY_CHANNELS.triggerNavigate, result.navigate);
+  } catch (error) {
+    // A bound action can go stale after the fact (the app it opens gets
+    // uninstalled, the quicklink it points at gets deleted, …) — this runs
+    // off a bare `globalShortcut` callback with nothing downstream to catch
+    // a rejection, unlike the renderer-invoked `execute` IPC path.
+    console.error(`Failed to run hotkey-bound action ${actionId}:`, error);
+  }
+}
+
+/** Registers one action's `globalShortcut`, wired to run it via `runBoundAction`. */
+function registerActionHotkey(
+  actionId: string,
+  binding: ActionHotkeyBinding,
+): boolean {
+  try {
+    return globalShortcut.register(
+      binding.accelerator,
+      () => void runBoundAction(actionId, binding.type),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** (Re-)grabs every persisted action hotkey that isn't currently held — see `ensureToggleShortcutRegistered`. */
+function ensureActionHotkeysRegistered(): void {
+  for (const [actionId, binding] of Object.entries(actionHotkeys.list())) {
+    if (globalShortcut.isRegistered(binding.accelerator)) continue;
+    if (!registerActionHotkey(actionId, binding)) {
+      console.error(
+        `Failed to register hotkey for ${actionId}: ${binding.accelerator}`,
+      );
+    }
+  }
+}
+
+/**
  * Toggles the launcher from argv — what a GNOME custom keyboard shortcut
  * invokes instead of a hotkey Electron can't grab directly on this desktop
- * (see `TOGGLE_SHORTCUT` above). A relaunch while Magibar is already
- * running relays its argv here via `second-instance`; the very first launch
- * checks its own `process.argv` the same way, in case that launch itself was
- * the GNOME shortcut firing before anything was running yet.
+ * (see `DEFAULT_HOTKEY` in `settings/store.ts`). A relaunch while Magibar is
+ * already running relays its argv here via `second-instance`; the very first
+ * launch checks its own `process.argv` the same way, in case that launch
+ * itself was the GNOME shortcut firing before anything was running yet.
  */
 function handleCliAction(argv: string[]): void {
   if (argv.includes(CLI_TOGGLE_FLAG)) toggleLauncher();
@@ -190,9 +280,84 @@ app.whenReady().then(() => {
     return pinned;
   });
 
-  if (!globalShortcut.register(TOGGLE_SHORTCUT, toggleLauncher)) {
-    console.error(`Failed to register global shortcut: ${TOGGLE_SHORTCUT}`);
-  }
+  ensureToggleShortcutRegistered();
+
+  ipcMain.handle(IPC_CHANNELS.hotkeyGet, () => {
+    // Self-heal a lapsed registration before answering, so Settings never
+    // shows a binding as active that has silently stopped working.
+    ensureToggleShortcutRegistered();
+    return settings.getHotkey();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.hotkeySet, (_event, accelerator: string) => {
+    const previous = settings.getHotkey();
+    if (accelerator === previous) return { success: true, hotkey: previous };
+
+    globalShortcut.unregister(previous);
+
+    let registered = false;
+    try {
+      registered = globalShortcut.register(accelerator, toggleLauncher);
+    } catch {
+      registered = false;
+    }
+
+    if (!registered) {
+      // Couldn't grab the new accelerator (bad format, or another app already
+      // holds it) — restore the previous one so the launcher stays reachable.
+      globalShortcut.register(previous, toggleLauncher);
+      return { success: false, hotkey: previous };
+    }
+
+    settings.setHotkey(accelerator);
+    return { success: true, hotkey: accelerator };
+  });
+
+  ensureActionHotkeysRegistered();
+
+  ipcMain.handle(
+    HOTKEY_CHANNELS.list,
+    (): Record<string, ActionHotkeyBinding> => {
+      ensureActionHotkeysRegistered();
+      return actionHotkeys.list();
+    },
+  );
+
+  ipcMain.handle(
+    HOTKEY_CHANNELS.set,
+    (
+      _event,
+      actionId: string,
+      accelerator: string,
+      type: ActionHotkeyBinding["type"],
+    ): ActionHotkeySetResult => {
+      const previous = actionHotkeys.get(actionId);
+      if (accelerator === previous?.accelerator) {
+        return { success: true, binding: previous ?? null };
+      }
+
+      if (previous) globalShortcut.unregister(previous.accelerator);
+
+      const binding: ActionHotkeyBinding = { accelerator, type };
+      const registered = registerActionHotkey(actionId, binding);
+
+      if (!registered) {
+        // Couldn't grab the new accelerator — restore the previous binding
+        // (if any) so the action stays reachable the way it was.
+        if (previous) registerActionHotkey(actionId, previous);
+        return { success: false, binding: previous ?? null };
+      }
+
+      actionHotkeys.set(actionId, binding);
+      return { success: true, binding };
+    },
+  );
+
+  ipcMain.handle(HOTKEY_CHANNELS.remove, (_event, actionId: string) => {
+    const previous = actionHotkeys.get(actionId);
+    if (previous) globalShortcut.unregister(previous.accelerator);
+    actionHotkeys.remove(actionId);
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
