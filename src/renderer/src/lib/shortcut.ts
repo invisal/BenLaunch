@@ -128,7 +128,10 @@ export function matchesShortcut(
     left: 'arrowleft',
     right: 'arrowright'
   }
-  return event.key.toLowerCase() === (alias[key] ?? key)
+  if (event.key.toLowerCase() === (alias[key] ?? key)) return true
+  // Option/Alt rewrites `event.key` on macOS (Option+R -> "®"), so a letter
+  // chord that needs Alt falls back to the physical key.
+  return alt && /^[a-z]$/.test(key) && event.code === `Key${key.toUpperCase()}`
 }
 
 const CODE_TO_KEY: Record<string, string> = {

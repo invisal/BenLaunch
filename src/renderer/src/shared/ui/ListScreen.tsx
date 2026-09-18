@@ -261,6 +261,10 @@ interface ListScreenBaseProps<T> {
   /** Rendered inside the search header, before the input — the launcher's
    *  argument chip sits here, so what you type reads as the chip's value. */
   inputPrefix?: ReactNode;
+  /** Rendered inside the search header, after the input — a segmented
+   *  filter/sort control (e.g. Activity Monitor's CPU/Memory toggle), the
+   *  header counterpart to a `Footer.Menu` filter. */
+  inputSuffix?: ReactNode;
   /** Row is inert — keyboard nav skips it and click/Enter/⌘K ignore it.
    *  For a non-interactive row inlined into `data`, e.g. a section heading
    *  (see `ClipboardHistoryListScreen` for the pattern). */
@@ -273,7 +277,13 @@ interface ListScreenBaseProps<T> {
    *  built-in "commit and close" handling — `onActivate` already fires with
    *  the clicked row itself, synchronously, so nothing is lost by ignoring
    *  it here. */
-  onHighlightChange?: (item: T | null) => void;
+  onHighlightChange?: (
+    item: T | null,
+    reason: "keyboard" | "pointer" | "none",
+  ) => void;
+  /** Fires when the ⌘K / right-click menu opens or closes — for a live list
+   *  that should hold still while a row's action menu is up. */
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 type ListScreenVirtualProps<T> =
@@ -318,12 +328,14 @@ function ListScreenRoot<T>({
   emptyLabel,
   noMatchLabel = "No matches.",
   inputPrefix,
+  inputSuffix,
   autoRefocus = false,
   virtualized = false,
   itemHeight,
   measureItem,
   isDisabled,
   onHighlightChange,
+  onMenuOpenChange,
 }: ListScreenProps<T>) {
   const { stack, pop } = useRouteStack();
   const controlled = inputValue !== undefined;
@@ -335,7 +347,11 @@ function ListScreenRoot<T>({
   };
 
   const [highlighted, setHighlighted] = useState<T | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpenState] = useState(false);
+  const setMenuOpen = (open: boolean) => {
+    setMenuOpenState(open);
+    onMenuOpenChange?.(open);
+  };
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastHighlightedIndex = useRef<number | null>(null);
@@ -444,10 +460,10 @@ function ListScreenRoot<T>({
       // CSS `:hover` background (`hover:bg-item-hover` on the row), distinct
       // from the cursor's `bg-item-selected`.
       highlightItemOnHover={false}
-      onItemHighlighted={(item, { index }) => {
+      onItemHighlighted={(item, { index, reason }) => {
         const value = (item as T | undefined) ?? null;
         setHighlighted(value);
-        onHighlightChange?.(value);
+        onHighlightChange?.(value, reason);
         // Rows are rebuilt (new object identities) whenever `data` changes,
         // which re-fires this even though the highlighted *index* hasn't
         // moved — only scroll on an actual index change, so a data refresh
@@ -492,6 +508,7 @@ function ListScreenRoot<T>({
             autoFocus
             className={INPUT_CLASS}
           />
+          {inputSuffix}
         </div>
 
         <div className="flex min-h-0 flex-1">
@@ -523,7 +540,7 @@ function ListScreenRoot<T>({
                         if (disabled) return;
                         e.preventDefault();
                         setHighlighted(item);
-                        onHighlightChange?.(item);
+                        onHighlightChange?.(item, "pointer");
                         setMenuOpen(true);
                       }}
                       {...(measure
@@ -568,7 +585,7 @@ function ListScreenRoot<T>({
                         if (disabled) return;
                         e.preventDefault();
                         setHighlighted(item);
-                        onHighlightChange?.(item);
+                        onHighlightChange?.(item, "pointer");
                         setMenuOpen(true);
                       }}
                       render={(props, state) =>

@@ -40,11 +40,66 @@ export declare function getWindowRect(pid: number): MacRect | null
  */
 export declare function isFullscreen(pid: number): boolean
 
+/**
+ * Terminates `pid` — `SIGTERM` (a graceful "Quit") when `force` is `false`,
+ * `SIGKILL` ("Force Quit") when `true`. Returns `false` if the process no
+ * longer exists or the OS denies permission (not owned by this user); the
+ * caller can't tell those apart from the bool alone and doesn't need to —
+ * both are surfaced as the same inline error.
+ */
+export declare function killProcess(pid: number, force: boolean): boolean
+
+/**
+ * Every TCP port something is listening on, with the owning pid. Empty if the
+ * OS refuses to enumerate (e.g. missing permission).
+ */
+export declare function listListeningPorts(): Array<NativePort>
+
+/**
+ * A snapshot of every currently running process's pid, name, CPU% and
+ * resident memory. Cheap to call on a poll interval (a couple of times a
+ * second) — the underlying refresh only re-reads `/proc`-equivalent process
+ * tables, no per-call allocation of a new `System`.
+ */
+export declare function listProcesses(): Array<NativeProcess>
+
 export interface MacRect {
   x: number
   y: number
   width: number
   height: number
+}
+
+/**
+ * One listening TCP socket and the process that owns it. Cheap enough (a few
+ * ms) to fetch alongside `list_processes()` on every poll tick.
+ */
+export interface NativePort {
+  pid: number
+  port: number
+}
+
+/**
+ * One process's identity and live resource usage, as reported by the last
+ * `list_processes()` refresh.
+ */
+export interface NativeProcess {
+  pid: number
+  name: string
+  /**
+   * Percentage of a single CPU core (0–100 per core, so a busy multi-core
+   * process can exceed 100), matching Activity Monitor's own convention.
+   */
+  cpuUsage: number
+  memoryBytes: number
+  /**
+   * Full path to the executable, when readable — lets the TS side resolve
+   * an app icon (walking up to the enclosing `.app` bundle on macOS, since
+   * the raw Mach-O binary carries no icon of its own). `None` for a process
+   * whose executable path isn't readable (permission-restricted, or exited
+   * between the refresh and this read).
+   */
+  path?: string
 }
 
 /**

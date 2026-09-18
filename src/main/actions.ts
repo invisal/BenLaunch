@@ -28,6 +28,7 @@ import { Usage } from "./usage/store";
 import { configureActionResolver, configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
 import type { ActionDefinition } from "./types";
+import { QuitProcessExtension } from "@extensions/quit-process";
 import { CalculatorHistoryExtension } from "@extensions/calculator-history";
 import { ClipboardHistoryExtension } from "@extensions/clipboard-history";
 import { ExtensionStorage } from "@core/storage";
@@ -70,6 +71,16 @@ const calculatorHistory = new CalculatorHistoryExtension(evaluate);
  * `registerIpc()`. Exposed so `index.ts` can stop the poller at `will-quit`.
  */
 export const clipboardHistory = new ClipboardHistoryExtension();
+
+/**
+ * The Activity Monitor extension ("Quit Processes"). Its background
+ * poller only runs while its list screen is open (started/stopped via its
+ * own `start`/`stop` IPC, not `init()`), wiring the list/kill IPC to the
+ * same instance via `registerIpc()`. Exposed so `index.ts` can stop the
+ * poller at `will-quit` and forward its live refreshes to the launcher
+ * window.
+ */
+export const quitProcess = new QuitProcessExtension();
 
 /** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`, gated by a setting. */
 const cryptoPriceSource = new CryptoPriceSource();
@@ -131,6 +142,7 @@ const sources: ActionSource[] = [
   widgetSource,
   calculatorHistory,
   clipboardHistory,
+  quitProcess,
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),

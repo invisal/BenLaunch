@@ -23,6 +23,8 @@ use core_foundation_sys::number::{
 use core_foundation_sys::string::{kCFStringEncodingUTF8, CFStringCreateWithCString, CFStringRef};
 use napi_derive::napi;
 use std::ffi::{c_void, CString};
+use std::sync::{Mutex, OnceLock};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, Signal, System};
 
 // -- Accessibility (AXUIElement) — not covered by `core-foundation-sys`, so
 // declared here directly against `ApplicationServices` (linked in `build.rs`). --
@@ -414,4 +416,112 @@ pub fn toggle_fullscreen(pid: i32) -> bool {
     CFRelease(window);
     err == K_AX_ERROR_SUCCESS
   }
+}
+
+// -- Process listing / termination (Activity Monitor), via `sysinfo` --
+// `sysinfo` wraps `libproc`/`sysctl` for us here rather than hand-rolling
+// another unsafe FFI surface like the CoreGraphics/AX calls above — unlike
+// those, there's no single well-known low-level API this needs to match, and
+// a maintained cross-platform crate means the same call shape works
+// unchanged in `native/win` and `native/linux` too.
+
+/// One process's identity and live resource usage, as reported by the last
+/// `list_processes()` refresh.
+#[napi(object)]
+pub struct NativeProcess {
+  pub pid: i32,
+  pub name: String,
+  /// Percentage of a single CPU core (0–100 per core, so a busy multi-core
+  /// process can exceed 100), matching Activity Monitor's own convention.
+  pub cpu_usage: f64,
+  pub memory_bytes: f64,
+  /// Full path to the executable, when readable — lets the TS side resolve
+  /// an app icon (walking up to the enclosing `.app` bundle on macOS, since
+  /// the raw Mach-O binary carries no icon of its own). `None` for a process
+  /// whose executable path isn't readable (permission-restricted, or exited
+  /// between the refresh and this read).
+  pub path: Option<String>,
+}
+
+/// A process-wide `System`, reused across every `list_processes()`/
+/// `kill_process()` call rather than recreated per call. `sysinfo`'s CPU
+/// percentages are a delta against the *previous* refresh of the same
+/// instance — a fresh `System` every call would always report ~0% on its
+/// first (and only) read.
+fn system() -> &'static Mutex<System> {
+  static SYSTEM: OnceLock<Mutex<System>> = OnceLock::new();
+  SYSTEM.get_or_init(|| Mutex::new(System::new()))
+}
+
+/// A snapshot of every currently running process's pid, name, CPU% and
+/// resident memory. Cheap to call on a poll interval (a couple of times a
+/// second) — the underlying refresh only re-reads `/proc`-equivalent process
+/// tables, no per-call allocation of a new `System`.
+#[napi]
+pub fn list_processes() -> Vec<NativeProcess> {
+  let mut sys = system().lock().unwrap();
+  sys.refresh_processes_specifics(
+    ProcessesToUpdate::All,
+    true,
+    ProcessRefreshKind::everything(),
+  );
+  sys
+    .processes()
+    .values()
+    .map(|process| NativeProcess {
+      pid: process.pid().as_u32() as i32,
+      name: process.name().to_string_lossy().into_owned(),
+      cpu_usage: process.cpu_usage() as f64,
+      memory_bytes: process.memory() as f64,
+      path: process
+        .exe()
+        .map(|path| path.to_string_lossy().into_owned()),
+    })
+    .collect()
+}
+
+/// Terminates `pid` — `SIGTERM` (a graceful "Quit") when `force` is `false`,
+/// `SIGKILL` ("Force Quit") when `true`. Returns `false` if the process no
+/// longer exists or the OS denies permission (not owned by this user); the
+/// caller can't tell those apart from the bool alone and doesn't need to —
+/// both are surfaced as the same inline error.
+#[napi]
+pub fn kill_process(pid: i32, force: bool) -> bool {
+  let mut sys = system().lock().unwrap();
+  let target = Pid::from_u32(pid as u32);
+  sys.refresh_processes_specifics(
+    ProcessesToUpdate::Some(&[target]),
+    true,
+    ProcessRefreshKind::new(),
+  );
+  let Some(process) = sys.process(target) else {
+    return false;
+  };
+  let signal = if force { Signal::Kill } else { Signal::Term };
+  process.kill_with(signal).unwrap_or_else(|| process.kill())
+}
+
+/// One listening TCP socket and the process that owns it. Cheap enough (a few
+/// ms) to fetch alongside `list_processes()` on every poll tick.
+#[napi(object)]
+pub struct NativePort {
+  pub pid: i32,
+  pub port: u32,
+}
+
+/// Every TCP port something is listening on, with the owning pid. Empty if the
+/// OS refuses to enumerate (e.g. missing permission).
+#[napi]
+pub fn list_listening_ports() -> Vec<NativePort> {
+  listeners::get_all()
+    .map(|set| {
+      set
+        .into_iter()
+        .map(|l| NativePort {
+          pid: l.process.pid as i32,
+          port: l.socket.port() as u32,
+        })
+        .collect()
+    })
+    .unwrap_or_default()
 }

@@ -12,6 +12,7 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import {
+  quitProcess,
   actionHotkeys,
   clipboardHistory,
   actionUsage,
@@ -27,6 +28,7 @@ import {
   requestSubtitle,
   settings,
 } from "./actions";
+import { QUIT_PROCESS_CHANNELS } from "@extensions/quit-process/shared/types";
 import { CLIPBOARD_HISTORY_CHANNELS } from "@extensions/clipboard-history/shared/types";
 import {
   HOTKEY_CHANNELS,
@@ -221,6 +223,14 @@ app.whenReady().then(() => {
     getLauncherWindow()?.webContents.send(CLIPBOARD_HISTORY_CHANNELS.updated);
   });
 
+  // Push the fresh process snapshot to the launcher window on every poll
+  // tick (only running while the Activity Monitor screen is open — see
+  // `QuitProcessExtension`), so the list stays live without the
+  // renderer having to re-fetch on its own timer.
+  quitProcess.onRefresh((rows) => {
+    getLauncherWindow()?.webContents.send(QUIT_PROCESS_CHANNELS.updated, rows);
+  });
+
   // Each extension wires its own `ipcMain` handlers via `registerIpc()`.
   registerActionSourcesIpc(ipcMain);
   registerWindowControlsIpc();
@@ -375,4 +385,5 @@ app.on("window-all-closed", () => {
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
   clipboardHistory.stopPolling();
+  quitProcess.stopPolling();
 });
