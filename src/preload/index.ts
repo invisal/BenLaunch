@@ -3,6 +3,7 @@ import {
   IPC_CHANNELS,
   type CalculatorSettings,
   type ExecuteResult,
+  type HotkeySetResult,
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
@@ -33,6 +34,13 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsGet),
     set: (patch: Partial<CalculatorSettings>): Promise<CalculatorSettings> =>
       ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsSet, patch),
+  },
+
+  /** Settings → General: read / rebind the global toggle shortcut. */
+  hotkey: {
+    get: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.hotkeyGet),
+    set: (accelerator: string): Promise<HotkeySetResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.hotkeySet, accelerator),
   },
 
   /** Launcher: a deferred-subtitle row rendered (or force-refreshed) — resolves with the fresh subtitle. */
