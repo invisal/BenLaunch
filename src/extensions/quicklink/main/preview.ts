@@ -128,7 +128,12 @@ function pathOf(link: string): string | null {
 /** The OS icon for a path, as a `data:` URI. Never throws. */
 async function iconFor(path: string): Promise<string | null> {
   try {
-    const image = await app.getFileIcon(path, { size: "large" });
+    // `size: "large"` is deliberately not used: on macOS 26 / Electron 44 it
+    // aborts the browser process outright (SIGTRAP on a thread-pool worker,
+    // no JS exception to catch), which took the whole app down whenever the
+    // detail pane read a file. "normal" is 32px, the same size `./file-icon.ts`
+    // asks for and the ceiling `getFileIcon` returns on Windows anyway.
+    const image = await app.getFileIcon(path, { size: "normal" });
     return image.isEmpty() ? null : image.toDataURL();
   } catch {
     return null;
