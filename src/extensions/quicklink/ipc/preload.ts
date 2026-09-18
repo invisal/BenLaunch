@@ -48,6 +48,12 @@ export const quicklinkApi = {
   preview: (actionId: string, argument: string): Promise<string | null> =>
     ipcRenderer.invoke(QUICKLINK_CHANNELS.preview, actionId, argument),
   /**
+   * The values this quicklink is waiting for, in order — what the argument
+   * chip prompts with. Empty for a link that takes none.
+   */
+  argumentNames: (actionId: string): Promise<string[]> =>
+    ipcRenderer.invoke(QUICKLINK_CHANNELS.argumentNames, actionId),
+  /**
    * What a file/folder link actually contains, for the manager's detail pane:
    * an inlined image or OS thumbnail, a text/CSV head, a folder listing — plus
    * the metadata to draw a file card when none of those apply.

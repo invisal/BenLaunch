@@ -1,12 +1,24 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import type { OpenWithApp } from "@extensions/quicklink/shared/types";
-import type { Calculation, LauncherAction } from "../../../../shared/types";
+import type { ActionHotkeyBinding } from "@extensions/hotkey/shared/types";
+import type {
+  Calculation,
+  LauncherAction,
+  LauncherActionType,
+} from "../../../../shared/types";
 import { Footer, ListScreen } from "@renderer/shared/ui";
 import {
   clipboardText,
   type CopyKind,
 } from "@extensions/calculator-history/shared/format";
 import type { FooterMenuItem } from "@renderer/shared/ui";
+import { eventToAccelerator } from "@renderer/lib/shortcut";
 import SearchItem, { SEARCH_ITEM_HEIGHT } from "./components/SearchItem";
 import CalculatorPanel, {
   CALCULATOR_PANEL_HEIGHT,
@@ -71,6 +83,28 @@ function LauncherScreen() {
   } | null>(null);
   /** Live "Open …" subtitle for the locked row, resolved in main. */
   const [argumentPreview, setArgumentPreview] = useState<string | null>(null);
+  /** The values the locked quicklink wants, in order — the chip's prompt. */
+  const [argumentNames, setArgumentNames] = useState<string[]>([]);
+
+  const [actionHotkeys, setActionHotkeys] = useState<
+    Record<string, ActionHotkeyBinding>
+  >({});
+  const refreshActionHotkeys = useCallback(() => {
+    void window.api.actionHotkeys.list().then(setActionHotkeys);
+  }, []);
+  /** The action whose "Hotkey" submenu is capturing a keypress right now — see the effect below. */
+  const [recordingHotkeyFor, setRecordingHotkeyFor] = useState<{
+    actionId: string;
+    type: LauncherActionType;
+  } | null>(null);
+  /** The combo captured so far, shown for the user to confirm (Enter) or discard (Esc/press another). */
+  const [pendingHotkeyAccelerator, setPendingHotkeyAccelerator] = useState<
+    string | null
+  >(null);
+  const [hotkeyBindError, setHotkeyBindError] = useState<{
+    actionId: string;
+    message: string;
+  } | null>(null);
 
   async function togglePin(): Promise<void> {
     setPinned(await window.api.togglePin());
@@ -85,6 +119,72 @@ function LauncherScreen() {
       live = false;
     };
   }, []);
+
+  useEffect(() => refreshActionHotkeys(), [refreshActionHotkeys]);
+
+  // Captures the next keypress for the "Hotkey" submenu's Bind row — same
+  // mechanism as Settings' own toggle-shortcut recorder, scoped to whichever
+  // action is currently selected. A window-level *capture*-phase listener so
+  // it sees Escape/Enter before `Footer.Menu`'s own handling does. The first
+  // combo pressed is only staged as `pendingHotkeyAccelerator` (shown on the
+  // row for review) rather than bound right away: plain Enter commits it,
+  // Escape drops it (and exits recording entirely), and pressing another
+  // combo just replaces the pending one — so a mis-hit key never silently
+  // becomes the new binding.
+  useEffect(() => {
+    if (!recordingHotkeyFor) {
+      setPendingHotkeyAccelerator(null);
+      return;
+    }
+    const { actionId, type } = recordingHotkeyFor;
+
+    function onKeyDown(e: globalThis.KeyboardEvent): void {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat) return;
+
+      if (e.key === "Escape") {
+        setRecordingHotkeyFor(null);
+        return;
+      }
+
+      // Bare Enter (no modifiers) confirms the pending combo — with a
+      // modifier held, `eventToAccelerator` below claims it as a candidate
+      // instead (e.g. binding Cmd+Enter itself is still possible).
+      if (
+        e.key === "Enter" &&
+        pendingHotkeyAccelerator &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
+        const accelerator = pendingHotkeyAccelerator;
+        setRecordingHotkeyFor(null);
+        setHotkeyBindError(null);
+        void window.api.actionHotkeys
+          .set(actionId, accelerator, type)
+          .then((result) => {
+            refreshActionHotkeys();
+            if (!result.success) {
+              setHotkeyBindError({
+                actionId,
+                message:
+                  "That shortcut is already in use — kept the previous one.",
+              });
+            }
+          });
+        return;
+      }
+
+      const candidate = eventToAccelerator(e);
+      if (!candidate) return;
+      setPendingHotkeyAccelerator(candidate);
+    }
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [recordingHotkeyFor, pendingHotkeyAccelerator, refreshActionHotkeys]);
 
   useEffect(() => {
     // In argument mode the box holds the argument, not a search — the list is
@@ -115,6 +215,25 @@ function LauncherScreen() {
       live = false;
     };
   }, [argumentMode, query]);
+
+  // What the chip asks for. A link can want several values ("org", "repo"),
+  // and naming them is the only hint the user gets about what to type or in
+  // which order — so this is fetched once per locked row, not per keystroke.
+  useEffect(() => {
+    if (!argumentMode) {
+      setArgumentNames([]);
+      return;
+    }
+    let live = true;
+    void window.api.quicklink
+      .argumentNames(argumentMode.action.id)
+      .then((names) => {
+        if (live) setArgumentNames(names);
+      });
+    return () => {
+      live = false;
+    };
+  }, [argumentMode]);
 
   // The list feeds Base UI's Autocomplete (inside ListScreen): the
   // calculation, when present, is the first row, then the ranked actions.
@@ -153,6 +272,7 @@ function LauncherScreen() {
     setQuery("");
     setArgumentMode(null);
     setArgumentPreview(null);
+    setArgumentNames([]);
     reset();
     if (!pinned) window.api.hide();
   }
@@ -169,6 +289,7 @@ function LauncherScreen() {
     setQuery(mode.savedQuery);
     setArgumentMode(null);
     setArgumentPreview(null);
+    setArgumentNames([]);
   }
 
   /**
@@ -297,6 +418,15 @@ function LauncherScreen() {
       query,
       pinned,
       apps,
+      actionHotkeys,
+      refreshActionHotkeys,
+      recordingHotkeyFor: recordingHotkeyFor?.actionId ?? null,
+      pendingHotkeyAccelerator,
+      startRecordingHotkey: (actionId, type) => {
+        setHotkeyBindError(null);
+        setRecordingHotkeyFor({ actionId, type });
+      },
+      hotkeyBindError,
       setQuery,
       push,
       reload,
@@ -387,7 +517,11 @@ function LauncherScreen() {
       inputValue={query}
       onInputChange={setQuery}
       onInputKeyDown={onInputKeyDown}
-      placeholder={argumentMode ? "Enter query…" : "Search actions..."}
+      placeholder={
+        argumentMode
+          ? `Enter ${argumentNames.length ? argumentNames.join(", ") : "query"}…`
+          : "Search actions..."
+      }
       inputPrefix={
         argumentMode ? (
           <span

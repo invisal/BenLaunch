@@ -26,6 +26,9 @@ import {
   hasPlaceholder,
   isWebTarget,
   parseArgument,
+  parseArguments,
+  pendingArguments,
+  previewLinkText,
   resolveLink,
   type Quicklink,
 } from "./main/store";
@@ -53,18 +56,28 @@ interface TransferOutcome {
   detail: string;
 }
 
+/** `{clipboard}` and friends, which only have a value at the moment of opening. */
+const DYNAMIC_TOKEN = /\{\s*(?:clipboard|uuid|date|time|datetime)\s*\}/gi;
+
 /**
  * How a quicklink describes its destination, for both the launcher row and the
  * argument chip's live preview. One rule so the two can't drift: with no
- * argument to take it's just the link; with one supplied it's the resolved
- * target; with one still wanted the placeholder collapses to an ellipsis, e.g.
- * "www.google.com/search?q=…", so it reads as a real destination.
+ * argument to take it's just the link; with everything it wants supplied it's
+ * the resolved target; with something still wanted it's the link *as far as it
+ * has got* — "github.com/anthropics/{repo}" — so the row both reads as a real
+ * destination and names what to type next.
  *
- * Preview only — an actual open re-resolves with live clipboard/uuid values.
+ * Preview only — an actual open re-resolves with live clipboard/uuid values,
+ * which is why those tokens show as an ellipsis rather than a stale value.
  */
 function subtitleFor(link: Quicklink, argument: string): string {
   if (!hasPlaceholder(link.link)) return prettyLink(link.link);
-  if (!argument) return prettyLink(link.link).replace(/\{[^}]*\}/g, "…");
+  if (pendingArguments(link.link, argument).length) {
+    return prettyLink(previewLinkText(link.link, argument)).replace(
+      DYNAMIC_TOKEN,
+      "…",
+    );
+  }
   return `Open ${prettyLink(expandDynamic(resolveLink(link.link, argument)))}`;
 }
 
@@ -307,6 +320,21 @@ export class QuicklinkSource extends Extension {
   preview(actionId: string, argument: string): string | null {
     const link = this.find(actionId);
     return link ? subtitleFor(link, argument) : null;
+  }
+
+  /**
+   * The arguments `actionId` is waiting for, in order — what the launcher's
+   * chip prompts with ("Enter org, repo…"). An argument carrying a `default`
+   * is left out, since it has an answer already and is only filled if the user
+   * names it (`to=km`) — unless every argument has one, where naming them all
+   * beats prompting for nothing.
+   */
+  argumentNames(actionId: string): string[] {
+    const link = this.find(actionId);
+    if (!link) return [];
+    const pending = pendingArguments(link.link, "");
+    const args = pending.length ? pending : parseArguments(link.link);
+    return args.map((argument) => argument.name);
   }
 
   /** The stored quicklink behind a `ql:<id>` action id. */

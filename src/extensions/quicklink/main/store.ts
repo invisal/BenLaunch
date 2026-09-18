@@ -23,6 +23,17 @@ import {
 } from "../shared/types.ts";
 
 export { monogramIcon };
+// The placeholder grammar lives in `../shared/arguments.ts` so the Create form
+// and the detail pane can read a link's arguments too; re-exported here because
+// the main process reaches all of this through the store.
+export {
+  hasPlaceholder,
+  parseArguments,
+  pendingArguments,
+  previewLinkText,
+  resolveLink,
+  type QuicklinkArgument,
+} from "../shared/arguments.ts";
 export type {
   Quicklink,
   QuicklinkDraft,
@@ -59,25 +70,22 @@ export const DEFAULT_QUICKLINKS: Quicklink[] = [
     id: "translate",
     name: "Google Translate",
     keyword: "tr",
-    link: "https://translate.google.com/?sl=auto&tl=en&text={query}",
+    // Three arguments, two of which answer for themselves: "tr hello there"
+    // translates the whole phrase, "tr to=km hello there" picks the target.
+    link:
+      'https://translate.google.com/?sl={argument name="from" default="auto"}' +
+      '&tl={argument name="to" default="en"}&text={argument name="text"}',
+  },
+  {
+    id: "github-repo",
+    name: "GitHub Repo",
+    keyword: "repo",
+    link: 'https://github.com/{argument name="org"}/{argument name="repo"}',
   },
 ];
 
-/**
- * The argument placeholder: `{query}`, `{argument}`, `{arg}`, a bare `{}`, or
- * Raycast's `{argument name="…"}` form (the name is ignored — a quicklink here
- * takes a single positional argument).
- */
-const ARG_PLACEHOLDER = /\{\s*(?:query|arg(?:ument)?(?:\s+[^}]*)?)?\s*\}/i;
-const ARG_PLACEHOLDER_GLOBAL = new RegExp(ARG_PLACEHOLDER.source, "gi");
-
 /** Context-only placeholders — resolved from the environment, not from typed text. */
 const DYNAMIC_PLACEHOLDER = /\{\s*(clipboard|uuid|date|time|datetime)\s*\}/gi;
-
-/** Does this link take a typed argument? */
-export function hasPlaceholder(link: string): boolean {
-  return ARG_PLACEHOLDER.test(link);
-}
 
 /** Environment values the dynamic placeholders draw on. */
 export interface PlaceholderContext {
@@ -134,26 +142,6 @@ export function parseArgument(
   if (lower === kw) return "";
   if (lower.startsWith(`${kw} `)) return trimmed.slice(keyword.length).trim();
   return "";
-}
-
-/**
- * Substitute `argument` into `link`. With no placeholder the link is returned
- * unchanged. With a placeholder but an empty argument the link's origin is
- * returned (so "g" alone just opens Google); otherwise the argument is
- * URL-encoded and dropped in.
- */
-export function resolveLink(link: string, argument: string): string {
-  if (!hasPlaceholder(link)) return link;
-
-  const arg = argument.trim();
-  if (!arg) {
-    try {
-      return new URL(link.replace(ARG_PLACEHOLDER_GLOBAL, "")).origin;
-    } catch {
-      return link.replace(ARG_PLACEHOLDER_GLOBAL, "");
-    }
-  }
-  return link.replace(ARG_PLACEHOLDER_GLOBAL, encodeURIComponent(arg));
 }
 
 /** A Windows drive path like `C:\Users\me` or `D:/x` (not a URL scheme). */

@@ -118,7 +118,35 @@ test("a settings file with an invalid windowBounds field falls back to defaults"
       windowBounds: { settings: { x: 10, y: "nope" } },
     }),
   );
-  assert.equal(new SettingsStore({ dir }).getWindowBounds("settings"), undefined);
+  assert.equal(
+    new SettingsStore({ dir }).getWindowBounds("settings"),
+    undefined,
+  );
+});
+
+test("getHotkey defaults to the platform default unset", () => {
+  const settings = new SettingsStore({ dir });
+  const expected =
+    process.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
+  assert.equal(settings.getHotkey(), expected);
+});
+
+test("setHotkey overrides the default, and persists across instances", () => {
+  const first = new SettingsStore({ dir });
+  first.setHotkey("Control+Alt+Space");
+
+  const second = new SettingsStore({ dir });
+  assert.equal(second.getHotkey(), "Control+Alt+Space");
+});
+
+test("a settings file with an invalid hotkey field falls back to the default", () => {
+  writeFileSync(
+    join(dir, "settings.json"),
+    JSON.stringify({ version: 1, savedAt: 0, hotkey: "" }),
+  );
+  const expected =
+    process.platform === "darwin" ? "Command+Shift+Space" : "Alt+Space";
+  assert.equal(new SettingsStore({ dir }).getHotkey(), expected);
 });
 
 test("a settings file with an invalid calculator field falls back to defaults", () => {

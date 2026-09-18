@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Detail } from "@renderer/shared/ui";
 import { absoluteTime, formatBytes, relativeAge } from "@shared/format";
+import { parseArguments } from "../shared/arguments";
 import { hostOf, isLocalPath } from "../shared/link";
 import { displayIcon, prettyLink, type QuicklinkEntry } from "../shared/types";
 import type { QuicklinkPreview } from "../shared/preview";
@@ -256,6 +257,23 @@ function Preview({
   }
 }
 
+/**
+ * `org, repo` / `from (auto), to (en), text` — the values this quicklink asks
+ * for, in the order they are typed, with each default in brackets. Undefined
+ * for a link that takes none, which leaves the row out entirely.
+ */
+function argumentSummary(link: string): string | undefined {
+  const args = parseArguments(link);
+  if (!args.length) return undefined;
+  return args
+    .map((argument) =>
+      argument.default === undefined
+        ? argument.name
+        : `${argument.name} (${argument.default})`,
+    )
+    .join(", ");
+}
+
 /** `1,240 times` / `Once` / `Never`, plus when it last happened. */
 function opened(entry: QuicklinkEntry, now: number): string {
   if (!entry.opens || entry.lastOpenedAt === undefined) return "Never";
@@ -333,6 +351,7 @@ function QuicklinkDetail({
             title={absoluteTime(file.modifiedAt)}
           />
         )}
+        <Detail.Row label="Arguments" value={argumentSummary(entry.link)} />
         <Detail.Row label="Alias" value={entry.keyword} />
         <Detail.Row label="Tags" value={entry.tags?.join(", ")} />
         <Detail.Row label="Open With" value={entry.openWith} />

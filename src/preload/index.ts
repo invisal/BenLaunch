@@ -3,6 +3,7 @@ import {
   IPC_CHANNELS,
   type CalculatorSettings,
   type ExecuteResult,
+  type HotkeySetResult,
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
@@ -10,6 +11,7 @@ import { quitProcessApi } from "@extensions/quit-process/ipc/preload";
 import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
 import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
 import { groupApi } from "@extensions/group/ipc/preload";
+import { actionHotkeysApi } from "@extensions/hotkey/ipc/preload";
 import { quicklinkApi } from "@extensions/quicklink/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
 import { windowApi } from "@extensions/window/ipc/preload";
@@ -34,6 +36,13 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsGet),
     set: (patch: Partial<CalculatorSettings>): Promise<CalculatorSettings> =>
       ipcRenderer.invoke(IPC_CHANNELS.calculatorSettingsSet, patch),
+  },
+
+  /** Settings → General: read / rebind the global toggle shortcut. */
+  hotkey: {
+    get: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.hotkeyGet),
+    set: (accelerator: string): Promise<HotkeySetResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.hotkeySet, accelerator),
   },
 
   /** Launcher: a deferred-subtitle row rendered (or force-refreshed) — resolves with the fresh subtitle. */
@@ -72,6 +81,9 @@ const api = {
 
   /** Group manager screen ↔ main. */
   group: groupApi,
+
+  /** Per-action global hotkeys (Ctrl+K menu's "Set Hotkey…") ↔ main. */
+  actionHotkeys: actionHotkeysApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);
