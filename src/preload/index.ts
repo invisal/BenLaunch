@@ -10,6 +10,7 @@ import {
 import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
 import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
 import { groupApi } from "@extensions/group/ipc/preload";
+import { actionHotkeysApi } from "@extensions/hotkey/ipc/preload";
 import { quicklinkApi } from "@extensions/quicklink/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
 import { windowApi } from "@extensions/window/ipc/preload";
@@ -76,6 +77,9 @@ const api = {
 
   /** Group manager screen ↔ main. */
   group: groupApi,
+
+  /** Per-action global hotkeys (Ctrl+K menu's "Set Hotkey…") ↔ main. */
+  actionHotkeys: actionHotkeysApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);

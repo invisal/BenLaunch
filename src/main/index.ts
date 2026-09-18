@@ -1,4 +1,10 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  globalShortcut,
+  ipcMain,
+} from "electron";
 import { captureFocusedWindow } from "@extensions/window/main/control/control";
 import {
   IPC_CHANNELS,
@@ -6,6 +12,7 @@ import {
   type RequestSubtitleOptions,
 } from "../shared/types";
 import {
+  actionHotkeys,
   clipboardHistory,
   actionUsage,
   executeAction,
@@ -21,6 +28,11 @@ import {
   settings,
 } from "./actions";
 import { CLIPBOARD_HISTORY_CHANNELS } from "@extensions/clipboard-history/shared/types";
+import {
+  HOTKEY_CHANNELS,
+  type ActionHotkeyBinding,
+  type ActionHotkeySetResult,
+} from "@extensions/hotkey/shared/types";
 import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
 import {
@@ -110,6 +122,70 @@ function ensureToggleShortcutRegistered(): void {
   if (globalShortcut.isRegistered(accelerator)) return;
   if (!globalShortcut.register(accelerator, toggleLauncher)) {
     console.error(`Failed to register global shortcut: ${accelerator}`);
+  }
+}
+
+/**
+ * Runs the action bound to `actionId` the way pressing Enter on its row
+ * would — but without ever showing the launcher, unless the action itself
+ * asks to navigate somewhere (e.g. it opens an editor screen). Widget and
+ * pinned-calculation rows don't "run" so much as hold a value: selecting them
+ * in the launcher copies that value rather than calling `execute()` (see
+ * `LauncherScreen.runRow`), so a hotkey bound to one reproduces that copy
+ * here instead, main-side, since there's no renderer round-trip otherwise.
+ */
+async function runBoundAction(
+  actionId: string,
+  type: ActionHotkeyBinding["type"],
+): Promise<void> {
+  try {
+    if (type === "widget" || type === "calculation") {
+      const subtitle = await requestSubtitle(actionId);
+      if (subtitle) clipboard.writeText(subtitle);
+      return;
+    }
+
+    const result = await executeAction(actionId, "");
+    if (!result.navigate) return;
+
+    const win = getLauncherWindow();
+    if (!win) return;
+    captureFocusedWindow(launcherHandle(win));
+    showLauncher();
+    win.webContents.send(HOTKEY_CHANNELS.triggerNavigate, result.navigate);
+  } catch (error) {
+    // A bound action can go stale after the fact (the app it opens gets
+    // uninstalled, the quicklink it points at gets deleted, …) — this runs
+    // off a bare `globalShortcut` callback with nothing downstream to catch
+    // a rejection, unlike the renderer-invoked `execute` IPC path.
+    console.error(`Failed to run hotkey-bound action ${actionId}:`, error);
+  }
+}
+
+/** Registers one action's `globalShortcut`, wired to run it via `runBoundAction`. */
+function registerActionHotkey(
+  actionId: string,
+  binding: ActionHotkeyBinding,
+): boolean {
+  try {
+    return globalShortcut.register(
+      binding.accelerator,
+      () => void runBoundAction(actionId, binding.type),
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** (Re-)grabs every persisted action hotkey that isn't currently held — see `ensureToggleShortcutRegistered`. */
+function ensureActionHotkeysRegistered(): void {
+  for (const [actionId, binding] of Object.entries(actionHotkeys.list())) {
+    if (globalShortcut.isRegistered(binding.accelerator)) continue;
+    if (!registerActionHotkey(actionId, binding)) {
+      console.error(
+        `Failed to register hotkey for ${actionId}: ${binding.accelerator}`,
+      );
+    }
   }
 }
 
@@ -235,6 +311,52 @@ app.whenReady().then(() => {
 
     settings.setHotkey(accelerator);
     return { success: true, hotkey: accelerator };
+  });
+
+  ensureActionHotkeysRegistered();
+
+  ipcMain.handle(
+    HOTKEY_CHANNELS.list,
+    (): Record<string, ActionHotkeyBinding> => {
+      ensureActionHotkeysRegistered();
+      return actionHotkeys.list();
+    },
+  );
+
+  ipcMain.handle(
+    HOTKEY_CHANNELS.set,
+    (
+      _event,
+      actionId: string,
+      accelerator: string,
+      type: ActionHotkeyBinding["type"],
+    ): ActionHotkeySetResult => {
+      const previous = actionHotkeys.get(actionId);
+      if (accelerator === previous?.accelerator) {
+        return { success: true, binding: previous ?? null };
+      }
+
+      if (previous) globalShortcut.unregister(previous.accelerator);
+
+      const binding: ActionHotkeyBinding = { accelerator, type };
+      const registered = registerActionHotkey(actionId, binding);
+
+      if (!registered) {
+        // Couldn't grab the new accelerator — restore the previous binding
+        // (if any) so the action stays reachable the way it was.
+        if (previous) registerActionHotkey(actionId, previous);
+        return { success: false, binding: previous ?? null };
+      }
+
+      actionHotkeys.set(actionId, binding);
+      return { success: true, binding };
+    },
+  );
+
+  ipcMain.handle(HOTKEY_CHANNELS.remove, (_event, actionId: string) => {
+    const previous = actionHotkeys.get(actionId);
+    if (previous) globalShortcut.unregister(previous.accelerator);
+    actionHotkeys.remove(actionId);
   });
 
   app.on("activate", () => {
