@@ -45,33 +45,29 @@ export const DEFAULT_QUICKLINKS: Quicklink[] = [
   {
     id: "google",
     name: "Google Search",
-    keyword: "g",
     link: "https://www.google.com/search?q={query}",
   },
   {
     id: "youtube",
     name: "YouTube",
-    keyword: "yt",
     link: "https://www.youtube.com/results?search_query={query}",
   },
   {
     id: "github",
     name: "GitHub Search",
-    keyword: "gh",
     link: "https://github.com/search?q={query}&type=repositories",
   },
   {
     id: "npm",
     name: "npm",
-    keyword: "npm",
     link: "https://www.npmjs.com/search?q={query}",
   },
   {
     id: "translate",
     name: "Google Translate",
-    keyword: "tr",
     // Three arguments, two of which answer for themselves: "tr hello there"
-    // translates the whole phrase, "tr to=km hello there" picks the target.
+    // translates the whole phrase, "tr to=km hello there" picks the target
+    // — once an alias is set for it from the Ctrl+K menu.
     link:
       'https://translate.google.com/?sl={argument name="from" default="auto"}' +
       '&tl={argument name="to" default="en"}&text={argument name="text"}',
@@ -79,7 +75,6 @@ export const DEFAULT_QUICKLINKS: Quicklink[] = [
   {
     id: "github-repo",
     name: "GitHub Repo",
-    keyword: "repo",
     link: 'https://github.com/{argument name="org"}/{argument name="repo"}',
   },
 ];
@@ -125,22 +120,23 @@ export function expandDynamic(
 }
 
 /**
- * The argument for `quicklink` implied by `query`: the text after its keyword
- * when the query is `"<keyword> <rest>"` (or just `"<keyword>"`), else `""`.
- * Matching on the keyword is case-insensitive.
+ * The argument for a quicklink implied by `query`: the text after its alias
+ * (the generic per-action alias — see `@extensions/alias` — not a field of
+ * `Quicklink` itself) when the query is `"<alias> <rest>"` (or just
+ * `"<alias>"`), else `""`. Matching on the alias is case-insensitive.
  */
 export function parseArgument(
   query: string,
-  quicklink: Pick<Quicklink, "keyword">,
+  alias: string | undefined,
 ): string {
   const trimmed = query.trim();
-  const keyword = quicklink.keyword?.trim();
-  if (!keyword) return "";
+  const kw = alias?.trim();
+  if (!kw) return "";
 
   const lower = trimmed.toLowerCase();
-  const kw = keyword.toLowerCase();
-  if (lower === kw) return "";
-  if (lower.startsWith(`${kw} `)) return trimmed.slice(keyword.length).trim();
+  const lowerKw = kw.toLowerCase();
+  if (lower === lowerKw) return "";
+  if (lower.startsWith(`${lowerKw} `)) return trimmed.slice(kw.length).trim();
   return "";
 }
 
@@ -192,7 +188,6 @@ function isQuicklink(value: unknown): value is Quicklink {
     c.name.length > 0 &&
     typeof c.link === "string" &&
     c.link.length > 0 &&
-    (c.keyword === undefined || typeof c.keyword === "string") &&
     (c.icon === undefined || typeof c.icon === "string") &&
     (c.openWith === undefined || typeof c.openWith === "string") &&
     (c.pinned === undefined || typeof c.pinned === "boolean") &&
@@ -218,7 +213,6 @@ function draftToEntry(id: string, draft: QuicklinkDraft): Quicklink {
     id,
     name: draft.name.trim(),
     link: normalizeLink(draft.link),
-    ...(draft.keyword?.trim() ? { keyword: draft.keyword.trim() } : {}),
     ...(draft.icon?.trim() ? { icon: draft.icon.trim() } : {}),
     ...(draft.openWith?.trim() ? { openWith: draft.openWith.trim() } : {}),
     ...(tags.length ? { tags } : {}),
@@ -238,7 +232,6 @@ export function sanitize(value: unknown): Quicklink[] {
       id: entry.id,
       name: entry.name,
       link: normalizeLink(entry.link),
-      ...(entry.keyword?.trim() ? { keyword: entry.keyword.trim() } : {}),
       ...(entry.icon?.trim() ? { icon: entry.icon.trim() } : {}),
       ...(entry.openWith?.trim() ? { openWith: entry.openWith.trim() } : {}),
       ...(entry.pinned ? { pinned: true } : {}),

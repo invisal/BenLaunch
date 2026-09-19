@@ -48,7 +48,9 @@ export function LauncherHostProvider({ children }: { children: ReactNode }) {
 export function useLauncherHost(): LauncherHost {
   const ctx = useContext(LauncherHostContext);
   if (!ctx) {
-    throw new Error("useLauncherHost must be used within a LauncherHostProvider");
+    throw new Error(
+      "useLauncherHost must be used within a LauncherHostProvider",
+    );
   }
   return ctx;
 }

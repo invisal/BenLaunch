@@ -13,6 +13,7 @@ import {
 } from "../shared/types";
 import {
   quitProcess,
+  actionAliases,
   actionHotkeys,
   clipboardHistory,
   actionUsage,
@@ -35,6 +36,7 @@ import {
   type ActionHotkeyBinding,
   type ActionHotkeySetResult,
 } from "@extensions/hotkey/shared/types";
+import { ALIAS_CHANNELS } from "@extensions/alias/shared/types";
 import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
 import {
@@ -246,6 +248,7 @@ app.whenReady().then(() => {
       if (!pinned) hideLauncher();
     },
     usageOf: actionUsage,
+    aliasOf: (actionId) => actionAliases.get(actionId),
   });
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {
@@ -367,6 +370,21 @@ app.whenReady().then(() => {
     const previous = actionHotkeys.get(actionId);
     if (previous) globalShortcut.unregister(previous.accelerator);
     actionHotkeys.remove(actionId);
+  });
+
+  // Aliases are plain data with no OS-level side effect to register/roll
+  // back — unlike hotkeys, `set`/`remove` are unconditional writes.
+  ipcMain.handle(ALIAS_CHANNELS.list, (): Record<string, string> =>
+    actionAliases.list(),
+  );
+  ipcMain.handle(
+    ALIAS_CHANNELS.set,
+    (_event, actionId: string, alias: string) => {
+      actionAliases.set(actionId, alias);
+    },
+  );
+  ipcMain.handle(ALIAS_CHANNELS.remove, (_event, actionId: string) => {
+    actionAliases.remove(actionId);
   });
 
   app.on("activate", () => {

@@ -29,6 +29,12 @@ export interface QuicklinkIpcHost {
   usageOf: (
     actionId: string,
   ) => { count: number; lastUsedAt: number } | undefined;
+  /**
+   * The generic per-action alias for `ql:<id>` (owned by `@extensions/alias`,
+   * via `actions.ts`) — a quicklink has none of its own; see
+   * `QuicklinkSource.useAliases`.
+   */
+  aliasOf: (actionId: string) => string | undefined;
 }
 
 /**
@@ -63,6 +69,7 @@ export function registerQuicklinkIpc(
   // Import/Export run from launcher rows (in main), not over IPC, but they open
   // a file dialog and so need the same window state `pickPath` below does.
   source.useDialogs(host);
+  source.useAliases(host.aliasOf);
 
   ipcMain.handle(QUICKLINK_CHANNELS.create, (_event, draft: QuicklinkDraft) =>
     source.create(draft),

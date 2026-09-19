@@ -1,9 +1,9 @@
-import { shell } from 'electron'
-import { execFile } from 'node:child_process'
-import type { ActionDefinition } from '../../types'
-import { listApplications, type AppsWorkerResult } from '../../native'
-import { CachedActionSource } from '../base'
-import { readAppsCache, writeAppsCache } from './cache'
+import { shell } from "electron";
+import { execFile } from "node:child_process";
+import type { ActionDefinition } from "../../types";
+import { listApplications, type AppsWorkerResult } from "../../native";
+import { CachedActionSource } from "../base";
+import { readAppsCache, writeAppsCache } from "./cache";
 
 /**
  * Installed applications. On Windows: Start Menu shortcuts (`app:` ids) and
@@ -14,24 +14,24 @@ import { readAppsCache, writeAppsCache } from './cache'
  * startup and whenever the launcher is shown.
  */
 export class InstalledAppSource extends CachedActionSource {
-  readonly id = 'app'
+  readonly id = "app";
 
   owns(actionId: string): boolean {
-    return actionId.startsWith('app:') || actionId.startsWith('pkg:')
+    return actionId.startsWith("app:") || actionId.startsWith("pkg:");
   }
 
   protected async fetch(): Promise<ActionDefinition[]> {
-    const result = await listApplications()
-    if (!result) return []
+    const result = await listApplications();
+    if (!result) return [];
     // Persist the raw result so the next launch can serve it instantly while a
     // fresh run happens in the background.
-    writeAppsCache(result)
-    return toActionDefinitions(result)
+    writeAppsCache(result);
+    return toActionDefinitions(result);
   }
 
   protected async loadStale(): Promise<ActionDefinition[] | null> {
-    const cached = await readAppsCache()
-    return cached ? toActionDefinitions(cached) : null
+    const cached = await readAppsCache();
+    return cached ? toActionDefinitions(cached) : null;
   }
 }
 
@@ -41,35 +41,45 @@ export class InstalledAppSource extends CachedActionSource {
  * path and the on-disk cache path.
  */
 function toActionDefinitions(result: AppsWorkerResult): ActionDefinition[] {
-  const classicDefinitions: ActionDefinition[] = result.shortcuts.map((entry) => ({
-    action: {
-      id: `app:${entry.path.toLowerCase()}`,
-      title: entry.title,
-      subtitle: 'Application',
-      icon: entry.icon,
-      type: 'application'
-    },
-    run: async () => {
-      const openError = await shell.openPath(entry.path)
-      if (openError) console.error(`[main] Failed to open ${entry.path}: ${openError}`)
-    }
-  }))
+  const classicDefinitions: ActionDefinition[] = result.shortcuts.map(
+    (entry) => ({
+      action: {
+        id: `app:${entry.path.toLowerCase()}`,
+        title: entry.title,
+        icon: entry.icon,
+        type: "application",
+      },
+      run: async () => {
+        const openError = await shell.openPath(entry.path);
+        if (openError)
+          console.error(`[main] Failed to open ${entry.path}: ${openError}`);
+      },
+    }),
+  );
 
-  const packagedDefinitions: ActionDefinition[] = result.packaged.map((entry) => ({
-    action: {
-      id: `pkg:${entry.appId.toLowerCase()}`,
-      title: entry.title,
-      subtitle: 'Application',
-      icon: entry.icon,
-      type: 'application'
-    },
-    run: () => {
-      execFile('explorer.exe', [`shell:AppsFolder\\${entry.appId}`], (error) => {
-        if (error) console.error(`[main] Failed to open ${entry.title}:`, error)
-      })
-    }
-  }))
+  const packagedDefinitions: ActionDefinition[] = result.packaged.map(
+    (entry) => ({
+      action: {
+        id: `pkg:${entry.appId.toLowerCase()}`,
+        title: entry.title,
+        icon: entry.icon,
+        type: "application",
+      },
+      run: () => {
+        execFile(
+          "explorer.exe",
+          [`shell:AppsFolder\\${entry.appId}`],
+          (error) => {
+            if (error)
+              console.error(`[main] Failed to open ${entry.title}:`, error);
+          },
+        );
+      },
+    }),
+  );
 
-  const definitions = [...classicDefinitions, ...packagedDefinitions]
-  return definitions.sort((a, b) => a.action.title.localeCompare(b.action.title))
+  const definitions = [...classicDefinitions, ...packagedDefinitions];
+  return definitions.sort((a, b) =>
+    a.action.title.localeCompare(b.action.title),
+  );
 }

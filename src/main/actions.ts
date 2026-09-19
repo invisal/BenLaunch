@@ -33,6 +33,7 @@ import { CalculatorHistoryExtension } from "@extensions/calculator-history";
 import { ClipboardHistoryExtension } from "@extensions/clipboard-history";
 import { ExtensionStorage } from "@core/storage";
 import { HotkeyBindingStore } from "@extensions/hotkey/main/store";
+import { AliasStore } from "@extensions/alias/main/store";
 
 // Point extensions at `<userData>/extensions/` before any is constructed below.
 configureExtensions(app.getPath("userData"));
@@ -97,6 +98,20 @@ export const actionHotkeys = new HotkeyBindingStore(
   new ExtensionStorage(
     join(app.getPath("userData"), "extensions", "hotkey.json"),
     "ext:hotkey",
+  ),
+);
+
+/**
+ * Per-action aliases (Ctrl+K menu's "Alias" row — see `@extensions/alias`).
+ * Same shape as `actionHotkeys`: not in `sources`, doesn't contribute rows,
+ * just fills in `keyword` on any action's `LauncherAction` inside `query()`
+ * below. The one place any action's alias lives, quicklinks included — see
+ * `QuicklinkSource.useAliases`, wired up in `index.ts`.
+ */
+export const actionAliases = new AliasStore(
+  new ExtensionStorage(
+    join(app.getPath("userData"), "extensions", "alias.json"),
+    "ext:alias",
   ),
 );
 
@@ -219,7 +234,14 @@ export async function query(text: string): Promise<QueryResult> {
   const lists = await Promise.all(
     sources.map((source) => source.provide(text)),
   );
-  const definitions = lists.flat();
+  // A user-set alias fills in the action's `keyword` — no source sets one of
+  // its own — applied once, up front, so it's in effect for both the root
+  // list below and the `matchAction` search path.
+  const definitions = lists.flat().map((definition) => {
+    const alias = actionAliases.get(definition.action.id);
+    if (!alias) return definition;
+    return { ...definition, action: { ...definition.action, keyword: alias } };
+  });
 
   const trimmed = text.trim();
   if (!trimmed) {

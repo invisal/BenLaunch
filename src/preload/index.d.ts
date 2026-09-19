@@ -1,7 +1,7 @@
-import type { LauncherApi } from './index'
+import type { LauncherApi } from "./index";
 
 declare global {
   interface Window {
-    api: LauncherApi
+    api: LauncherApi;
   }
 }

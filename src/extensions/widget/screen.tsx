@@ -29,8 +29,6 @@ export default [
   }),
   createScreen({
     name: "widget-edit",
-    component: (payload) => (
-      <WidgetMeta id={(payload as { id: string }).id} />
-    ),
+    component: (payload) => <WidgetMeta id={(payload as { id: string }).id} />,
   }),
 ];

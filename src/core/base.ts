@@ -11,21 +11,21 @@
  * Subclasses pass their `id` to `super()`; it is both the storage namespace and
  * the conventional prefix of their action ids.
  */
-import { join } from 'node:path'
-import type { ActionSource } from '@main/sources/base'
-import type { ActionDefinition } from '@main/types'
-import { navigate } from '@main/navigate'
-import { ExtensionStorage } from './storage'
+import { join } from "node:path";
+import type { ActionSource } from "@main/sources/base";
+import type { ActionDefinition } from "@main/types";
+import { navigate } from "@main/navigate";
+import { ExtensionStorage } from "./storage";
 
 /** `<userData>/extensions`, set once at startup by `configureExtensions`. */
-let rootDir = ''
+let rootDir = "";
 
 /**
  * Point extensions at their storage directory. Must run before any `Extension`
  * is constructed — `actions.ts` calls this at module load.
  */
 export function configureExtensions(userDataDir: string): void {
-  rootDir = join(userDataDir, 'extensions')
+  rootDir = join(userDataDir, "extensions");
 }
 
 /**
@@ -34,7 +34,9 @@ export function configureExtensions(userDataDir: string): void {
  * before the `sources` array they'd need to search exists, so `ctx` closes
  * over this mutable slot instead of the registry function directly.
  */
-let resolveActionsImpl: (ids: string[]) => Promise<ActionDefinition[]> = async () => []
+let resolveActionsImpl: (
+  ids: string[],
+) => Promise<ActionDefinition[]> = async () => [];
 
 /**
  * Point `ctx.resolveActions` at the real cross-source lookup. Must run after
@@ -43,30 +45,35 @@ let resolveActionsImpl: (ids: string[]) => Promise<ActionDefinition[]> = async (
 export function configureActionResolver(
   resolver: (ids: string[]) => Promise<ActionDefinition[]>,
 ): void {
-  resolveActionsImpl = resolver
+  resolveActionsImpl = resolver;
 }
 
 export abstract class Extension implements ActionSource {
-  readonly id: string
-  protected readonly storage: ExtensionStorage
+  readonly id: string;
+  protected readonly storage: ExtensionStorage;
   /** Capabilities available to `provide()`/`execute()` beyond storage. */
   protected readonly ctx = {
     navigate,
     /** Look up ids that may belong to any source, not just this extension. */
     resolveActions: (ids: string[]) => resolveActionsImpl(ids),
-  }
+  };
 
   constructor(id: string) {
-    this.id = id
-    this.storage = new ExtensionStorage(join(rootDir, `${id}.json`), `ext:${id}`)
+    this.id = id;
+    this.storage = new ExtensionStorage(
+      join(rootDir, `${id}.json`),
+      `ext:${id}`,
+    );
   }
 
   /** `id` itself, or any `id:*` action. Override for a different scheme. */
   owns(actionId: string): boolean {
-    return actionId === this.id || actionId.startsWith(`${this.id}:`)
+    return actionId === this.id || actionId.startsWith(`${this.id}:`);
   }
 
-  abstract provide(query: string): ActionDefinition[] | Promise<ActionDefinition[]>
+  abstract provide(
+    query: string,
+  ): ActionDefinition[] | Promise<ActionDefinition[]>;
 
-  abstract execute(actionId: string, query: string): void | Promise<void>
+  abstract execute(actionId: string, query: string): void | Promise<void>;
 }

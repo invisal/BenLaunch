@@ -10,37 +10,40 @@
  *   stdin  : { "code": string, "timeoutMs"?: number }
  *   stdout : { "ok": true, "value": string|number|null } | { "ok": false, "error": string }
  */
-import { runUserCode, type UserCodeResult } from './run-user-code'
+import { runUserCode, type UserCodeResult } from "./run-user-code";
 
 async function readStdin(): Promise<string> {
-  process.stdin.setEncoding('utf8')
-  let input = ''
-  for await (const chunk of process.stdin) input += chunk
-  return input
+  process.stdin.setEncoding("utf8");
+  let input = "";
+  for await (const chunk of process.stdin) input += chunk;
+  return input;
 }
 
 function emit(result: UserCodeResult): void {
-  process.stdout.write(JSON.stringify(result))
+  process.stdout.write(JSON.stringify(result));
 }
 
 async function main(): Promise<void> {
-  const raw = await readStdin()
+  const raw = await readStdin();
 
-  let code = ''
-  let timeoutMs: number | undefined
+  let code = "";
+  let timeoutMs: number | undefined;
   try {
-    const parsed = JSON.parse(raw) as { code?: unknown; timeoutMs?: unknown }
-    if (typeof parsed.code === 'string') code = parsed.code
-    if (typeof parsed.timeoutMs === 'number') timeoutMs = parsed.timeoutMs
+    const parsed = JSON.parse(raw) as { code?: unknown; timeoutMs?: unknown };
+    if (typeof parsed.code === "string") code = parsed.code;
+    if (typeof parsed.timeoutMs === "number") timeoutMs = parsed.timeoutMs;
   } catch {
-    emit({ ok: false, error: 'Widget worker received invalid input' })
-    return
+    emit({ ok: false, error: "Widget worker received invalid input" });
+    return;
   }
 
-  emit(await runUserCode(code, timeoutMs))
+  emit(await runUserCode(code, timeoutMs));
 }
 
 main().catch((error) => {
-  emit({ ok: false, error: error instanceof Error ? error.message : String(error) })
-  process.exitCode = 1
-})
+  emit({
+    ok: false,
+    error: error instanceof Error ? error.message : String(error),
+  });
+  process.exitCode = 1;
+});

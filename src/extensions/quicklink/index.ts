@@ -92,6 +92,8 @@ function subtitleFor(link: Quicklink, argument: string): string {
 export class QuicklinkSource extends Extension {
   private readonly store = new QuicklinkStore({ dir: app.getPath("userData") });
   private dialogs: QuicklinkDialogHost | null = null;
+  /** The generic per-action alias for `ql:<id>` — see `useAliases`. */
+  private getAlias: (actionId: string) => string | undefined = () => undefined;
 
   constructor() {
     super("ql");
@@ -100,6 +102,16 @@ export class QuicklinkSource extends Extension {
   /** Lets Import/Export open a file dialog parented to the launcher window. */
   useDialogs(host: QuicklinkDialogHost): void {
     this.dialogs = host;
+  }
+
+  /**
+   * Wires this source to the generic per-action alias store (`@extensions/alias`,
+   * owned by `main/actions.ts`) — a quicklink has no alias of its own, so both
+   * its argument-prefix parsing (`execute`) and its search `keyword`
+   * (`toDefinition`) read the alias set from the Ctrl+K menu's "Alias" row.
+   */
+  useAliases(getAlias: (actionId: string) => string | undefined): void {
+    this.getAlias = getAlias;
   }
 
   init(): void {
@@ -401,7 +413,7 @@ export class QuicklinkSource extends Extension {
 
     const withArgument = resolveLink(
       link.link,
-      argument ?? parseArgument(query, link),
+      argument ?? parseArgument(query, this.getAlias(actionId)),
     );
     const needsClipboard = /\{\s*clipboard\s*\}/i.test(withArgument);
     const target = expandDynamic(withArgument, {
@@ -440,7 +452,8 @@ export class QuicklinkSource extends Extension {
 
   private toDefinition(link: Quicklink, query: string): ActionDefinition {
     const takesArgument = hasPlaceholder(link.link);
-    const subtitle = subtitleFor(link, parseArgument(query, link));
+    const alias = this.getAlias(`ql:${link.id}`);
+    const subtitle = subtitleFor(link, parseArgument(query, alias));
 
     return {
       action: {
@@ -450,7 +463,6 @@ export class QuicklinkSource extends Extension {
         icon: displayIcon(link),
         type: "quicklink",
         ...(takesArgument ? { takesArgument: true } : {}),
-        ...(link.keyword ? { keyword: link.keyword } : {}),
         ...(link.tags?.length ? { tags: link.tags } : {}),
         ...(link.pinned ? { pinned: true } : {}),
         ...(link.hidden ? { hidden: true } : {}),
