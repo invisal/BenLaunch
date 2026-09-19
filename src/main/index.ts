@@ -48,7 +48,7 @@ import {
   hideLauncher,
   showLauncher,
 } from "./window";
-import { createTray } from "./tray";
+import { createTray, refreshTrayMenu } from "./tray";
 
 // The default toggle shortcut (see `DEFAULT_HOTKEY` in `settings/store.ts` for
 // why macOS/Windows differ) can be rebound from Settings; the currently bound
@@ -214,7 +214,7 @@ app.on("second-instance", (_event, argv) => {
 
 app.whenReady().then(() => {
   createLauncherWindow(keepLauncherOpen);
-  createTray(toggleLauncher);
+  createTray(toggleLauncher, () => settings.getHotkey());
   handleCliAction(process.argv);
 
   // Warm every action source now (apps: disk cache, then a background worker run)
@@ -337,6 +337,7 @@ app.whenReady().then(() => {
     }
 
     settings.setHotkey(accelerator);
+    refreshTrayMenu();
     return { success: true, hotkey: accelerator };
   });
 
