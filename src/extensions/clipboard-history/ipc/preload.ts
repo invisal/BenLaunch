@@ -26,4 +26,7 @@ export const clipboardHistoryApi = {
   /** Write the entry back to the OS clipboard. Resolves `false` for an unknown id. */
   copyAgain: (id: string): Promise<boolean> =>
     ipcRenderer.invoke(CLIPBOARD_HISTORY_CHANNELS.copyAgain, id),
+  /** Write the entry to the clipboard, hide the launcher and paste it into the app underneath. Resolves `false` for an unknown id. */
+  paste: (id: string): Promise<boolean> =>
+    ipcRenderer.invoke(CLIPBOARD_HISTORY_CHANNELS.paste, id),
 };

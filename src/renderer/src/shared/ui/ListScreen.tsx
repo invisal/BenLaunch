@@ -7,6 +7,7 @@ import {
   useState,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
+  type MouseEvent,
   type ReactElement,
   type ReactNode,
   type RefObject,
@@ -201,8 +202,8 @@ interface ListScreenBaseProps<T> {
    *  sections, icons, danger + confirm rows, but no nesting) in
    *  `Footer.Right`. */
   menu?: (highlighted: T | null) => FooterMenuItem[];
-  /** Click / Enter on a row. */
-  onActivate?: (item: T) => void;
+  /** Click / Enter on a row; `e.detail === 0` means Enter, not the mouse. */
+  onActivate?: (item: T, e: MouseEvent<HTMLElement>) => void;
   /**
    * Opt into a master/detail layout: the list narrows to a column on the left
    * and this renders a scrolling pane beside it for the highlighted row (the
@@ -220,9 +221,10 @@ interface ListScreenBaseProps<T> {
   inputValue?: string;
   onInputChange?: (value: string) => void;
   placeholder?: string;
-  /** Refocus + select-all in the search input whenever the window regains
-   *  focus (e.g. the launcher reappearing with its last query still in the
-   *  box). Default false — the input is still focused once, on mount. */
+  /** Select-all in the search input whenever the window regains focus (e.g.
+   *  the launcher reappearing with its last query still in the box). The
+   *  input is refocused on every window focus regardless; default false
+   *  only skips the select-all. */
   autoRefocus?: boolean;
   /** Text automatic filtering matches against. Default: `getId(item)`. */
   getSearchText?: (item: T) => string;
@@ -360,7 +362,9 @@ function ListScreenRoot<T>({
       if (autoRefocus) inputRef.current?.select();
     }
     focusAndSelect();
-    if (!autoRefocus) return;
+    // Always refocus the input when the window is reshown — the screen stays
+    // mounted across hide/show, so `autoFocus` alone would leave focus on
+    // the first tabbable element (the back button).
     window.addEventListener("focus", focusAndSelect);
     return () => window.removeEventListener("focus", focusAndSelect);
   }, [autoRefocus]);
@@ -533,7 +537,7 @@ function ListScreenRoot<T>({
                       value={item}
                       index={virtualRow.index}
                       disabled={disabled}
-                      onClick={() => !disabled && onActivate?.(item)}
+                      onClick={(e) => !disabled && onActivate?.(item, e)}
                       onContextMenu={(e) => {
                         if (disabled) return;
                         e.preventDefault();
@@ -578,7 +582,7 @@ function ListScreenRoot<T>({
                       key={getId(item)}
                       value={item}
                       disabled={disabled}
-                      onClick={() => !disabled && onActivate?.(item)}
+                      onClick={(e) => !disabled && onActivate?.(item, e)}
                       onContextMenu={(e) => {
                         if (disabled) return;
                         e.preventDefault();
