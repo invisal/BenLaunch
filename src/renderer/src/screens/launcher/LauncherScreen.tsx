@@ -106,6 +106,13 @@ function LauncherScreen() {
     message: string;
   } | null>(null);
 
+  const [actionAliases, setActionAliases] = useState<Record<string, string>>(
+    {},
+  );
+  const refreshActionAliases = useCallback(() => {
+    void window.api.actionAliases.list().then(setActionAliases);
+  }, []);
+
   async function togglePin(): Promise<void> {
     setPinned(await window.api.togglePin());
   }
@@ -121,6 +128,7 @@ function LauncherScreen() {
   }, []);
 
   useEffect(() => refreshActionHotkeys(), [refreshActionHotkeys]);
+  useEffect(() => refreshActionAliases(), [refreshActionAliases]);
 
   // Captures the next keypress for the "Hotkey" submenu's Bind row — same
   // mechanism as Settings' own toggle-shortcut recorder, scoped to whichever
@@ -427,6 +435,8 @@ function LauncherScreen() {
         setRecordingHotkeyFor({ actionId, type });
       },
       hotkeyBindError,
+      actionAliases,
+      refreshActionAliases,
       setQuery,
       push,
       reload,

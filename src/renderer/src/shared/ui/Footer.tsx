@@ -150,6 +150,11 @@ export interface ButtonProps extends Omit<
   /** Electron accelerator (e.g. "CommandOrControl+Enter") shown as a trailing
    *  kbd hint. This is display only — bind the key with `useShortcut`. */
   shortcut?: string;
+  /** Plain trailing text shown where `shortcut` would sit, for a hint that
+   *  isn't a real accelerator to format (e.g. literal "Esc" instead of the
+   *  Mac ⎋ symbol `shortcut="Escape"` renders). If both are set, `shortcut`
+   *  wins. */
+  shortcutLabel?: string;
   /** Disables the button and swaps in `loadingLabel`. */
   loading?: boolean;
   loadingLabel?: ReactNode;
@@ -165,6 +170,7 @@ function Button({
   children,
   variant = "default",
   shortcut,
+  shortcutLabel,
   loading = false,
   loadingLabel,
   active = false,
@@ -190,7 +196,16 @@ function Button({
       <span className="min-w-0 truncate">
         {loading && loadingLabel ? loadingLabel : children}
       </span>
-      {shortcut ? <Kbd accelerator={shortcut} /> : null}
+      {shortcut ? (
+        <Kbd accelerator={shortcut} />
+      ) : shortcutLabel ? (
+        <kbd
+          aria-hidden
+          className="shrink-0 rounded border border-border/60 px-1.5 py-0.5 font-sans text-xs text-foreground-subtle"
+        >
+          {shortcutLabel}
+        </kbd>
+      ) : null}
     </button>
   );
 }
@@ -227,6 +242,13 @@ interface FooterMenuItemBase {
   label: string;
   /** Display hint shown on the row. Bind the key itself with `useShortcut`. */
   shortcut?: string;
+  /**
+   * Plain trailing text shown where `shortcut` would sit, for a value that
+   * isn't a keyboard accelerator (so shouldn't be piped through `Kbd`'s
+   * symbol formatting) — e.g. the current alias for a "Change Alias" row.
+   * If both are set, `shortcut` wins.
+   */
+  hint?: string;
   disabled?: boolean;
   /** Emoji or image URL shown before the label. */
   icon?: string;
@@ -257,6 +279,7 @@ interface FooterMenuLeaf extends FooterMenuItemBase {
   confirmLabel?: string;
   onSelect: () => void;
   items?: never;
+  panel?: never;
   /**
    * Keep the popup open after this row runs, instead of the usual
    * select-and-close — for a row whose `onSelect` starts something the popup
@@ -275,12 +298,31 @@ interface FooterMenuLeaf extends FooterMenuItemBase {
  */
 interface FooterMenuSubmenu extends FooterMenuItemBase {
   items: FooterMenuItem[];
+  panel?: never;
   confirmLabel?: never;
   onSelect?: never;
   keepOpen?: never;
 }
 
-export type FooterMenuItem = FooterMenuLeaf | FooterMenuSubmenu;
+/**
+ * A row that opens arbitrary content of its own instead of a list: picking it
+ * replaces the popup's search box and list with whatever `panel` renders —
+ * for a group that isn't a set of choices, like an alias to type rather than
+ * pick. `onClose` returns to the list this row came from, landing the
+ * highlight back on it, the same as Escape (or the popup's back button) does
+ * for an `items` submenu — call it once the panel's own work is done (a save,
+ * a cancel), not on every keystroke.
+ */
+interface FooterMenuPanel extends FooterMenuItemBase {
+  panel: (ctx: { onClose: () => void }) => ReactNode;
+  items?: never;
+  confirmLabel?: never;
+  onSelect?: never;
+  keepOpen?: never;
+}
+
+export type FooterMenuItem =
+  FooterMenuLeaf | FooterMenuSubmenu | FooterMenuPanel;
 
 export interface FooterMenuProps {
   /** Trigger label. Default "Actions". */
@@ -397,17 +439,27 @@ function Menu({
   // Walk `trail` down the *current* `items` to the list being shown, and the
   // row it hangs off (the popup's header). A segment that no longer resolves —
   // the highlighted row changed under an open submenu — stops the walk there,
-  // so the menu falls back to the deepest list that still exists.
-  const { activeItems, parent } = useMemo(() => {
+  // so the menu falls back to the deepest list that still exists. A `panel`
+  // row is a terminal step (nothing to descend into): the walk stops there
+  // and `activeItems` stays whatever list it was found in, unused while the
+  // panel is shown.
+  const { activeItems, parent, activePanel } = useMemo(() => {
     let list = items;
     let openedBy: FooterMenuItem | null = null;
+    let panel: FooterMenuPanel | null = null;
     for (const key of trail) {
       const next = list.find((item) => (item.id ?? item.label) === key);
-      if (!next?.items) break;
+      if (!next) break;
+      if (next.panel) {
+        openedBy = next;
+        panel = next as FooterMenuPanel;
+        break;
+      }
+      if (!next.items) break;
       list = next.items;
       openedBy = next;
     }
-    return { activeItems: list, parent: openedBy };
+    return { activeItems: list, parent: openedBy, activePanel: panel };
   }, [items, trail]);
 
   // Heading rows: the key of the first item of each contiguous `section` run.
@@ -458,13 +510,20 @@ function Menu({
     const targetIndex = activeItems.findIndex(
       (item) => (item.id ?? item.label) === targetKey,
     );
-    if (targetIndex < 0) return;
 
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         const input = inputRef.current;
         if (!input) return;
+        // A `panel` step unmounts this input while it's shown (see
+        // `activePanel` below), so returning from one leaves real keyboard
+        // focus on whatever the browser fell back to — nothing reaches
+        // Autocomplete's own arrow/Enter handling until it's back here.
+        // Unconditional even when the target row below isn't found, so
+        // keyboard nav still recovers in that edge case too.
+        input.focus();
+        if (targetIndex < 0) return;
         const dispatch = (key: string) =>
           input.dispatchEvent(
             new KeyboardEvent("keydown", {
@@ -481,7 +540,13 @@ function Menu({
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [activeItems]);
+    // `trail`, not just `activeItems`: leaving a `panel` step pops `trail`
+    // back to a list that was already the current `activeItems` (a panel
+    // never descends into a list of its own, so it never changes what
+    // `activeItems` points to) — without `trail` here too, that transition
+    // wouldn't re-run this effect at all, and `pendingHighlightKeyRef` would
+    // sit unconsumed forever.
+  }, [activeItems, trail]);
 
   /** `"armed"` when the hit only armed a `confirmLabel` item, `"opened"` when
    *  it descended into a submenu — neither ran anything. */
@@ -490,9 +555,10 @@ function Menu({
   ): "armed" | "opened" | "ran" | "ignored" => {
     if (item.disabled) return "ignored";
     const key = item.id ?? item.label;
-    // A submenu row swaps the list out and keeps the menu open; the search box
-    // starts empty again so it filters the list now on screen.
-    if (item.items) {
+    // A submenu or panel row swaps the popup's content out and keeps the
+    // menu open; the search box starts empty again so it filters the list
+    // now on screen (irrelevant while a panel is showing, but harmless).
+    if (item.items || item.panel) {
       setTrail((path) => [...path, key]);
       setSearch("");
       setArmedId(null);
@@ -579,97 +645,111 @@ function Menu({
             }}
             className="flex max-h-[min(24rem,var(--available-height))] w-60 flex-col overflow-hidden rounded-md border border-border bg-popover text-foreground shadow-lg outline-none [-webkit-app-region:no-drag]"
           >
-            <div className="shrink-0 border-b border-border p-1">
-              <Autocomplete.Input
-                ref={inputRef}
-                placeholder={parent ? `Search ${parent.label}…` : placeholder}
-                className="w-full bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-foreground-subtle"
-              />
-            </div>
-            <Autocomplete.List className="min-h-0 overflow-y-auto overscroll-contain scroll-py-1 p-1">
-              {(item: FooterMenuItem, index: number) => {
-                const key = item.id ?? item.label;
-                const armed = armedId === key;
-                return (
-                  <Fragment key={key}>
-                    {sectionFirstKeys.has(key) ? (
-                      <div
-                        aria-hidden
-                        className={cn(
-                          "px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-foreground-subtle",
-                          index === 0 ? "pt-1" : "pt-3",
+            {activePanel ? (
+              activePanel.panel({ onClose: goBack })
+            ) : (
+              <>
+                <div className="shrink-0 border-b border-border p-1">
+                  <Autocomplete.Input
+                    ref={inputRef}
+                    placeholder={
+                      parent ? `Search ${parent.label}…` : placeholder
+                    }
+                    className="w-full bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-foreground-subtle"
+                  />
+                </div>
+                <Autocomplete.List className="min-h-0 overflow-y-auto overscroll-contain scroll-py-1 p-1">
+                  {(item: FooterMenuItem, index: number) => {
+                    const key = item.id ?? item.label;
+                    const armed = armedId === key;
+                    return (
+                      <Fragment key={key}>
+                        {sectionFirstKeys.has(key) ? (
+                          <div
+                            aria-hidden
+                            className={cn(
+                              "px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-foreground-subtle",
+                              index === 0 ? "pt-1" : "pt-3",
+                            )}
+                          >
+                            {item.section}
+                          </div>
+                        ) : (
+                          item.separator &&
+                          index !== 0 && (
+                            <div
+                              aria-hidden
+                              className="my-1 border-t border-border"
+                            />
+                          )
                         )}
-                      >
-                        {item.section}
-                      </div>
-                    ) : (
-                      item.separator &&
-                      index !== 0 && (
-                        <div
-                          aria-hidden
-                          className="my-1 border-t border-border"
-                        />
-                      )
-                    )}
-                    <Autocomplete.Item
-                      value={item}
-                      disabled={item.disabled}
-                      onClick={(event) => {
-                        // Only a hit that actually ran the action, and wants
-                        // the popup closed, may go on to Base UI's own item
-                        // press: it selects the item — closing the popup and
-                        // writing the label into the search box — which would
-                        // disarm a confirm before its second hit, close the
-                        // menu on a disabled row, or close a `keepOpen` row
-                        // before its own `onSelect` has anything to show. (↵
-                        // on a highlighted row arrives here as a click too.)
-                        const result = choose(item);
-                        if (result !== "ran" || item.keepOpen)
-                          event.preventBaseUIHandler();
-                      }}
-                      className={cn(
-                        "flex w-full cursor-default items-center justify-between gap-2 rounded px-2 py-1.5 text-sm outline-none",
-                        armed
-                          ? "bg-red-500/25 text-red-300 ring-1 ring-inset ring-red-500/40"
-                          : item.danger
-                            ? "text-red-400/90 data-highlighted:bg-red-500/15 data-highlighted:text-red-300"
-                            : "data-highlighted:bg-item-selected data-highlighted:text-foreground",
-                        item.disabled && "opacity-40",
-                      )}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        {item.icon &&
-                          (isImageIcon(item.icon) ? (
-                            <img
-                              src={item.icon}
-                              alt=""
-                              className="h-4 w-4 shrink-0 object-contain"
+                        <Autocomplete.Item
+                          value={item}
+                          disabled={item.disabled}
+                          onClick={(event) => {
+                            // Only a hit that actually ran the action, and wants
+                            // the popup closed, may go on to Base UI's own item
+                            // press: it selects the item — closing the popup and
+                            // writing the label into the search box — which would
+                            // disarm a confirm before its second hit, close the
+                            // menu on a disabled row, or close a `keepOpen` row
+                            // before its own `onSelect` has anything to show. (↵
+                            // on a highlighted row arrives here as a click too.)
+                            const result = choose(item);
+                            if (result !== "ran" || item.keepOpen)
+                              event.preventBaseUIHandler();
+                          }}
+                          className={cn(
+                            "flex w-full cursor-default items-center justify-between gap-2 rounded px-2 py-1.5 text-sm outline-none",
+                            armed
+                              ? "bg-red-500/25 text-red-300 ring-1 ring-inset ring-red-500/40"
+                              : item.danger
+                                ? "text-red-400/90 data-highlighted:bg-red-500/15 data-highlighted:text-red-300"
+                                : "data-highlighted:bg-item-selected data-highlighted:text-foreground",
+                            item.disabled && "opacity-40",
+                          )}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            {item.icon &&
+                              (isImageIcon(item.icon) ? (
+                                <img
+                                  src={item.icon}
+                                  alt=""
+                                  className="h-4 w-4 shrink-0 object-contain"
+                                />
+                              ) : (
+                                <span className="w-4 shrink-0 text-center text-[13px]">
+                                  {item.icon}
+                                </span>
+                              ))}
+                            <span className="truncate">
+                              {armed && item.confirmLabel
+                                ? item.confirmLabel
+                                : item.label}
+                            </span>
+                          </span>
+                          {item.shortcut ? (
+                            <Kbd
+                              accelerator={item.shortcut}
+                              className="border-border"
                             />
                           ) : (
-                            <span className="w-4 shrink-0 text-center text-[13px]">
-                              {item.icon}
-                            </span>
-                          ))}
-                        <span className="truncate">
-                          {armed && item.confirmLabel
-                            ? item.confirmLabel
-                            : item.label}
-                        </span>
-                      </span>
-                      {item.shortcut && (
-                        <Kbd
-                          accelerator={item.shortcut}
-                          className="border-border"
-                        />
-                      )}
-                    </Autocomplete.Item>
-                  </Fragment>
-                );
-              }}
-            </Autocomplete.List>
-            <Autocomplete.Empty className="shrink-0 px-2 py-1.5 text-xs text-foreground-subtle">
-              No actions found
-            </Autocomplete.Empty>
+                            item.hint && (
+                              <span className="shrink-0 truncate text-xs text-foreground-subtle">
+                                {item.hint}
+                              </span>
+                            )
+                          )}
+                        </Autocomplete.Item>
+                      </Fragment>
+                    );
+                  }}
+                </Autocomplete.List>
+                <Autocomplete.Empty className="shrink-0 px-2 py-1.5 text-xs text-foreground-subtle">
+                  No actions found
+                </Autocomplete.Empty>
+              </>
+            )}
           </Autocomplete.Popup>
         </Autocomplete.Positioner>
       </Autocomplete.Portal>
