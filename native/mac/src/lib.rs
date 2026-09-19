@@ -22,6 +22,9 @@ use core_foundation_sys::number::{
 };
 use core_foundation_sys::string::{kCFStringEncodingUTF8, CFStringCreateWithCString, CFStringRef};
 use napi_derive::napi;
+
+mod actions_panel;
+pub use actions_panel::*;
 use std::ffi::{c_void, CString};
 use std::sync::{Mutex, OnceLock};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, Signal, System};

@@ -35,6 +35,7 @@ import {
   type ActionHotkeyBinding,
   type ActionHotkeySetResult,
 } from "@extensions/hotkey/shared/types";
+import { registerActionsPanelIpc } from "./native/actions-panel/handlers";
 import { registerQuicklinkIpc } from "@extensions/quicklink/ipc/handlers";
 import { registerWindowControlsIpc } from "./window-chrome";
 import {
@@ -246,6 +247,13 @@ app.whenReady().then(() => {
       if (!pinned) hideLauncher();
     },
     usageOf: actionUsage,
+  });
+
+  registerActionsPanelIpc({
+    getLauncherWindow,
+    setSuppressAutoHide: (value) => {
+      suppressAutoHide = value;
+    },
   });
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {

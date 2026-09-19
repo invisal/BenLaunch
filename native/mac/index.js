@@ -700,6 +700,7 @@ if (!nativeBinding) {
 
 module.exports = nativeBinding
 module.exports.applyWindowRect = nativeBinding.applyWindowRect
+module.exports.closeActionsPanel = nativeBinding.closeActionsPanel
 module.exports.frontmostPid = nativeBinding.frontmostPid
 module.exports.getWindowRect = nativeBinding.getWindowRect
 module.exports.isFullscreen = nativeBinding.isFullscreen
@@ -707,4 +708,5 @@ module.exports.killProcess = nativeBinding.killProcess
 module.exports.listListeningPorts = nativeBinding.listListeningPorts
 module.exports.listProcesses = nativeBinding.listProcesses
 module.exports.pasteboardChangeCount = nativeBinding.pasteboardChangeCount
+module.exports.showActionsPanel = nativeBinding.showActionsPanel
 module.exports.toggleFullscreen = nativeBinding.toggleFullscreen

@@ -7,6 +7,7 @@ import {
   type QueryResult,
   type RequestSubtitleOptions,
 } from "../shared/types";
+import { actionsPanelApi } from "../main/native/actions-panel/preload";
 import { quitProcessApi } from "@extensions/quit-process/ipc/preload";
 import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
 import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
@@ -84,6 +85,9 @@ const api = {
 
   /** Per-action global hotkeys (Ctrl+K menu's "Set Hotkey…") ↔ main. */
   actionHotkeys: actionHotkeysApi,
+
+  /** Experimental native (NSPanel) Actions menu ↔ main. macOS only. */
+  actionsPanel: actionsPanelApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);

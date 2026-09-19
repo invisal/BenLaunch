@@ -26,6 +26,8 @@
     "src/extensions/**/shared/**/*",
     "src/extensions/**/types.ts",
     "src/extensions/**/ipc/preload.ts",
+    "src/main/native/**/preload.ts",
+    "src/main/native/**/types.ts",
     "src/extensions/*/screen.ts",
     "src/extensions/*/screen.tsx"
   ],

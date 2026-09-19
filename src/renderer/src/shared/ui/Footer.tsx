@@ -311,6 +311,26 @@ export interface FooterMenuProps {
 }
 
 /**
+ * Whether the experimental native Actions panel is available (macOS build with
+ * the addon). On by default while it's an experiment; opt out with
+ * `localStorage.nativeActionsPanel = "0"`.
+ */
+function useNativeActionsPanel(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let enabled = true;
+    try {
+      enabled = localStorage.getItem("nativeActionsPanel") !== "0";
+    } catch {
+      /* storage unavailable — keep the default */
+    }
+    if (!enabled) return;
+    void window.api.actionsPanel.supported().then(setOn);
+  }, []);
+  return on;
+}
+
+/**
  * A searchable actions menu for the footer, opened by its trigger or the ⌘K
  * shortcut. Uncontrolled by default (owns its open/close and binds ⌘K); pass
  * `open` / `onOpenChange` to drive it. An item's `shortcut` is a display hint
@@ -368,7 +388,72 @@ function Menu({
   // transition that never fires offscreen, and it lingers over the new screen.
   const portalRef = useRef<HTMLDivElement>(null);
 
+  const nativePanel = useNativeActionsPanel();
+
+  const openDom = () => {
+    if (openProp === undefined) setUncontrolledOpen(true);
+    onOpenChange?.(true);
+  };
+
+  // Experimental: on macOS with the flag on, the menu opens as a native
+  // NSPanel instead of the DOM popup. A row with `items` re-shows the panel
+  // with that list, and a `confirmLabel` row asks again in a small panel. Rows
+  // that need the popup to stay open showing live state (`keepOpen`, e.g.
+  // hotkey recording) keep the DOM popup — at the submenu that holds them.
+  const showNativePanel = async (
+    list: FooterMenuItem[],
+    title: string,
+    path: string[],
+  ): Promise<void> => {
+    const rows = list.filter((item) => !item.disabled);
+    const picked = await window.api.actionsPanel.show(
+      title,
+      rows.map((item, index) => ({
+        id: String(index),
+        title: item.label,
+        section: item.section,
+        shortcut: item.shortcut
+          ? item.shortcut.split("+").map((key) => formatShortcut(key))
+          : undefined,
+        danger: item.danger,
+        accessorySfSymbol: item.items ? "chevron.right" : undefined,
+      })),
+    );
+    const item = picked === null ? undefined : rows[Number(picked)];
+    if (!item) return;
+
+    if (item.items) {
+      const next = [...path, item.id ?? item.label];
+      if (item.items.some((child) => child.keepOpen)) {
+        setTrail(next);
+        openDom();
+        return;
+      }
+      return showNativePanel(item.items, item.label, next);
+    }
+    if (item.confirmLabel) {
+      const answer = await window.api.actionsPanel.show(item.label, [
+        { id: "confirm", title: item.confirmLabel, danger: item.danger },
+        { id: "cancel", title: "Cancel" },
+      ]);
+      if (answer !== "confirm") return;
+    }
+    item.onSelect();
+  };
+
+  const openNativePanel = (): boolean => {
+    if (!nativePanel || anchor || trail.length > 0) return false;
+    if (items.some((item) => item.keepOpen)) return false;
+    void showNativePanel(
+      items,
+      typeof label === "string" ? label : "Actions",
+      [],
+    );
+    return true;
+  };
+
   const setOpen = (next: boolean) => {
+    if (next && openNativePanel()) return;
     if (openProp === undefined) setUncontrolledOpen(next);
     onOpenChange?.(next);
   };
