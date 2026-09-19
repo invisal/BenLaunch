@@ -155,14 +155,9 @@ function DetailPane({ entry }: { entry: ClipboardEntry | null }) {
  * count only ever counts real entries, never the header rows interleaved
  * into `data` for the virtualizer.
  *
- * Knows nothing about the router: navigation is handed in by `../screen.tsx`.
+ * Knows nothing about the router; `../screen.tsx` mounts it.
  */
-function ClipboardHistoryListScreen({
-  onDismiss,
-}: {
-  /** Close the launcher after a paste. */
-  onDismiss: () => void;
-}) {
+function ClipboardHistoryListScreen() {
   const [entries, setEntries] = useState<ClipboardEntry[] | null>(null);
   const [pinLimitHit, setPinLimitHit] = useState(false);
   const [query, setQuery] = useState("");
@@ -225,8 +220,9 @@ function ClipboardHistoryListScreen({
   }
 
   async function paste(entry: ClipboardEntry): Promise<void> {
-    await window.api.clipboardHistory.copyAgain(entry.id);
-    onDismiss();
+    // Main hides the launcher; the route stack is left alone so reopening
+    // lands back on this screen.
+    await window.api.clipboardHistory.paste(entry.id);
   }
 
   async function togglePin(entry: ClipboardEntry): Promise<void> {
@@ -263,12 +259,12 @@ function ClipboardHistoryListScreen({
       {
         id: "copy-again",
         label: "Copy Again",
-        shortcut: "Enter",
         onSelect: () => void copyAgain(entry),
       },
       {
         id: "paste",
         label: "Paste",
+        shortcut: "Enter",
         onSelect: () => void paste(entry),
       },
       {
@@ -322,21 +318,24 @@ function ClipboardHistoryListScreen({
                   : "📋"
             }
             title={row.entry.preview}
+            onDoubleClick={() => void paste(row.entry)}
           />
         )
       }
       // Keyboard nav, right-click and Base UI's own auto-highlight all keep
       // `selectedEntry` in sync via `onHighlightChange` below. A plain click
-      // additionally sets it directly here, synchronously — `onActivate`
-      // fires reliably for both click and Enter (Base UI's Enter handling
-      // literally calls `.click()` on the highlighted row, so the two are
-      // indistinguishable), so it has to stay non-destructive: copy, but
-      // don't hide the launcher, so the preview is actually visible. "Paste"
-      // (copy + hide) is the explicit ⌘K action instead.
+      // only selects the row (so the preview shows); Enter (handled in
+      // `onInputKeyDown`, not here — Base UI also turns it into a synthetic
+      // click, which must stay inert) or a double-click (`onDoubleClick` on
+      // the row) pastes it into the app underneath.
       onActivate={(row) => {
-        if (row.kind !== "entry") return;
-        setSelectedEntry(row.entry);
-        void copyAgain(row.entry);
+        if (row.kind === "entry") setSelectedEntry(row.entry);
+      }}
+      onInputKeyDown={(e, row) => {
+        if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+        if (row?.kind !== "entry") return;
+        e.preventDefault();
+        void paste(row.entry);
       }}
       onHighlightChange={(row) => {
         if (row?.kind === "entry") setSelectedEntry(row.entry);
