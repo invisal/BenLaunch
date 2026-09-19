@@ -36,14 +36,16 @@ function loadNative(): NativeWin | null {
  * stops that watcher.
  */
 export function pasteboardChangeEvent():
-  | ((onChange: () => void) => () => void)
-  | undefined {
+  ((onChange: () => void) => () => void) | undefined {
   const win = loadNative();
   if (!win) return undefined;
   return (onChange) => {
     const watcher = win.startClipboardWatcher((error) => {
       if (error) {
-        console.error("[clipboard-history] startClipboardWatcher callback error:", error);
+        console.error(
+          "[clipboard-history] startClipboardWatcher callback error:",
+          error,
+        );
         return;
       }
       onChange();

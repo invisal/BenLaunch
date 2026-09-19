@@ -3,7 +3,11 @@ import { cn } from "cnfast";
 import { Combobox } from "@base-ui/react/combobox";
 import { Form, Layout } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
-import { WIDGET_TEMPLATES, getWidgetTemplate, type WidgetTemplate } from "../shared/templates";
+import {
+  WIDGET_TEMPLATES,
+  getWidgetTemplate,
+  type WidgetTemplate,
+} from "../shared/templates";
 
 /** Shared sizing for `Form.Input` / `Form.TextArea` — tighter than the
  *  default so this form's fields match Create Quicklink's. */
@@ -65,7 +69,9 @@ function TemplatePicker({
     <Combobox.Root
       items={WIDGET_TEMPLATES}
       value={value}
-      onValueChange={(template: WidgetTemplate | null) => template && onChange(template)}
+      onValueChange={(template: WidgetTemplate | null) =>
+        template && onChange(template)
+      }
     >
       <Combobox.Trigger
         autoFocus
@@ -76,14 +82,20 @@ function TemplatePicker({
       >
         <span className="min-w-0 flex-1 truncate">
           <Combobox.Value>
-            {(template: WidgetTemplate | null) => template?.name ?? "Choose a template"}
+            {(template: WidgetTemplate | null) =>
+              template?.name ?? "Choose a template"
+            }
           </Combobox.Value>
         </span>
         <ChevronDownIcon className="text-foreground-subtle group-data-[popup-open]:rotate-180" />
       </Combobox.Trigger>
 
       <Combobox.Portal>
-        <Combobox.Positioner sideOffset={6} collisionPadding={10} className="z-50">
+        <Combobox.Positioner
+          sideOffset={6}
+          collisionPadding={10}
+          className="z-50"
+        >
           <Combobox.Popup
             className={cn(
               "flex max-h-[min(18rem,var(--available-height))] w-[var(--anchor-width)] flex-col overflow-hidden",
@@ -106,7 +118,9 @@ function TemplatePicker({
                     "data-[highlighted]:bg-item-selected",
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate">{template.name}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {template.name}
+                  </span>
                   <Combobox.ItemIndicator className="shrink-0 text-foreground-subtle">
                     <CheckIcon />
                   </Combobox.ItemIndicator>

@@ -1,6 +1,15 @@
-import { BrowserWindow, ipcMain, screen, type BrowserWindowConstructorOptions } from 'electron'
-import { IPC_CHANNELS } from '../shared/types'
-import type { SettingsStore, WindowBounds, WindowBoundsKey } from './settings/store'
+import {
+  BrowserWindow,
+  ipcMain,
+  screen,
+  type BrowserWindowConstructorOptions,
+} from "electron";
+import { IPC_CHANNELS } from "../shared/types";
+import type {
+  SettingsStore,
+  WindowBounds,
+  WindowBoundsKey,
+} from "./settings/store";
 
 /**
  * Constructor options shared by the framed windows (Settings, Widget), which
@@ -20,17 +29,17 @@ import type { SettingsStore, WindowBounds, WindowBoundsKey } from './settings/st
 export const framelessChrome: BrowserWindowConstructorOptions = {
   // A translucent (fully transparent) backing colour so acrylic/vibrancy isn't
   // painted over. The renderer's `.window-frame` panel provides the tint.
-  backgroundColor: '#00000000',
-  ...(process.platform === 'darwin'
+  backgroundColor: "#00000000",
+  ...(process.platform === "darwin"
     ? {
-        titleBarStyle: 'hidden' as const,
+        titleBarStyle: "hidden" as const,
         trafficLightPosition: { x: 16, y: 16 },
-        vibrancy: 'under-window' as const
+        vibrancy: "under-window" as const,
       }
-    : process.platform === 'win32'
-      ? { frame: false, backgroundMaterial: 'acrylic' as const }
-      : { frame: false, transparent: true })
-}
+    : process.platform === "win32"
+      ? { frame: false, backgroundMaterial: "acrylic" as const }
+      : { frame: false, transparent: true }),
+};
 
 /**
  * Wires the `window:*` channels once. Each acts on whichever `BrowserWindow` the
@@ -38,19 +47,19 @@ export const framelessChrome: BrowserWindowConstructorOptions = {
  */
 export function registerWindowControlsIpc(): void {
   ipcMain.on(IPC_CHANNELS.windowMinimize, (event) => {
-    BrowserWindow.fromWebContents(event.sender)?.minimize()
-  })
+    BrowserWindow.fromWebContents(event.sender)?.minimize();
+  });
 
   ipcMain.on(IPC_CHANNELS.windowToggleMaximize, (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return
-    if (win.isMaximized()) win.unmaximize()
-    else win.maximize()
-  })
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  });
 
   ipcMain.on(IPC_CHANNELS.windowClose, (event) => {
-    BrowserWindow.fromWebContents(event.sender)?.close()
-  })
+    BrowserWindow.fromWebContents(event.sender)?.close();
+  });
 }
 
 /** True if `bounds` overlaps some connected display's work area — a saved position can go stale (e.g. a monitor gets unplugged). */
@@ -61,8 +70,8 @@ function isOnScreen(bounds: WindowBounds): boolean {
       bounds.x + bounds.width > workArea.x &&
       bounds.y < workArea.y + workArea.height &&
       bounds.y + bounds.height > workArea.y
-    )
-  })
+    );
+  });
 }
 
 /**
@@ -73,10 +82,10 @@ function isOnScreen(bounds: WindowBounds): boolean {
 export function restoredBounds(
   settings: SettingsStore,
   key: WindowBoundsKey,
-  fallback: { width: number; height: number }
+  fallback: { width: number; height: number },
 ): WindowBounds | { width: number; height: number } {
-  const saved = settings.getWindowBounds(key)
-  return saved && isOnScreen(saved) ? saved : fallback
+  const saved = settings.getWindowBounds(key);
+  return saved && isOnScreen(saved) ? saved : fallback;
 }
 
 /**
@@ -87,10 +96,10 @@ export function restoredBounds(
  */
 export function restoredPosition(
   settings: SettingsStore,
-  key: WindowBoundsKey
+  key: WindowBoundsKey,
 ): { x: number; y: number } | null {
-  const saved = settings.getWindowBounds(key)
-  return saved && isOnScreen(saved) ? { x: saved.x, y: saved.y } : null
+  const saved = settings.getWindowBounds(key);
+  return saved && isOnScreen(saved) ? { x: saved.x, y: saved.y } : null;
 }
 
 /**
@@ -103,10 +112,10 @@ export function restoredPosition(
 export function persistWindowBounds(
   win: BrowserWindow,
   settings: SettingsStore,
-  key: WindowBoundsKey
+  key: WindowBoundsKey,
 ): void {
-  win.on('close', () => {
-    if (win.isMinimized() || win.isMaximized()) return
-    settings.setWindowBounds(key, win.getBounds())
-  })
+  win.on("close", () => {
+    if (win.isMinimized() || win.isMaximized()) return;
+    settings.setWindowBounds(key, win.getBounds());
+  });
 }

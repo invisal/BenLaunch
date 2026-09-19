@@ -1,11 +1,14 @@
-import { useEffect, useRef } from 'react'
-import { matchesShortcut } from './shortcut'
+import { useEffect, useRef } from "react";
+import { matchesShortcut } from "./shortcut";
 
-type ShortcutHandler = (event: KeyboardEvent) => void
+type ShortcutHandler = (event: KeyboardEvent) => void;
 
 /** Map of Electron accelerator string -> handler. A falsy value disables that
  *  binding, so `busy ? undefined : save` reads naturally. */
-export type ShortcutMap = Record<string, ShortcutHandler | false | null | undefined>
+export type ShortcutMap = Record<
+  string,
+  ShortcutHandler | false | null | undefined
+>;
 
 /**
  * Bind global keyboard shortcuts for as long as the caller is mounted. Keys are
@@ -31,23 +34,23 @@ export type ShortcutMap = Record<string, ShortcutHandler | false | null | undefi
  */
 export function useShortcut(
   map: ShortcutMap,
-  { capture = false }: { capture?: boolean } = {}
+  { capture = false }: { capture?: boolean } = {},
 ): void {
-  const mapRef = useRef(map)
-  mapRef.current = map
+  const mapRef = useRef(map);
+  mapRef.current = map;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!capture && event.defaultPrevented) return
+      if (!capture && event.defaultPrevented) return;
       for (const [accelerator, handler] of Object.entries(mapRef.current)) {
-        if (!handler || !matchesShortcut(accelerator, event)) continue
-        event.preventDefault()
-        if (capture) event.stopPropagation()
-        handler(event)
-        return
+        if (!handler || !matchesShortcut(accelerator, event)) continue;
+        event.preventDefault();
+        if (capture) event.stopPropagation();
+        handler(event);
+        return;
       }
-    }
-    window.addEventListener('keydown', onKeyDown, capture)
-    return () => window.removeEventListener('keydown', onKeyDown, capture)
-  }, [capture])
+    };
+    window.addEventListener("keydown", onKeyDown, capture);
+    return () => window.removeEventListener("keydown", onKeyDown, capture);
+  }, [capture]);
 }

@@ -18,9 +18,7 @@ function CodeScreen({ id }: { id: string }) {
   const [def, setDef] = useState<WidgetDef | null>(null);
   const [missing, setMissing] = useState(false);
   const [code, setCode] = useState("");
-  const [test, setTest] = useState<WidgetTestResult | "running" | null>(
-    null,
-  );
+  const [test, setTest] = useState<WidgetTestResult | "running" | null>(null);
   const [saving, setSaving] = useState(false);
   const editor = useRef<CodeEditorHandle>(null);
 

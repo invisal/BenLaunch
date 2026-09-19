@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import react from '@vitejs/plugin-react'
-import type { Plugin } from 'vite'
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import react from "@vitejs/plugin-react";
+import type { Plugin } from "vite";
 
 /**
  * Shared path aliases. Extensions (`src/extensions/<name>/`) hold code for every
@@ -12,11 +12,11 @@ import type { Plugin } from 'vite'
  * Kept in sync with `paths` in tsconfig.node.json / tsconfig.web.json.
  */
 const nodeAlias = {
-  '@core': resolve(__dirname, 'src/core'),
-  '@main': resolve(__dirname, 'src/main'),
-  '@shared': resolve(__dirname, 'src/shared'),
-  '@extensions': resolve(__dirname, 'src/extensions')
-}
+  "@core": resolve(__dirname, "src/core"),
+  "@main": resolve(__dirname, "src/main"),
+  "@shared": resolve(__dirname, "src/shared"),
+  "@extensions": resolve(__dirname, "src/extensions"),
+};
 
 /**
  * Serves `typescript/lib/typescript.js` (used by the Widget code editor's
@@ -31,40 +31,50 @@ const nodeAlias = {
  * `virtual:typescript-runtime-url` module resolving to that copy's URL.
  */
 function typescriptRuntimeAsset(): Plugin {
-  const VIRTUAL_ID = 'virtual:typescript-runtime-url'
-  const RESOLVED_VIRTUAL_ID = '\0' + VIRTUAL_ID
-  const SOURCE_PATH = resolve(__dirname, 'node_modules/typescript/lib/typescript.js')
-  const DEV_PATH = '/__typescript-runtime.js'
-  let command: 'build' | 'serve' = 'serve'
+  const VIRTUAL_ID = "virtual:typescript-runtime-url";
+  const RESOLVED_VIRTUAL_ID = "\0" + VIRTUAL_ID;
+  const SOURCE_PATH = resolve(
+    __dirname,
+    "node_modules/typescript/lib/typescript.js",
+  );
+  const DEV_PATH = "/__typescript-runtime.js";
+  let command: "build" | "serve" = "serve";
 
   function cleanedSource(): string {
-    return readFileSync(SOURCE_PATH, 'utf8').replace(/\/\/# sourceMappingURL=.*$/m, '')
+    return readFileSync(SOURCE_PATH, "utf8").replace(
+      /\/\/# sourceMappingURL=.*$/m,
+      "",
+    );
   }
 
   return {
-    name: 'typescript-runtime-asset',
+    name: "typescript-runtime-asset",
     configResolved(config) {
-      command = config.command
+      command = config.command;
     },
     configureServer(server) {
       server.middlewares.use(DEV_PATH, (_req, res) => {
-        res.setHeader('Content-Type', 'text/javascript')
-        res.end(cleanedSource())
-      })
+        res.setHeader("Content-Type", "text/javascript");
+        res.end(cleanedSource());
+      });
     },
     resolveId(id) {
-      if (id === VIRTUAL_ID) return RESOLVED_VIRTUAL_ID
-      return undefined
+      if (id === VIRTUAL_ID) return RESOLVED_VIRTUAL_ID;
+      return undefined;
     },
     load(id) {
-      if (id !== RESOLVED_VIRTUAL_ID) return undefined
-      if (command === 'serve') {
-        return `export default ${JSON.stringify(DEV_PATH)}`
+      if (id !== RESOLVED_VIRTUAL_ID) return undefined;
+      if (command === "serve") {
+        return `export default ${JSON.stringify(DEV_PATH)}`;
       }
-      const refId = this.emitFile({ type: 'asset', name: 'typescript.js', source: cleanedSource() })
-      return `export default import.meta.ROLLUP_FILE_URL_${refId}`
-    }
-  }
+      const refId = this.emitFile({
+        type: "asset",
+        name: "typescript.js",
+        source: cleanedSource(),
+      });
+      return `export default import.meta.ROLLUP_FILE_URL_${refId}`;
+    },
+  };
 }
 
 export default defineConfig({
@@ -76,40 +86,48 @@ export default defineConfig({
     // instead of something Rollup tries (and fails) to bundle.
     plugins: [
       externalizeDepsPlugin({
-        include: ['@magibar/win', '@magibar/mac', '@magibar/linux', 'electron-liquid-glass']
-      })
+        include: [
+          "@magibar/win",
+          "@magibar/mac",
+          "@magibar/linux",
+          "electron-liquid-glass",
+        ],
+      }),
     ],
     resolve: { alias: nodeAlias },
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/main/index.ts'),
+          index: resolve(__dirname, "src/main/index.ts"),
           // Runs out-of-process (via ELECTRON_RUN_AS_NODE) so that resolving installed
           // apps and their icons — synchronous native calls — never blocks Electron's
           // main/browser process. See src/main/native/apps.ts.
           // Output name stays `apps-worker.js` (the input key); apps.ts resolves it
           // as `join(__dirname, 'apps-worker.js')` at runtime.
-          'apps-worker': resolve(__dirname, 'src/main/native/apps-worker.ts'),
+          "apps-worker": resolve(__dirname, "src/main/native/apps-worker.ts"),
           // Runs a Widget's user function out-of-process (same reason as above);
           // src/extensions/widget/main/runner.ts spawns it as `widget-worker.js`
           // (the input key below sets the output name).
-          'widget-worker': resolve(__dirname, 'src/extensions/widget/main/worker.ts')
-        }
-      }
-    }
+          "widget-worker": resolve(
+            __dirname,
+            "src/extensions/widget/main/worker.ts",
+          ),
+        },
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    resolve: { alias: nodeAlias }
+    resolve: { alias: nodeAlias },
   },
   renderer: {
-    root: 'src/renderer',
+    root: "src/renderer",
     resolve: {
       alias: {
-        '@renderer': resolve(__dirname, 'src/renderer/src'),
-        '@shared': nodeAlias['@shared'],
-        '@extensions': nodeAlias['@extensions']
-      }
+        "@renderer": resolve(__dirname, "src/renderer/src"),
+        "@shared": nodeAlias["@shared"],
+        "@extensions": nodeAlias["@extensions"],
+      },
     },
     // The per-window HTML entries live in `src/renderer/` but pull their React
     // entry from `src/extensions/<name>/renderer/` — allow the dev server to
@@ -118,12 +136,12 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: {
-          index: resolve(__dirname, 'src/renderer/index.html'),
-          settings: resolve(__dirname, 'src/renderer/settings.html'),
-          widget: resolve(__dirname, 'src/renderer/widget.html')
-        }
-      }
+          index: resolve(__dirname, "src/renderer/index.html"),
+          settings: resolve(__dirname, "src/renderer/settings.html"),
+          widget: resolve(__dirname, "src/renderer/widget.html"),
+        },
+      },
     },
-    plugins: [react(), typescriptRuntimeAsset()]
-  }
-})
+    plugins: [react(), typescriptRuntimeAsset()],
+  },
+});

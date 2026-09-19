@@ -55,7 +55,10 @@ export class GroupStore {
 
   list(): GroupDef[] {
     this.init();
-    return this.items.map((item) => ({ ...item, sourceIds: [...item.sourceIds] }));
+    return this.items.map((item) => ({
+      ...item,
+      sourceIds: [...item.sourceIds],
+    }));
   }
 
   get(id: string): GroupDef | undefined {

@@ -1,34 +1,48 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-import { javascript } from '@codemirror/lang-javascript'
-import { syntaxHighlighting } from '@codemirror/language'
-import { EditorState } from '@codemirror/state'
-import { color as oneDarkColor, oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
-import { EditorView, keymap, lineNumbers } from '@codemirror/view'
-import * as prettier from 'prettier/standalone'
-import prettierTypescript from 'prettier/plugins/typescript'
-import prettierEstree from 'prettier/plugins/estree'
-import type * as TS from 'typescript'
-import typescriptScriptUrl from 'virtual:typescript-runtime-url'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+} from "@codemirror/commands";
+import { javascript } from "@codemirror/lang-javascript";
+import { syntaxHighlighting } from "@codemirror/language";
+import { EditorState } from "@codemirror/state";
+import {
+  color as oneDarkColor,
+  oneDarkHighlightStyle,
+} from "@codemirror/theme-one-dark";
+import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import * as prettier from "prettier/standalone";
+import prettierTypescript from "prettier/plugins/typescript";
+import prettierEstree from "prettier/plugins/estree";
+import type * as TS from "typescript";
+import typescriptScriptUrl from "virtual:typescript-runtime-url";
 import {
   createSystem,
   createVirtualTypeScriptEnvironment,
-  type VirtualTypeScriptEnvironment
-} from '@typescript/vfs'
-import { tsAutocomplete, tsFacet, tsHover, tsLinter, tsSync } from '@valtown/codemirror-ts'
+  type VirtualTypeScriptEnvironment,
+} from "@typescript/vfs";
+import {
+  tsAutocomplete,
+  tsFacet,
+  tsHover,
+  tsLinter,
+  tsSync,
+} from "@valtown/codemirror-ts";
 
-type TSModule = typeof TS
+type TSModule = typeof TS;
 
 interface CodeEditorProps {
-  value: string
-  onChange: (value: string) => void
+  value: string;
+  onChange: (value: string) => void;
 }
 
 export interface CodeEditorHandle {
   /** Reformat the buffer in place (Prettier), preserving the cursor. No-op
    *  while the snippet doesn't parse. */
-  format: () => void
+  format: () => void;
 }
 
 /**
@@ -40,19 +54,19 @@ export interface CodeEditorHandle {
  * loading the file untransformed sidesteps that. A `new Function(...)` eval
  * would too, but the app's CSP is `script-src 'self'` with no `unsafe-eval`.
  */
-let typescriptLoadPromise: Promise<TSModule> | null = null
+let typescriptLoadPromise: Promise<TSModule> | null = null;
 
 function loadTypescript(): Promise<TSModule> {
   if (!typescriptLoadPromise) {
     typescriptLoadPromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script')
-      script.src = typescriptScriptUrl
-      script.onload = () => resolve((window as unknown as { ts: TSModule }).ts)
-      script.onerror = () => reject(new Error('Failed to load typescript.js'))
-      document.head.appendChild(script)
-    })
+      const script = document.createElement("script");
+      script.src = typescriptScriptUrl;
+      script.onload = () => resolve((window as unknown as { ts: TSModule }).ts);
+      script.onerror = () => reject(new Error("Failed to load typescript.js"));
+      document.head.appendChild(script);
+    });
   }
-  return typescriptLoadPromise
+  return typescriptLoadPromise;
 }
 
 /**
@@ -64,63 +78,71 @@ function loadTypescript(): Promise<TSModule> {
 // Relative, not `/`-rooted: electron.vite.config.ts sets the renderer's Vite
 // root to `src/renderer`, so a `/`-prefixed glob would resolve against that
 // instead of the real project root and silently match nothing.
-const TS_LIB_SOURCES = import.meta.glob('../../../../node_modules/typescript/lib/lib*.d.ts', {
-  eager: true,
-  query: '?raw',
-  import: 'default'
-}) as Record<string, string>
+const TS_LIB_SOURCES = import.meta.glob(
+  "../../../../node_modules/typescript/lib/lib*.d.ts",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+) as Record<string, string>;
 
-const TS_ENTRY_PATH = 'index.ts'
+const TS_ENTRY_PATH = "index.ts";
 
 // The sandbox `runUserCode` runs Widget snippets in (see
 // src/extensions/widget/main/run-user-code.ts): a bare `new Function('module',
 // 'exports', 'require', code)` call, not a real CommonJS loader. These globals
 // are what's actually in scope there — modeled here so the editor's type
 // checking matches reality instead of flagging `module`/`require` as undefined.
-const SANDBOX_GLOBALS_PATH = 'globals.d.ts'
+const SANDBOX_GLOBALS_PATH = "globals.d.ts";
 const SANDBOX_GLOBALS_SOURCE = `declare const module: { exports: any }
 declare const exports: any
 declare function require(id: string): any
 /** What a Widget's exported function must resolve to — see \`normalize()\` in run-user-code.ts. */
 type Result = { value: string | number | null }
-`
+`;
 
-let tsEnvPromise: Promise<VirtualTypeScriptEnvironment> | null = null
+let tsEnvPromise: Promise<VirtualTypeScriptEnvironment> | null = null;
 
 /** Builds (once, lazily) the shared virtual TypeScript environment powering
  * autocomplete/hover/diagnostics for every CodeEditor instance. */
 function getTsEnv(): Promise<VirtualTypeScriptEnvironment> {
   if (!tsEnvPromise) {
     tsEnvPromise = loadTypescript().then((ts) => {
-      const fsMap = new Map<string, string>()
+      const fsMap = new Map<string, string>();
       for (const [path, content] of Object.entries(TS_LIB_SOURCES)) {
-        fsMap.set('/' + path.slice(path.lastIndexOf('/') + 1), content)
+        fsMap.set("/" + path.slice(path.lastIndexOf("/") + 1), content);
       }
-      fsMap.set(SANDBOX_GLOBALS_PATH, SANDBOX_GLOBALS_SOURCE)
+      fsMap.set(SANDBOX_GLOBALS_PATH, SANDBOX_GLOBALS_SOURCE);
 
       const compilerOptions: TS.CompilerOptions = {
         target: ts.ScriptTarget.ESNext,
         module: ts.ModuleKind.CommonJS,
-        lib: ['ESNext', 'DOM'],
+        lib: ["ESNext", "DOM"],
         esModuleInterop: true,
         skipLibCheck: true,
-        strict: false
-      }
+        strict: false,
+      };
 
-      const system = createSystem(fsMap)
-      return createVirtualTypeScriptEnvironment(system, [SANDBOX_GLOBALS_PATH], ts, compilerOptions)
-    })
+      const system = createSystem(fsMap);
+      return createVirtualTypeScriptEnvironment(
+        system,
+        [SANDBOX_GLOBALS_PATH],
+        ts,
+        compilerOptions,
+      );
+    });
   }
-  return tsEnvPromise
+  return tsEnvPromise;
 }
 
 async function formatCode(source: string): Promise<string> {
   return prettier.format(source, {
-    parser: 'typescript',
+    parser: "typescript",
     plugins: [prettierTypescript, prettierEstree],
     semi: false,
-    singleQuote: true
-  })
+    singleQuote: true,
+  });
 }
 
 /**
@@ -131,21 +153,21 @@ async function formatCode(source: string): Promise<string> {
  * reformatted length.
  */
 async function formatInPlace(view: EditorView): Promise<void> {
-  const current = view.state.doc.toString()
-  let formatted = current
+  const current = view.state.doc.toString();
+  let formatted = current;
   try {
-    formatted = await formatCode(current)
+    formatted = await formatCode(current);
   } catch {
-    return
+    return;
   }
 
-  if (formatted === current) return
+  if (formatted === current) return;
 
-  const cursor = Math.min(view.state.selection.main.head, formatted.length)
+  const cursor = Math.min(view.state.selection.main.head, formatted.length);
   view.dispatch({
     changes: { from: 0, to: view.state.doc.length, insert: formatted },
-    selection: { anchor: cursor }
-  })
+    selection: { anchor: cursor },
+  });
 }
 
 /**
@@ -154,130 +176,144 @@ async function formatInPlace(view: EditorView): Promise<void> {
  * different Widget into the editor) are reconciled via a dispatch rather
  * than a rebuild.
  */
-const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
-  { value, onChange },
-  ref
-) {
-  const host = useRef<HTMLDivElement>(null)
-  const view = useRef<EditorView | null>(null)
-  const onChangeRef = useRef(onChange)
-  const valueRef = useRef(value)
-  onChangeRef.current = onChange
-  valueRef.current = value
+const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
+  function CodeEditor({ value, onChange }, ref) {
+    const host = useRef<HTMLDivElement>(null);
+    const view = useRef<EditorView | null>(null);
+    const onChangeRef = useRef(onChange);
+    const valueRef = useRef(value);
+    onChangeRef.current = onChange;
+    valueRef.current = value;
 
-  useImperativeHandle(ref, () => ({
-    format: () => {
-      if (view.current) void formatInPlace(view.current)
-    }
-  }), [])
+    useImperativeHandle(
+      ref,
+      () => ({
+        format: () => {
+          if (view.current) void formatInPlace(view.current);
+        },
+      }),
+      [],
+    );
 
-  useEffect(() => {
-    let cancelled = false
+    useEffect(() => {
+      let cancelled = false;
 
-    void getTsEnv().then((env) => {
-      if (cancelled || !host.current) return
+      void getTsEnv().then((env) => {
+        if (cancelled || !host.current) return;
 
-      const editor = new EditorView({
-        parent: host.current,
-        state: EditorState.create({
-          doc: valueRef.current,
-          extensions: [
-            lineNumbers(),
-            history(),
-            keymap.of([
-              {
-                key: 'Mod-s',
-                run: (v) => {
-                  void formatInPlace(v)
-                  return true
-                }
-              },
-              indentWithTab,
-              // Mod-Enter (CM's `insertBlankLine`) is left free so the footer
-              // menu's Save shortcut reaches it.
-              ...defaultKeymap.filter((b) => b.key !== 'Mod-Enter'),
-              ...historyKeymap,
-              ...completionKeymap
-            ]),
-            javascript({ typescript: true }),
-            tsFacet.of({ env, path: TS_ENTRY_PATH }),
-            tsSync(),
-            tsLinter(),
-            autocompletion({ override: [tsAutocomplete()] }),
-            tsHover(),
-            // Only One Dark's *syntax* colors — not its editor theme, whose
-            // opaque `#282c34` panel would hide the window's glass. The theme
-            // below supplies transparent surfaces with One Dark's palette.
-            syntaxHighlighting(oneDarkHighlightStyle),
-            EditorView.theme(
-              {
-                '&': {
-                  height: '100%',
-                  fontSize: '13px',
-                  backgroundColor: 'transparent',
-                  color: oneDarkColor.ivory
+        const editor = new EditorView({
+          parent: host.current,
+          state: EditorState.create({
+            doc: valueRef.current,
+            extensions: [
+              lineNumbers(),
+              history(),
+              keymap.of([
+                {
+                  key: "Mod-s",
+                  run: (v) => {
+                    void formatInPlace(v);
+                    return true;
+                  },
                 },
-                '&.cm-focused': { outline: 'none' },
-                '.cm-content': { caretColor: oneDarkColor.cursor },
-                '.cm-cursor, .cm-dropCursor': { borderLeftColor: oneDarkColor.cursor },
-                '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':
-                  { backgroundColor: oneDarkColor.selection },
-                '.cm-scroller': {
-                  overflow: 'auto',
-                  fontFamily: 'ui-monospace, SFMono-Regular, monospace'
+                indentWithTab,
+                // Mod-Enter (CM's `insertBlankLine`) is left free so the footer
+                // menu's Save shortcut reaches it.
+                ...defaultKeymap.filter((b) => b.key !== "Mod-Enter"),
+                ...historyKeymap,
+                ...completionKeymap,
+              ]),
+              javascript({ typescript: true }),
+              tsFacet.of({ env, path: TS_ENTRY_PATH }),
+              tsSync(),
+              tsLinter(),
+              autocompletion({ override: [tsAutocomplete()] }),
+              tsHover(),
+              // Only One Dark's *syntax* colors — not its editor theme, whose
+              // opaque `#282c34` panel would hide the window's glass. The theme
+              // below supplies transparent surfaces with One Dark's palette.
+              syntaxHighlighting(oneDarkHighlightStyle),
+              EditorView.theme(
+                {
+                  "&": {
+                    height: "100%",
+                    fontSize: "13px",
+                    backgroundColor: "transparent",
+                    color: oneDarkColor.ivory,
+                  },
+                  "&.cm-focused": { outline: "none" },
+                  ".cm-content": { caretColor: oneDarkColor.cursor },
+                  ".cm-cursor, .cm-dropCursor": {
+                    borderLeftColor: oneDarkColor.cursor,
+                  },
+                  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
+                    { backgroundColor: oneDarkColor.selection },
+                  ".cm-scroller": {
+                    overflow: "auto",
+                    fontFamily: "ui-monospace, SFMono-Regular, monospace",
+                  },
+                  ".cm-gutters": {
+                    backgroundColor: "transparent",
+                    border: "none",
+                    color: oneDarkColor.stone,
+                  },
+                  // Reserve room for two digits up front so the gutter (and the
+                  // text beside it) doesn't jump when the line count crosses 9→10.
+                  // CM's base rule is `box-sizing: border-box; min-width: 20px;
+                  // padding: 0 3px 0 5px`, which only leaves ~12px for the number
+                  // — not enough for two glyphs at 13px, so the element overflows
+                  // and shifts. Widen the floor to fit 2ch plus that padding.
+                  ".cm-lineNumbers .cm-gutterElement": {
+                    minWidth: "calc(2ch + 10px)",
+                  },
+                  ".cm-activeLine": {
+                    backgroundColor: "rgb(255 255 255 / 4%)",
+                  },
+                  ".cm-activeLineGutter": {
+                    backgroundColor: "rgb(255 255 255 / 4%)",
+                  },
+                  // Popups stay opaque so text over them is readable.
+                  ".cm-tooltip": {
+                    backgroundColor: oneDarkColor.tooltipBackground,
+                    border: "1px solid rgb(255 255 255 / 12%)",
+                  },
+                  ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
+                    backgroundColor: oneDarkColor.selection,
+                    color: oneDarkColor.ivory,
+                  },
                 },
-                '.cm-gutters': {
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: oneDarkColor.stone
-                },
-                // Reserve room for two digits up front so the gutter (and the
-                // text beside it) doesn't jump when the line count crosses 9→10.
-                // CM's base rule is `box-sizing: border-box; min-width: 20px;
-                // padding: 0 3px 0 5px`, which only leaves ~12px for the number
-                // — not enough for two glyphs at 13px, so the element overflows
-                // and shifts. Widen the floor to fit 2ch plus that padding.
-                '.cm-lineNumbers .cm-gutterElement': { minWidth: 'calc(2ch + 10px)' },
-                '.cm-activeLine': { backgroundColor: 'rgb(255 255 255 / 4%)' },
-                '.cm-activeLineGutter': { backgroundColor: 'rgb(255 255 255 / 4%)' },
-                // Popups stay opaque so text over them is readable.
-                '.cm-tooltip': {
-                  backgroundColor: oneDarkColor.tooltipBackground,
-                  border: '1px solid rgb(255 255 255 / 12%)'
-                },
-                '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-                  backgroundColor: oneDarkColor.selection,
-                  color: oneDarkColor.ivory
-                }
-              },
-              { dark: true }
-            ),
-            EditorView.updateListener.of((update) => {
-              if (update.docChanged) onChangeRef.current(update.state.doc.toString())
-            })
-          ]
-        })
-      })
-      view.current = editor
-    })
+                { dark: true },
+              ),
+              EditorView.updateListener.of((update) => {
+                if (update.docChanged)
+                  onChangeRef.current(update.state.doc.toString());
+              }),
+            ],
+          }),
+        });
+        view.current = editor;
+      });
 
-    return () => {
-      cancelled = true
-      view.current?.destroy()
-      view.current = null
-    }
-    // Built once; `value` sync is handled by the effect below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      return () => {
+        cancelled = true;
+        view.current?.destroy();
+        view.current = null;
+      };
+      // Built once; `value` sync is handled by the effect below.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-  useEffect(() => {
-    const editor = view.current
-    if (editor && value !== editor.state.doc.toString()) {
-      editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: value } })
-    }
-  }, [value])
+    useEffect(() => {
+      const editor = view.current;
+      if (editor && value !== editor.state.doc.toString()) {
+        editor.dispatch({
+          changes: { from: 0, to: editor.state.doc.length, insert: value },
+        });
+      }
+    }, [value]);
 
-  return <div ref={host} className="h-full overflow-hidden rounded" />
-})
+    return <div ref={host} className="h-full overflow-hidden rounded" />;
+  },
+);
 
-export default CodeEditor
+export default CodeEditor;

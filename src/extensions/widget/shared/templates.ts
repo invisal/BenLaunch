@@ -81,5 +81,8 @@ export const WIDGET_TEMPLATES: WidgetTemplate[] = [
 ];
 
 export function getWidgetTemplate(id: string | undefined): WidgetTemplate {
-  return WIDGET_TEMPLATES.find((template) => template.id === id) ?? WIDGET_TEMPLATES[0];
+  return (
+    WIDGET_TEMPLATES.find((template) => template.id === id) ??
+    WIDGET_TEMPLATES[0]
+  );
 }
