@@ -13,6 +13,8 @@
 //! plain C API that reports on-screen windows front-to-back by z-order, which is
 //! enough to find "the frontmost real app window" without `NSWorkspace`.
 
+mod dir_size;
+
 use core_foundation_sys::array::{CFArrayGetCount, CFArrayGetValueAtIndex, CFArrayRef};
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease, CFTypeRef};
 use core_foundation_sys::dictionary::{CFDictionaryGetValue, CFDictionaryRef};

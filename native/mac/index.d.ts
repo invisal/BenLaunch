@@ -11,6 +11,30 @@
 export declare function applyWindowRect(pid: number, rect: MacRect): boolean
 
 /**
+ * On-disk size of each directory (or file) in `paths`, in the same order.
+ * Async — the walk of a multi-gigabyte `DerivedData` runs on the libuv
+ * thread pool, so the Electron main process never blocks on it.
+ */
+export declare function dirSize(paths: Array<string>): Promise<Array<DirSize>>
+
+/** One directory's on-disk footprint, as reported by `dir_size()`. */
+export interface DirSize {
+  path: string
+  /**
+   * Bytes actually allocated on disk (`st_blocks * 512`, what `du` and
+   * Finder's "size on disk" report) — not the sum of logical file lengths,
+   * which overstates sparse files and understates block-rounded small ones.
+   */
+  bytes: number
+  fileCount: number
+  /**
+   * Newest modification time among the directory itself and its direct
+   * children, in epoch milliseconds — cheap "last used" signal for the UI.
+   */
+  modifiedMs: number
+}
+
+/**
  * The pid of the frontmost real application window, or `0` if none is found
  * (e.g. every window is a desktop element, or the list is empty). `exclude` is
  * our own pid — the launcher itself can briefly be the frontmost window right as

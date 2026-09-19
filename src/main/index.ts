@@ -13,6 +13,7 @@ import {
 } from "../shared/types";
 import {
   quitProcess,
+  xcodeClean,
   actionAliases,
   actionHotkeys,
   clipboardHistory,
@@ -30,6 +31,7 @@ import {
   settings,
 } from "./actions";
 import { QUIT_PROCESS_CHANNELS } from "@extensions/quit-process/shared/types";
+import { XCODE_CLEAN_CHANNELS } from "@extensions/xcode-clean/shared/types";
 import { CLIPBOARD_HISTORY_CHANNELS } from "@extensions/clipboard-history/shared/types";
 import {
   HOTKEY_CHANNELS,
@@ -231,6 +233,15 @@ app.whenReady().then(() => {
   // renderer having to re-fetch on its own timer.
   quitProcess.onRefresh((rows) => {
     getLauncherWindow()?.webContents.send(QUIT_PROCESS_CHANNELS.updated, rows);
+  });
+
+  // Push each category's sizes to the launcher window as the native scan
+  // finishes them (Clean Xcode), so its list fills in live.
+  xcodeClean.onScan((snapshot) => {
+    getLauncherWindow()?.webContents.send(
+      XCODE_CLEAN_CHANNELS.updated,
+      snapshot,
+    );
   });
 
   // Each extension wires its own `ipcMain` handlers via `registerIpc()`.
