@@ -5,11 +5,11 @@
  *
  * Source: open.er-api.com, 2026-09-03.
  */
-import type { RatesData } from './cache.ts'
+import type { RatesData } from "./cache.ts";
 
 export const RATES_SEED: RatesData = {
-  base: 'USD',
-  asOf: '2026-09-03',
+  base: "USD",
+  asOf: "2026-09-03",
   rates: {
     AED: 3.6725,
     AFN: 65.078774,
@@ -178,4 +178,4 @@ export const RATES_SEED: RatesData = {
     ZWG: 26.7164,
     ZWL: 26.7164,
   },
-}
+};

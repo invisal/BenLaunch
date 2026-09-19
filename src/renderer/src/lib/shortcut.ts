@@ -5,64 +5,64 @@
 
 export function isMac(): boolean {
   const platform =
-    (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData
-      ?.platform ?? navigator.platform
-  return /Mac|iPhone|iPod|iPad/i.test(platform)
+    (navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData?.platform ?? navigator.platform;
+  return /Mac|iPhone|iPod|iPad/i.test(platform);
 }
 
 const MAC_SYMBOLS: Record<string, string> = {
-  commandorcontrol: '⌘',
-  cmdorctrl: '⌘',
-  command: '⌘',
-  cmd: '⌘',
-  control: '⌃',
-  ctrl: '⌃',
-  option: '⌥',
-  alt: '⌥',
-  shift: '⇧',
-  super: '⌘',
-  meta: '⌘',
-  space: 'Space',
-  plus: '+',
-  enter: '⏎',
-  return: '⏎',
-  backspace: '⌫',
-  delete: '⌦',
-  escape: '⎋',
-  esc: '⎋',
-  tab: '⇥',
-  up: '↑',
-  down: '↓',
-  left: '←',
-  right: '→'
-}
+  commandorcontrol: "⌘",
+  cmdorctrl: "⌘",
+  command: "⌘",
+  cmd: "⌘",
+  control: "⌃",
+  ctrl: "⌃",
+  option: "⌥",
+  alt: "⌥",
+  shift: "⇧",
+  super: "⌘",
+  meta: "⌘",
+  space: "Space",
+  plus: "+",
+  enter: "⏎",
+  return: "⏎",
+  backspace: "⌫",
+  delete: "⌦",
+  escape: "⎋",
+  esc: "⎋",
+  tab: "⇥",
+  up: "↑",
+  down: "↓",
+  left: "←",
+  right: "→",
+};
 
 const OTHER_LABELS: Record<string, string> = {
-  commandorcontrol: 'Ctrl',
-  cmdorctrl: 'Ctrl',
-  command: 'Ctrl',
-  cmd: 'Ctrl',
-  control: 'Ctrl',
-  ctrl: 'Ctrl',
-  option: 'Alt',
-  alt: 'Alt',
-  shift: 'Shift',
-  super: 'Super',
-  meta: 'Super',
-  space: 'Space',
-  plus: '+',
-  enter: 'Enter',
-  return: 'Enter',
-  backspace: 'Backspace',
-  delete: 'Delete',
-  escape: 'Esc',
-  esc: 'Esc',
-  tab: 'Tab',
-  up: '↑',
-  down: '↓',
-  left: '←',
-  right: '→'
-}
+  commandorcontrol: "Ctrl",
+  cmdorctrl: "Ctrl",
+  command: "Ctrl",
+  cmd: "Ctrl",
+  control: "Ctrl",
+  ctrl: "Ctrl",
+  option: "Alt",
+  alt: "Alt",
+  shift: "Shift",
+  super: "Super",
+  meta: "Super",
+  space: "Space",
+  plus: "+",
+  enter: "Enter",
+  return: "Enter",
+  backspace: "Backspace",
+  delete: "Delete",
+  escape: "Esc",
+  esc: "Esc",
+  tab: "Tab",
+  up: "↑",
+  down: "↓",
+  left: "←",
+  right: "→",
+};
 
 /**
  * Does this keydown event satisfy an Electron accelerator string
@@ -71,40 +71,40 @@ const OTHER_LABELS: Record<string, string> = {
 export function matchesShortcut(
   accelerator: string,
   event: KeyboardEvent,
-  mac: boolean = isMac()
+  mac: boolean = isMac(),
 ): boolean {
-  let meta = false
-  let ctrl = false
-  let alt = false
-  let shift = false
-  let key: string | null = null
+  let meta = false;
+  let ctrl = false;
+  let alt = false;
+  let shift = false;
+  let key: string | null = null;
 
-  for (const token of accelerator.split('+').filter(Boolean)) {
+  for (const token of accelerator.split("+").filter(Boolean)) {
     switch (token.toLowerCase()) {
-      case 'commandorcontrol':
-      case 'cmdorctrl':
-        if (mac) meta = true
-        else ctrl = true
-        break
-      case 'command':
-      case 'cmd':
-      case 'meta':
-      case 'super':
-        meta = true
-        break
-      case 'control':
-      case 'ctrl':
-        ctrl = true
-        break
-      case 'alt':
-      case 'option':
-        alt = true
-        break
-      case 'shift':
-        shift = true
-        break
+      case "commandorcontrol":
+      case "cmdorctrl":
+        if (mac) meta = true;
+        else ctrl = true;
+        break;
+      case "command":
+      case "cmd":
+      case "meta":
+      case "super":
+        meta = true;
+        break;
+      case "control":
+      case "ctrl":
+        ctrl = true;
+        break;
+      case "alt":
+      case "option":
+        alt = true;
+        break;
+      case "shift":
+        shift = true;
+        break;
       default:
-        key = token.toLowerCase()
+        key = token.toLowerCase();
     }
   }
 
@@ -114,57 +114,57 @@ export function matchesShortcut(
     event.altKey !== alt ||
     event.shiftKey !== shift
   ) {
-    return false
+    return false;
   }
-  if (!key) return true
+  if (!key) return true;
 
   const alias: Record<string, string> = {
-    enter: 'enter',
-    return: 'enter',
-    esc: 'escape',
-    space: ' ',
-    up: 'arrowup',
-    down: 'arrowdown',
-    left: 'arrowleft',
-    right: 'arrowright'
-  }
-  if (event.key.toLowerCase() === (alias[key] ?? key)) return true
+    enter: "enter",
+    return: "enter",
+    esc: "escape",
+    space: " ",
+    up: "arrowup",
+    down: "arrowdown",
+    left: "arrowleft",
+    right: "arrowright",
+  };
+  if (event.key.toLowerCase() === (alias[key] ?? key)) return true;
   // Option/Alt rewrites `event.key` on macOS (Option+R -> "®"), so a letter
   // chord that needs Alt falls back to the physical key.
-  return alt && /^[a-z]$/.test(key) && event.code === `Key${key.toUpperCase()}`
+  return alt && /^[a-z]$/.test(key) && event.code === `Key${key.toUpperCase()}`;
 }
 
 const CODE_TO_KEY: Record<string, string> = {
-  Space: 'Space',
-  ArrowUp: 'Up',
-  ArrowDown: 'Down',
-  ArrowLeft: 'Left',
-  ArrowRight: 'Right',
-  Escape: 'Escape',
-  Tab: 'Tab',
-  Enter: 'Return',
-  NumpadEnter: 'Return',
-  Backspace: 'Backspace',
-  Delete: 'Delete',
-  Comma: ',',
-  Period: '.',
-  Slash: '/',
-  Backslash: '\\',
-  Semicolon: ';',
+  Space: "Space",
+  ArrowUp: "Up",
+  ArrowDown: "Down",
+  ArrowLeft: "Left",
+  ArrowRight: "Right",
+  Escape: "Escape",
+  Tab: "Tab",
+  Enter: "Return",
+  NumpadEnter: "Return",
+  Backspace: "Backspace",
+  Delete: "Delete",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Backslash: "\\",
+  Semicolon: ";",
   Quote: "'",
-  BracketLeft: '[',
-  BracketRight: ']',
-  Minus: '-',
-  Equal: '=',
-  Backquote: '`'
-}
+  BracketLeft: "[",
+  BracketRight: "]",
+  Minus: "-",
+  Equal: "=",
+  Backquote: "`",
+};
 
 /** Physical key (independent of modifiers/layout) for an accelerator, or null if this key has no accelerator equivalent. */
 function keyFromCode(code: string): string | null {
-  if (code.startsWith('Key')) return code.slice(3) // KeyA -> A
-  if (code.startsWith('Digit')) return code.slice(5) // Digit1 -> 1
-  if (/^F([1-9]|1\d|2[0-4])$/.test(code)) return code // F1..F24
-  return CODE_TO_KEY[code] ?? null
+  if (code.startsWith("Key")) return code.slice(3); // KeyA -> A
+  if (code.startsWith("Digit")) return code.slice(5); // Digit1 -> 1
+  if (/^F([1-9]|1\d|2[0-4])$/.test(code)) return code; // F1..F24
+  return CODE_TO_KEY[code] ?? null;
 }
 
 /**
@@ -176,42 +176,45 @@ function keyFromCode(code: string): string | null {
  */
 export function eventToAccelerator(
   event: KeyboardEvent,
-  mac: boolean = isMac()
+  mac: boolean = isMac(),
 ): string | null {
-  const key = keyFromCode(event.code)
-  if (!key) return null
+  const key = keyFromCode(event.code);
+  if (!key) return null;
 
-  const modifiers: string[] = []
+  const modifiers: string[] = [];
   if (mac) {
-    if (event.metaKey) modifiers.push('Command')
-    if (event.ctrlKey) modifiers.push('Control')
-    if (event.altKey) modifiers.push('Option')
+    if (event.metaKey) modifiers.push("Command");
+    if (event.ctrlKey) modifiers.push("Control");
+    if (event.altKey) modifiers.push("Option");
   } else {
-    if (event.ctrlKey) modifiers.push('Ctrl')
-    if (event.altKey) modifiers.push('Alt')
-    if (event.metaKey) modifiers.push('Super')
+    if (event.ctrlKey) modifiers.push("Ctrl");
+    if (event.altKey) modifiers.push("Alt");
+    if (event.metaKey) modifiers.push("Super");
   }
-  if (event.shiftKey) modifiers.push('Shift')
+  if (event.shiftKey) modifiers.push("Shift");
 
-  if (modifiers.length === 0) return null
+  if (modifiers.length === 0) return null;
 
-  return [...modifiers, key].join('+')
+  return [...modifiers, key].join("+");
 }
 
-export function formatShortcut(accelerator: string, mac: boolean = isMac()): string {
-  const map = mac ? MAC_SYMBOLS : OTHER_LABELS
+export function formatShortcut(
+  accelerator: string,
+  mac: boolean = isMac(),
+): string {
+  const map = mac ? MAC_SYMBOLS : OTHER_LABELS;
   const tokens = accelerator
-    .split('+')
+    .split("+")
     .filter(Boolean)
-    .map((token) => map[token.toLowerCase()] ?? token.toUpperCase())
+    .map((token) => map[token.toLowerCase()] ?? token.toUpperCase());
 
-  if (!mac) return tokens.join('+')
+  if (!mac) return tokens.join("+");
 
   // On mac, modifier symbols are conventionally run together with no
   // separator, e.g. "⌘⇧K", but a word like "Space" still needs a gap.
   return tokens.reduce((out, token, i) => {
-    if (i === 0) return token
-    const needsSpace = token.length > 1
-    return out + (needsSpace ? ' ' : '') + token
-  }, '')
+    if (i === 0) return token;
+    const needsSpace = token.length > 1;
+    return out + (needsSpace ? " " : "") + token;
+  }, "");
 }

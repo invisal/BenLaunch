@@ -67,18 +67,17 @@ test("expandDynamic fills clipboard, uuid, date and time", () => {
   assert.equal(expandDynamic("https://x.com/plain", {}), "https://x.com/plain");
 });
 
-test("parseArgument returns the text after the keyword", () => {
-  const ql = { keyword: "g" };
-  assert.equal(parseArgument("g hello world", ql), "hello world");
-  assert.equal(parseArgument("  G   Hello  ", ql), "Hello");
-  assert.equal(parseArgument("g", ql), "");
-  assert.equal(parseArgument("google", ql), "");
+test("parseArgument returns the text after the alias", () => {
+  assert.equal(parseArgument("g hello world", "g"), "hello world");
+  assert.equal(parseArgument("  G   Hello  ", "g"), "Hello");
+  assert.equal(parseArgument("g", "g"), "");
+  assert.equal(parseArgument("google", "g"), "");
   assert.equal(
-    parseArgument("gh repo", ql),
+    parseArgument("gh repo", "g"),
     "",
-    "a different keyword is not a match",
+    "a different alias is not a match",
   );
-  assert.equal(parseArgument("anything", {}), "");
+  assert.equal(parseArgument("anything", undefined), "");
 });
 
 test("resolveLink url-encodes the argument into the placeholder", () => {
@@ -158,11 +157,11 @@ test("sanitize drops malformed entries and duplicate ids", () => {
     { id: "b", name: "B" },
     { id: "", name: "empty id", link: "https://c.com" },
     "nonsense",
-    { id: "d", name: "D", link: "https://d.com", keyword: "d", icon: "🔗" },
+    { id: "d", name: "D", link: "https://d.com", icon: "🔗" },
   ]);
   assert.deepEqual(clean, [
     { id: "a", name: "A", link: "https://a.com" },
-    { id: "d", name: "D", link: "https://d.com", keyword: "d", icon: "🔗" },
+    { id: "d", name: "D", link: "https://d.com", icon: "🔗" },
   ]);
 });
 
@@ -212,10 +211,6 @@ test("validateDraft catches the form-checkable problems", () => {
     validateDraft({ name: "", link: "https://x.com" }) ?? "",
     /name/i,
   );
-  assert.match(
-    validateDraft({ name: "X", link: "https://x.com", keyword: "a b" }) ?? "",
-    /space/i,
-  );
 });
 
 test("add() appends a normalized entry with a unique generated id", () => {
@@ -239,7 +234,6 @@ test("add() appends a normalized entry with a unique generated id", () => {
   const second = store.add({
     name: "Hacker News",
     link: "https://hn.example",
-    keyword: "hn",
   });
   assert.equal(
     second.id,
@@ -308,13 +302,11 @@ test("update() replaces fields but keeps the id, flags and createdAt", () => {
   const updated = store.update("docs", {
     name: "Docs v2",
     link: "docs.example.org",
-    keyword: "d",
   });
   assert.deepEqual(updated, {
     id: "docs",
     name: "Docs v2",
     link: "https://docs.example.org",
-    keyword: "d",
     pinned: true,
     hidden: true,
     createdAt: 5,

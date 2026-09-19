@@ -57,7 +57,11 @@ interface Ranked {
  * "2026", "localhost:3000") precise — which is the whole point of being able
  * to search links at all.
  */
-function rank(items: QuicklinkEntry[], query: string): Ranked[] {
+function rank(
+  items: QuicklinkEntry[],
+  query: string,
+  aliases: Record<string, string>,
+): Ranked[] {
   const trimmed = query.trim();
   if (!trimmed) {
     // No query: pinned first, then whatever the user actually opens, then
@@ -79,7 +83,7 @@ function rank(items: QuicklinkEntry[], query: string): Ranked[] {
   for (const entry of items) {
     const { match, score } = matchAction(trimmed, {
       title: entry.name,
-      keyword: entry.keyword,
+      keyword: aliases[`ql:${entry.id}`],
       tags: entry.tags,
     });
 
@@ -135,6 +139,10 @@ function SearchQuicklinksScreen({
 }) {
   const [items, setItems] = useState<QuicklinkEntry[] | null>(null);
   const [apps, setApps] = useState<OpenWithApp[]>([]);
+  /** actionId -> alias, from the generic per-action alias store (set via the
+   *  launcher's own Ctrl+K menu — quicklinks have no alias field of their
+   *  own) — for ranking against and showing in the detail pane. */
+  const [aliases, setAliases] = useState<Record<string, string>>({});
   /** The tag the list is narrowed to, or `null` for the whole collection. */
   const [tag, setTag] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -164,6 +172,16 @@ function SearchQuicklinksScreen({
     };
   }, []);
 
+  useEffect(() => {
+    let live = true;
+    void window.api.actionAliases.list().then((list) => {
+      if (live) setAliases(list);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   /** Every tag in use, for the filter menu. */
   const tags = useMemo(() => {
     const seen = new Set<string>();
@@ -184,8 +202,8 @@ function SearchQuicklinksScreen({
     if (items == null) return null;
     const scoped =
       tag === null ? items : items.filter((ql) => ql.tags?.includes(tag));
-    return rank(scoped, query);
-  }, [items, tag, query]);
+    return rank(scoped, query, aliases);
+  }, [items, tag, query, aliases]);
 
   function open(ql: QuicklinkEntry): void {
     // No argument: a `{query}` link opens its origin rather than searching for
@@ -256,7 +274,13 @@ function SearchQuicklinksScreen({
       )}
       onActivate={(row) => open(row.entry)}
       menu={menu}
-      detail={(row) => <QuicklinkDetail entry={row?.entry ?? null} now={now} />}
+      detail={(row) => (
+        <QuicklinkDetail
+          entry={row?.entry ?? null}
+          alias={row ? aliases[`ql:${row.entry.id}`] : undefined}
+          now={now}
+        />
+      )}
       customFooter={({ inputRef }) => (
         <>
           <Footer.Label>

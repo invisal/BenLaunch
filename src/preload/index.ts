@@ -13,6 +13,7 @@ import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload
 import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
 import { groupApi } from "@extensions/group/ipc/preload";
 import { actionHotkeysApi } from "@extensions/hotkey/ipc/preload";
+import { actionAliasesApi } from "@extensions/alias/ipc/preload";
 import { quicklinkApi } from "@extensions/quicklink/ipc/preload";
 import { widgetApi } from "@extensions/widget/ipc/preload";
 import { windowApi } from "@extensions/window/ipc/preload";
@@ -88,6 +89,8 @@ const api = {
 
   /** Experimental native (NSPanel) Actions menu ↔ main. macOS only. */
   actionsPanel: actionsPanelApi,
+  /** Per-action aliases (Ctrl+K menu's "Alias" row) ↔ main. */
+  actionAliases: actionAliasesApi,
 };
 
 contextBridge.exposeInMainWorld("api", api);

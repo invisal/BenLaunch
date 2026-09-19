@@ -1,5 +1,6 @@
 import type { LauncherAction } from "@shared/types";
 import { calculatorHistoryContextMenu } from "@extensions/calculator-history/renderer/context-menu";
+import { aliasContextMenu } from "@extensions/alias/renderer/context-menu";
 import { hotkeyContextMenu } from "@extensions/hotkey/renderer/context-menu";
 import { quicklinkContextMenu } from "@extensions/quicklink/renderer/context-menu";
 import { widgetContextMenu } from "@extensions/widget/renderer/context-menu";
@@ -37,6 +38,8 @@ const contributors: ContextMenuContributor[] = [
   // Last: appends "Set Hotkey…" / "Remove Hotkey" to whatever primary block
   // and augments above already assembled, for every action type.
   hotkeyContextMenu,
+  // Same treatment for "Alias" — every action type, quicklinks included.
+  aliasContextMenu,
 ];
 
 /** Assemble the Ctrl+K menu for the highlighted action: `[...firstPrimary, ...allAugments]`. */

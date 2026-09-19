@@ -42,7 +42,6 @@ interface FormState {
   name: string;
   /** The name field has been typed in — stop deriving it from the link. */
   nameEdited: boolean;
-  keyword: string;
   /** The user's own icon — emoji or URL. Empty means "derive it from the link". */
   icon: string;
   /** The icon field has been set explicitly — stop deriving it from the link. */
@@ -165,7 +164,6 @@ function CreateQuicklink({
     link: seed && looksLikeLink(seed.trim()) ? seed.trim() : "",
     name: "",
     nameEdited: false,
-    keyword: "",
     icon: "",
     iconEdited: false,
     fetchedIcon: "",
@@ -203,7 +201,6 @@ function CreateQuicklink({
           d.link = ql.link;
           d.name = duplicateId ? `${ql.name} Copy` : ql.name;
           d.nameEdited = true;
-          d.keyword = ql.keyword ?? "";
           d.icon = ql.icon ?? "";
           d.iconEdited = true;
           d.openWith = ql.openWith ?? "";
@@ -313,7 +310,6 @@ function CreateQuicklink({
     return {
       link: state.link.trim(),
       name: (effectiveName || "").trim(),
-      keyword: state.keyword.trim() || undefined,
       icon: effectiveIcon.trim() || undefined,
       openWith: state.openWith || undefined,
       tags: allTags.length ? allTags : undefined,
@@ -459,20 +455,6 @@ function CreateQuicklink({
                     </Popover.Portal>
                   </Popover.Root>
                 </div>
-              </Form.Field>
-
-              <Form.Field label="Alias">
-                <Form.Input
-                  value={state.keyword}
-                  onChange={(e) =>
-                    setState((d) => {
-                      d.keyword = e.target.value;
-                    })
-                  }
-                  placeholder="Optional — e.g. g"
-                  spellCheck={false}
-                  className={inputPadding}
-                />
               </Form.Field>
 
               <Form.Field label="Open With">

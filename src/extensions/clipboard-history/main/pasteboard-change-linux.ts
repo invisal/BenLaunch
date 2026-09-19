@@ -38,14 +38,16 @@ function loadNative(): NativeLinux | null {
  * function it returns stops that watcher.
  */
 export function pasteboardChangeEvent():
-  | ((onChange: () => void) => () => void)
-  | undefined {
+  ((onChange: () => void) => () => void) | undefined {
   const linux = loadNative();
   if (!linux) return undefined;
   return (onChange) => {
     const watcher = linux.startClipboardWatcher((error) => {
       if (error) {
-        console.error("[clipboard-history] startClipboardWatcher callback error:", error);
+        console.error(
+          "[clipboard-history] startClipboardWatcher callback error:",
+          error,
+        );
         return;
       }
       onChange();

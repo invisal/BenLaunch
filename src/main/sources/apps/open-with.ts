@@ -11,38 +11,42 @@
  * (which also covers registry-only browsers). The whole list is built once per
  * session.
  */
-import { app } from 'electron'
-import type { OpenWithApp } from '@extensions/quicklink/shared/types.ts'
-import { listBrowsers } from '../../native'
-import { readAppsCache } from './cache'
+import { app } from "electron";
+import type { OpenWithApp } from "@extensions/quicklink/shared/types.ts";
+import { listBrowsers } from "../../native";
+import { readAppsCache } from "./cache";
 
-let cache: OpenWithApp[] | null = null
-let inFlight: Promise<OpenWithApp[]> | null = null
+let cache: OpenWithApp[] | null = null;
+let inFlight: Promise<OpenWithApp[]> | null = null;
 
 export function listOpenWithApps(): Promise<OpenWithApp[]> {
-  if (cache) return Promise.resolve(cache)
-  if (!inFlight) inFlight = build().finally(() => (inFlight = null))
-  return inFlight
+  if (cache) return Promise.resolve(cache);
+  if (!inFlight) inFlight = build().finally(() => (inFlight = null));
+  return inFlight;
 }
 
 async function build(): Promise<OpenWithApp[]> {
-  const [browsers, appsCache] = await Promise.all([listBrowsers(), readAppsCache()])
+  const [browsers, appsCache] = await Promise.all([
+    listBrowsers(),
+    readAppsCache(),
+  ]);
 
-  const byPath = new Map<string, OpenWithApp>()
+  const byPath = new Map<string, OpenWithApp>();
   const add = (name: string, path: string, icon?: string): void => {
-    const key = path.toLowerCase()
-    const existing = byPath.get(key)
-    if (!existing) byPath.set(key, { name, path, ...(icon ? { icon } : {}) })
-    else if (icon && !existing.icon) existing.icon = icon
-  }
+    const key = path.toLowerCase();
+    const existing = byPath.get(key);
+    if (!existing) byPath.set(key, { name, path, ...(icon ? { icon } : {}) });
+    else if (icon && !existing.icon) existing.icon = icon;
+  };
 
-  for (const browser of browsers) add(browser.name, browser.path)
+  for (const browser of browsers) add(browser.name, browser.path);
   for (const shortcut of appsCache?.shortcuts ?? []) {
     // Windows: only shortcuts whose `.lnk` resolves to an `.exe` are launchable
     // with an argument. macOS: every `.app` bundle's own path is the target —
     // there's no separate shortcut-vs-resolved-target distinction.
-    const launchPath = process.platform === 'win32' ? shortcut.target : shortcut.path
-    if (launchPath) add(shortcut.title, launchPath, shortcut.icon)
+    const launchPath =
+      process.platform === "win32" ? shortcut.target : shortcut.path;
+    if (launchPath) add(shortcut.title, launchPath, shortcut.icon);
   }
 
   // Fill in any missing icons straight from the executable (browsers, mostly).
@@ -51,18 +55,20 @@ async function build(): Promise<OpenWithApp[]> {
       .filter((entry) => !entry.icon)
       .map(async (entry) => {
         try {
-          const image = await app.getFileIcon(entry.path, { size: 'normal' })
-          if (!image.isEmpty()) entry.icon = image.toDataURL()
+          const image = await app.getFileIcon(entry.path, { size: "normal" });
+          if (!image.isEmpty()) entry.icon = image.toDataURL();
         } catch {
           /* leave it iconless */
         }
-      })
-  )
+      }),
+  );
 
-  const list = [...byPath.values()].sort((a, b) => a.name.localeCompare(b.name))
+  const list = [...byPath.values()].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
   // Only lock in the result once the Start-Menu list was actually available;
   // otherwise a call made before the apps worker finished would pin a
   // browsers-only list for the whole session.
-  if (appsCache) cache = list
-  return list
+  if (appsCache) cache = list;
+  return list;
 }

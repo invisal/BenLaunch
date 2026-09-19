@@ -18,7 +18,8 @@ interface AppPickerProps {
   defaultLabel: string;
 }
 
-const isImageIcon = (icon: string): boolean => /^(https?:|data:|file:)/.test(icon);
+const isImageIcon = (icon: string): boolean =>
+  /^(https?:|data:|file:)/.test(icon);
 
 /** Fallback for an app with no icon (the "Default browser" entry). */
 function GlobeIcon() {
@@ -106,7 +107,11 @@ function AppPicker({ apps, value, onChange, defaultLabel }: AppPickerProps) {
   const items = useMemo<AppOption[]>(
     () => [
       { value: "", label: defaultLabel },
-      ...apps.map((app) => ({ value: app.path, label: app.name, icon: app.icon })),
+      ...apps.map((app) => ({
+        value: app.path,
+        label: app.name,
+        icon: app.icon,
+      })),
     ],
     [apps, defaultLabel],
   );
@@ -135,7 +140,11 @@ function AppPicker({ apps, value, onChange, defaultLabel }: AppPickerProps) {
       </Combobox.Trigger>
 
       <Combobox.Portal>
-        <Combobox.Positioner sideOffset={6} collisionPadding={10} className="z-50">
+        <Combobox.Positioner
+          sideOffset={6}
+          collisionPadding={10}
+          className="z-50"
+        >
           <Combobox.Popup
             className={cn(
               "flex max-h-[min(18rem,var(--available-height))] w-[var(--anchor-width)] flex-col overflow-hidden",

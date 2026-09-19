@@ -46,6 +46,8 @@ function ItemIcon({ icon, fallback }: { icon?: string; fallback: string }) {
 interface SearchItemProps extends ComponentPropsWithRef<"div"> {
   action: LauncherAction;
   highlighted: boolean;
+  /** The global hotkey bound to this action, if any — see `@extensions/hotkey`. Shown next to the title regardless of highlight state. */
+  boundAccelerator?: string;
   /**
    * Bumping this (to any new number) tells this row to force-refresh its
    * subtitle right now, bypassing whatever staleness cache the source uses —
@@ -70,6 +72,7 @@ function Spinner() {
 function SearchItem({
   action,
   highlighted,
+  boundAccelerator,
   className,
   forceRefreshToken,
   ...rest
@@ -136,6 +139,14 @@ function SearchItem({
       <ItemIcon icon={icon} fallback={type === "quicklink" ? "🔗" : "?"} />
       <div className="flex min-w-0 flex-1 items-baseline gap-2">
         <span className="shrink-0 truncate">{title}</span>
+        {boundAccelerator && (
+          <kbd
+            title="Global hotkey"
+            className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle"
+          >
+            {formatShortcut(boundAccelerator)}
+          </kbd>
+        )}
         {shortcut && highlighted ? (
           <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 font-sans text-xs text-foreground-subtle">
             {formatShortcut(shortcut)}

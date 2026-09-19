@@ -31,8 +31,7 @@ export interface WidgetDraft {
 
 /** One-shot run result, for the editor's "Test" button. */
 export type WidgetTestResult =
-  | { ok: true; value: string | number | null }
-  | { ok: false; error: string };
+  { ok: true; value: string | number | null } | { ok: false; error: string };
 
 /** IPC channels for the Widget manager window ↔ main. */
 export const WIDGET_CHANNELS = {
