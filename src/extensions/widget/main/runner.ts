@@ -160,8 +160,8 @@ export class WidgetRunner {
     try {
       const result = await this.runCode(code, RUN_TIMEOUT_MS);
       return result.ok
-        ? { ok: true, value: result.value }
-        : { ok: false, error: result.error };
+        ? { ok: true, value: result.value, logs: result.logs }
+        : { ok: false, error: result.error, logs: result.logs };
     } catch (error) {
       return { ok: false, error: toMessage(error) };
     }

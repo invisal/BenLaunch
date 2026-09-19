@@ -30,8 +30,13 @@ export interface WidgetDraft {
 }
 
 /** One-shot run result, for the editor's "Test" button. */
-export type WidgetTestResult =
-  { ok: true; value: string | number | null } | { ok: false; error: string };
+export type WidgetTestResult = (
+  | { ok: true; value: string | number | null }
+  | { ok: false; error: string }
+) & {
+  /** `console.*` output from the run, in order. Absent when nothing was logged. */
+  logs?: string[];
+};
 
 /** IPC channels for the Widget manager window ↔ main. */
 export const WIDGET_CHANNELS = {

@@ -38,12 +38,19 @@ const CLOUDFLARE_API_TOKEN = "YOUR_CLOUDFLARE_API_TOKEN"
 const CLOUDFLARE_ACCOUNT_ID = "YOUR_CLOUDFLARE_ACCOUNT_ID"
 
 module.exports = async function (): Promise<Result> {
+  // No from/to: Cloudflare returns the current billing period, which follows your
+  // subscription's billing-cycle anchor day (not necessarily the 1st of the month).
   const res = await fetch(
     \`https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/billable-usage\`,
     { headers: { Authorization: \`Bearer \${CLOUDFLARE_API_TOKEN}\` } }
   )
-  const data = (await res.json()) as { result: { CumulatedContractedCost: number }[] }
-  const total = data.result.reduce((sum, item) => sum + item.CumulatedContractedCost, 0)
+  const text = await res.text()
+  if (!res.ok) throw new Error(\`Cloudflare \${res.status}: \${text.slice(0, 200)}\`)
+
+  // Each row is one product for one charge period; ContractedCost is that row's own cost.
+  const data = JSON.parse(text) as { result: { ContractedCost: number }[] }
+  const total = data.result.reduce((sum, item) => sum + item.ContractedCost, 0)
+  console.log(\`\${data.result.length} rows\`)
   return { value: \`$\${total.toFixed(2)}\` }
 }
 `;

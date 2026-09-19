@@ -13,16 +13,47 @@
  * `enum` / `namespace` / parameter properties are not supported.
  */
 import { createRequire, stripTypeScriptTypes } from "node:module";
+import { format } from "node:util";
 
-export interface UserCodeOk {
+/** Lines the snippet wrote via `console.*`, in order, prefixed with the level when not `log`. */
+export interface UserCodeLogs {
+  logs?: string[];
+}
+export interface UserCodeOk extends UserCodeLogs {
   ok: true;
   value: string | number | null;
 }
-export interface UserCodeErr {
+export interface UserCodeErr extends UserCodeLogs {
   ok: false;
   error: string;
 }
 export type UserCodeResult = UserCodeOk | UserCodeErr;
+
+const MAX_LOG_LINES = 500;
+
+/**
+ * A `console` stand-in that records instead of printing (the worker's stdout
+ * carries the JSON result, so real console output would corrupt it). `format`
+ * gives Node's `console.log` semantics: `%s`-style specifiers, and objects are
+ * `inspect`ed rather than printed as `[object Object]`.
+ */
+function createCapturingConsole(logs: string[]): Record<string, unknown> {
+  const write =
+    (level: string) =>
+    (...args: unknown[]): void => {
+      if (logs.length >= MAX_LOG_LINES) return;
+      const line = format(...args);
+      logs.push(level === "log" ? line : `[${level}] ${line}`);
+    };
+  return {
+    log: write("log"),
+    info: write("info"),
+    debug: write("debug"),
+    warn: write("warn"),
+    error: write("error"),
+    trace: write("trace"),
+  };
+}
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -33,25 +64,36 @@ export async function runUserCode(
   code: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<UserCodeResult> {
+  const logs: string[] = [];
+  const withLogs = (result: UserCodeResult): UserCodeResult =>
+    logs.length ? { ...result, logs } : result;
+
   try {
     const require = createRequire(import.meta.url);
     const mod: { exports: unknown } = { exports: {} };
     const js = stripTypeScriptTypes(code, { mode: "strip" });
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const wrapper = new Function("module", "exports", "require", js) as (
+    const wrapper = new Function(
+      "module",
+      "exports",
+      "require",
+      "console",
+      js,
+    ) as (
       m: typeof mod,
       e: unknown,
       r: NodeRequire,
+      c: Record<string, unknown>,
     ) => void;
-    wrapper(mod, mod.exports, require);
+    wrapper(mod, mod.exports, require, createCapturingConsole(logs));
 
     const fn = resolveExport(mod.exports);
-    if (!fn) return { ok: false, error: CONTRACT_HINT };
+    if (!fn) return withLogs({ ok: false, error: CONTRACT_HINT });
 
     const returned = await withTimeout(Promise.resolve(fn()), timeoutMs);
-    return normalize(returned);
+    return withLogs(normalize(returned));
   } catch (error) {
-    return { ok: false, error: toMessage(error) };
+    return withLogs({ ok: false, error: toMessage(error) });
   }
 }
 

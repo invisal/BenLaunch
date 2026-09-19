@@ -95,8 +95,11 @@ function CodeScreen({ id }: { id: string }) {
         </Breadcrumb>
       </WindowFrame.Title>
 
-      <Layout.Content className="overflow-hidden p-2">
-        <CodeEditor ref={editor} value={code} onChange={setCode} />
+      <Layout.Content className="flex flex-col gap-2 overflow-hidden p-2">
+        <div className="min-h-0 flex-1">
+          <CodeEditor ref={editor} value={code} onChange={setCode} />
+        </div>
+        <TestOutput result={test} />
       </Layout.Content>
 
       <Layout.Footer>
@@ -154,6 +157,30 @@ function TestResult({
         ? `→ ${result.value === null ? "—" : result.value}`
         : `⚠ ${result.error}`}
     </Layout.Footer.Label>
+  );
+}
+
+/**
+ * Full output of the last test run — the `console.*` lines plus the complete
+ * error message, which the footer label truncates to one line.
+ */
+function TestOutput({
+  result,
+}: {
+  result: WidgetTestResult | "running" | null;
+}) {
+  if (!result || result === "running") return null;
+  const lines = result.logs ?? [];
+  if (lines.length === 0 && result.ok) return null;
+  return (
+    <pre className="max-h-48 shrink-0 select-text overflow-auto rounded-md border border-border p-2 font-mono text-xs whitespace-pre-wrap text-foreground-subtle">
+      {lines.join("\n")}
+      {!result.ok && (
+        <span className="text-foreground">
+          {lines.length ? "\n" : ""}⚠ {result.error}
+        </span>
+      )}
+    </pre>
   );
 }
 

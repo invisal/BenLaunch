@@ -67,3 +67,25 @@ test("times out a slow function", async () => {
   assert.equal(result.ok, false);
   assert.match((result as { error: string }).error, /timed out/);
 });
+
+test("captures console output, inspecting objects", async () => {
+  const result = await runUserCode(
+    "module.exports = async () => {\n" +
+      "  console.log('status', 200, { a: [1, 2] })\n" +
+      "  console.warn('careful')\n" +
+      "  return { value: 1 }\n" +
+      "}",
+  );
+  assert.deepEqual(result, {
+    ok: true,
+    value: 1,
+    logs: ["status 200 { a: [ 1, 2 ] }", "[warn] careful"],
+  });
+});
+
+test("keeps console output when the function throws", async () => {
+  const result = await runUserCode(
+    "module.exports = async () => { console.log('before'); throw new Error('boom') }",
+  );
+  assert.deepEqual(result, { ok: false, error: "boom", logs: ["before"] });
+});
