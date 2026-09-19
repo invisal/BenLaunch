@@ -700,6 +700,7 @@ if (!nativeBinding) {
 
 module.exports = nativeBinding
 module.exports.applyWindowRect = nativeBinding.applyWindowRect
+module.exports.dirSize = nativeBinding.dirSize
 module.exports.frontmostPid = nativeBinding.frontmostPid
 module.exports.getWindowRect = nativeBinding.getWindowRect
 module.exports.isFullscreen = nativeBinding.isFullscreen

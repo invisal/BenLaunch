@@ -29,6 +29,7 @@ import { configureActionResolver, configureExtensions } from "@core/base";
 import { GroupExtension } from "@extensions/group";
 import type { ActionDefinition } from "./types";
 import { QuitProcessExtension } from "@extensions/quit-process";
+import { XcodeCleanExtension } from "@extensions/xcode-clean";
 import { CalculatorHistoryExtension } from "@extensions/calculator-history";
 import { ClipboardHistoryExtension } from "@extensions/clipboard-history";
 import { ExtensionStorage } from "@core/storage";
@@ -82,6 +83,13 @@ export const clipboardHistory = new ClipboardHistoryExtension();
  * window.
  */
 export const quitProcess = new QuitProcessExtension();
+
+/**
+ * The Clean Xcode extension (macOS only). Scans nothing until its screen
+ * asks; wires its scan/clean IPC via `registerIpc()`. Exposed so `index.ts`
+ * can forward its per-category size updates to the launcher window.
+ */
+export const xcodeClean = new XcodeCleanExtension();
 
 /** Live crypto prices for the calculator — a data feed like `ExchangeRateSource`, gated by a setting. */
 const cryptoPriceSource = new CryptoPriceSource();
@@ -158,6 +166,7 @@ const sources: ActionSource[] = [
   calculatorHistory,
   clipboardHistory,
   quitProcess,
+  xcodeClean,
   quicklinkSource,
   new InstalledAppSource(),
   new ExchangeRateSource(),

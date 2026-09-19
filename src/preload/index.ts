@@ -9,6 +9,7 @@ import {
   type UpdateStatus,
 } from "../shared/types";
 import { quitProcessApi } from "@extensions/quit-process/ipc/preload";
+import { xcodeCleanApi } from "@extensions/xcode-clean/ipc/preload";
 import { calculatorHistoryApi } from "@extensions/calculator-history/ipc/preload";
 import { clipboardHistoryApi } from "@extensions/clipboard-history/ipc/preload";
 import { groupApi } from "@extensions/group/ipc/preload";
@@ -91,6 +92,9 @@ const api = {
 
   /** Activity Monitor (list, start/stop polling, kill) ↔ main. */
   quitProcess: quitProcessApi,
+
+  /** Clean Xcode (scan, clean, reveal) ↔ main. */
+  xcodeClean: xcodeCleanApi,
 
   /** Quicklinks: the Create/Edit/Duplicate form and the Ctrl+K menu ↔ main. */
   quicklink: quicklinkApi,
