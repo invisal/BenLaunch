@@ -502,6 +502,7 @@ function LauncherScreen() {
           <SearchItem
             action={row.action}
             highlighted={highlighted}
+            boundAccelerator={actionHotkeys[row.action.id]?.accelerator}
             forceRefreshToken={
               forceRefresh?.id === row.action.id
                 ? forceRefresh.token
