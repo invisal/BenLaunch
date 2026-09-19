@@ -144,7 +144,21 @@ export interface HotkeySetResult {
   hotkey: string;
 }
 
+/** Auto-update state, pushed main -> launcher. */
+export type UpdateStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available"; version: string }
+  | { state: "downloading"; version: string; percent: number }
+  | { state: "ready"; version: string }
+  | { state: "error"; message: string };
+
 export const IPC_CHANNELS = {
+  updateGet: "update:get",
+  updateCheck: "update:check",
+  /** Downloads the update, then quits and installs. */
+  updateInstall: "update:install",
+  updateStatus: "update:status",
   query: "launcher:query",
   execute: "launcher:execute",
   hide: "launcher:hide",

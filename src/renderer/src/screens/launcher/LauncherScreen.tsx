@@ -5,6 +5,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import { VersionStatus } from "./components/VersionStatus";
 import type { OpenWithApp } from "@extensions/quicklink/shared/types";
 import type { ActionHotkeyBinding } from "@extensions/hotkey/shared/types";
 import type { Calculation, LauncherAction } from "../../../../shared/types";
@@ -472,9 +473,7 @@ function LauncherScreen() {
       menu={buildMenuActions}
       customFooter={
         <>
-          <Footer.Label>
-            {results.length} result{results.length === 1 ? "" : "s"}
-          </Footer.Label>
+          <VersionStatus />
           <Footer.Button
             active={pinned}
             onClick={() => void togglePin()}

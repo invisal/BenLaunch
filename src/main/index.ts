@@ -1,3 +1,4 @@
+import { registerUpdater } from "./updater";
 import {
   app,
   BrowserWindow,
@@ -292,6 +293,8 @@ app.whenReady().then(() => {
     pinned = !pinned;
     return pinned;
   });
+
+  registerUpdater(getLauncherWindow);
 
   ensureToggleShortcutRegistered();
 
