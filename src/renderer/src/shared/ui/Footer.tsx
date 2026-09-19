@@ -597,6 +597,9 @@ function Menu({
       onValueChange={setSearch}
       itemToStringValue={(item) => item.label}
       autoHighlight="always"
+      // Without this, the pointer leaving the list clears the highlight and
+      // `autoHighlight="always"` snaps it to the first row.
+      keepHighlight
     >
       {!anchor && (
         <Autocomplete.Trigger
