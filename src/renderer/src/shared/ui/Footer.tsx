@@ -505,7 +505,6 @@ function Menu({
   useEffect(() => {
     const targetKey = pendingHighlightKeyRef.current;
     if (!targetKey) return;
-    pendingHighlightKeyRef.current = null;
 
     const targetIndex = activeItems.findIndex(
       (item) => (item.id ?? item.label) === targetKey,
@@ -514,6 +513,13 @@ function Menu({
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
+        // Only cleared once the work below actually runs — not up front.
+        // An incidental re-render (e.g. `refreshActionHotkeys`'s IPC round
+        // trip resolving) between this effect scheduling its rAFs and them
+        // firing tears this effect down early (the cleanup below cancels
+        // them); clearing the ref up front would then lose the highlight
+        // request entirely instead of the rerun picking it back up.
+        pendingHighlightKeyRef.current = null;
         const input = inputRef.current;
         if (!input) return;
         // A `panel` step unmounts this input while it's shown (see

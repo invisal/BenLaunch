@@ -1,4 +1,4 @@
-import type { LauncherAction, LauncherActionType } from "@shared/types";
+import type { LauncherAction } from "@shared/types";
 import type { OpenWithApp } from "@extensions/quicklink/shared/types";
 import type { ActionHotkeyBinding } from "@extensions/hotkey/shared/types";
 import type { FooterMenuItem } from "@renderer/shared/ui";
@@ -31,16 +31,8 @@ export interface ContextMenuContext {
   apps: OpenWithApp[];
   /** actionId -> binding, for every action with a global hotkey right now. */
   actionHotkeys: Record<string, ActionHotkeyBinding>;
-  /** Re-fetch `actionHotkeys` after a bind/remove — see `renderer/context-menu.ts` in `@extensions/hotkey`. */
+  /** Re-fetch `actionHotkeys` after the Hotkey panel closes or a removal. */
   refreshActionHotkeys(): void;
-  /** The action currently capturing a hotkey keypress ("Click to Bind" selected), or null. */
-  recordingHotkeyFor: string | null;
-  /** The combo captured so far for `recordingHotkeyFor`, awaiting Enter to confirm or Esc to drop. */
-  pendingHotkeyAccelerator: string | null;
-  /** Start capturing a hotkey for `actionId` — the "Hotkey" submenu's Bind row. */
-  startRecordingHotkey(actionId: string, type: LauncherActionType): void;
-  /** The last failed bind attempt, if its submenu is still open. */
-  hotkeyBindError: { actionId: string; message: string } | null;
   /** actionId -> alias, for every action with one right now, quicklinks included. */
   actionAliases: Record<string, string>;
   /** Re-fetch `actionAliases` after the Alias panel closes. */

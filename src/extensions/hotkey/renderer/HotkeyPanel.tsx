@@ -1,0 +1,150 @@
+import { useEffect, useRef, useState } from "react";
+import { Footer } from "@renderer/shared/ui";
+import { eventToAccelerator, formatShortcut } from "@renderer/lib/shortcut";
+import type { LauncherActionType } from "@shared/types";
+
+interface HotkeyPanelProps {
+  actionId: string;
+  actionType: LauncherActionType;
+  title: string;
+  icon?: string;
+  /** The accelerator already bound to this action, if any. */
+  current?: string;
+  onClose: () => void;
+}
+
+/**
+ * The content of the "Set/Change Hotkey" row's `panel` (see `renderer/context-menu.tsx`)
+ * — captures the next key combo directly, rather than a text input. The
+ * window-level capture-phase listener is set up once per mount (`pending`,
+ * `saving` and `onClose` are read from refs inside it, not closed over
+ * directly) so a parent re-render handing this a new-but-equivalent `onClose`
+ * closure — which happens on every unrelated `LauncherScreen` render while
+ * this panel is open — never tears down and re-adds the listener; doing that
+ * on a `window`-level capture listener risked a keystroke slipping through
+ * during the gap. Escape (here or "Cancel") cancels; Enter (here or "Save")
+ * confirms.
+ */
+function HotkeyPanel({
+  actionId,
+  actionType,
+  title,
+  icon,
+  current,
+  onClose,
+}: HotkeyPanelProps) {
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
+  const savingRef = useRef(saving);
+  savingRef.current = saving;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  async function confirm(accelerator: string): Promise<void> {
+    if (savingRef.current) return;
+    setSaving(true);
+    const result = await window.api.actionHotkeys.set(
+      actionId,
+      accelerator,
+      actionType,
+    );
+    if (result.success) {
+      onCloseRef.current();
+    } else {
+      setSaving(false);
+      setPending(null);
+      setError("That shortcut is already in use.");
+    }
+  }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent): void {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat) return;
+
+      if (e.key === "Escape") {
+        onCloseRef.current();
+        return;
+      }
+
+      // Bare Enter (no modifiers) confirms the pending combo — with a
+      // modifier held, `eventToAccelerator` below claims it as a candidate
+      // instead (e.g. binding Cmd+Enter itself is still possible).
+      if (
+        e.key === "Enter" &&
+        pendingRef.current &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.shiftKey
+      ) {
+        void confirm(pendingRef.current);
+        return;
+      }
+
+      const candidate = eventToAccelerator(e);
+      if (!candidate) return;
+      setError(null);
+      setPending(candidate);
+    }
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [actionId, actionType]);
+
+  const isImageIcon = icon && /^(https?:|data:|file:)/.test(icon);
+
+  return (
+    <div className="flex flex-col gap-3 p-3 [-webkit-app-region:no-drag]">
+      <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground-subtle">
+        {icon &&
+          (isImageIcon ? (
+            <img
+              src={icon}
+              alt=""
+              className="h-3.5 w-3.5 shrink-0 object-contain"
+            />
+          ) : (
+            <span className="shrink-0">{icon}</span>
+          ))}
+        <span className="truncate">
+          {current ? "Change Hotkey" : "Set Hotkey"} — {title}
+        </span>
+      </div>
+      <div className="flex flex-col items-center justify-center gap-1.5 rounded border border-border bg-input py-5">
+        <span className="text-lg text-foreground">
+          {pending ? formatShortcut(pending) : "⌘"}
+        </span>
+        <span className="text-xs text-foreground-subtle">
+          {error ?? (pending ? "Press Enter to confirm" : "Press a key combo…")}
+        </span>
+      </div>
+      <Footer>
+        <Footer.Left>
+          <Footer.Button shortcutLabel="Esc" onClick={onClose}>
+            Cancel
+          </Footer.Button>
+        </Footer.Left>
+        <Footer.Right>
+          <Footer.Button
+            variant="primary"
+            shortcut="Enter"
+            loading={saving}
+            loadingLabel="Saving…"
+            disabled={!pending}
+            onClick={() => pending && void confirm(pending)}
+          >
+            Save
+          </Footer.Button>
+        </Footer.Right>
+      </Footer>
+    </div>
+  );
+}
+
+export default HotkeyPanel;
