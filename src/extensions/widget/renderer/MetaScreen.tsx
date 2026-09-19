@@ -3,6 +3,7 @@ import { cn } from "cnfast";
 import { Combobox } from "@base-ui/react/combobox";
 import { Form, Layout } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
+import IconPicker from "./IconPicker";
 import {
   WIDGET_TEMPLATES,
   getWidgetTemplate,
@@ -56,7 +57,7 @@ function ChevronDownIcon({ className }: { className?: string }) {
  * A searchable, theme-matched replacement for a native `<select>` — same
  * building blocks as Quicklink's `AppPicker` ("Open With"). Only meaningful on
  * create: picking a template seeds the code the Widget starts with, plus (for
- * anything but "From Scratch") the Name/Description fields below.
+ * anything but "From Scratch") the Name/Description/Icon fields below.
  */
 function TemplatePicker({
   value,
@@ -162,14 +163,16 @@ function MetaScreen({
   const [template, setTemplate] = useState(() => getWidgetTemplate(undefined));
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [icon, setIcon] = useState("");
   const [exposed, setExposed] = useState(true);
   const [loaded, setLoaded] = useState(isCreate);
   const [busy, setBusy] = useState(false);
 
-  /** Picking a template also seeds Name/Description — "From Scratch" has
+  /** Picking a template also seeds Name/Description/Icon — "From Scratch" has
    *  no real name of its own, so it clears them instead. */
   function pickTemplate(next: WidgetTemplate): void {
     setTemplate(next);
+    setIcon(next.icon ?? "");
     setName(next.id === "blank" ? "" : next.name);
     setDescription(next.id === "blank" ? "" : next.description);
   }
@@ -181,6 +184,7 @@ function MetaScreen({
       if (cancelled || !def) return;
       setName(def.name);
       setDescription(def.description ?? "");
+      setIcon(def.icon ?? "");
       setExposed(def.exposed);
       setLoaded(true);
     });
@@ -195,6 +199,7 @@ function MetaScreen({
       id: id ?? undefined,
       name: name.trim(),
       description: description.trim() || undefined,
+      icon: icon || undefined,
       // Seed code only on create; on edit, omit it so the code window wins.
       code: isCreate ? template.code : undefined,
       // New Widgets are always exposed; the switch only exists on edit.
@@ -262,6 +267,13 @@ function MetaScreen({
                   autoFocus={!isCreate}
                   className={inputPadding}
                 />
+              </Form.Field>
+
+              <Form.Field
+                label="Icon"
+                description="Shown next to this Widget in the launcher."
+              >
+                <IconPicker value={icon} onChange={setIcon} />
               </Form.Field>
 
               <Form.Field

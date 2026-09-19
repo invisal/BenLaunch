@@ -6,6 +6,7 @@ import { registerWidgetIpc } from "./ipc/handlers";
 import { openWidgetWindow } from "./main/window";
 import { WidgetRunner } from "./main/runner";
 import { WidgetStore } from "./main/store";
+import { DEFAULT_WIDGET_ICON } from "./shared/types";
 
 /** Action id that opens the code editor window for an existing Widget. */
 const EDIT_PREFIX = "widget:edit:";
@@ -88,7 +89,7 @@ export class WidgetSource extends Extension {
           id: `widget:${widget.id}`,
           title: widget.name,
           subtitle: subtitle || "Widget",
-          icon: "⚡",
+          icon: widget.icon || DEFAULT_WIDGET_ICON,
           type: "widget" as const,
           isDeferredSubtitle: true,
           // No cached value yet is just as much "not ready to show" as an

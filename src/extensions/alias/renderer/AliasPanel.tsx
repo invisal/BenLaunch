@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Footer } from "@renderer/shared/ui";
 import { useShortcut } from "@renderer/lib/use-shortcut";
+import { iconSrc } from "@renderer/lib/icon";
 
 interface AliasPanelProps {
   actionId: string;
@@ -55,15 +56,15 @@ function AliasPanel({
 
   useShortcut({ Enter: () => void save() });
 
-  const isImageIcon = icon && /^(https?:|data:|file:)/.test(icon);
+  const imageSrc = iconSrc(icon);
 
   return (
     <div className="flex flex-col gap-2 p-3 [-webkit-app-region:no-drag]">
       <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground-subtle">
         {icon &&
-          (isImageIcon ? (
+          (imageSrc ? (
             <img
-              src={icon}
+              src={imageSrc}
               alt=""
               className="h-3.5 w-3.5 shrink-0 object-contain"
             />

@@ -7,6 +7,7 @@ import {
   useState,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
+  type MouseEvent,
   type ReactElement,
   type ReactNode,
   type RefObject,
@@ -15,6 +16,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
+import { iconSrc } from "@renderer/lib/icon";
 import { useRouteStack } from "@renderer/screens/launcher/router/context";
 import { Footer, type FooterMenuItem } from "./Footer";
 
@@ -54,10 +56,6 @@ import { Footer, type FooterMenuItem } from "./Footer";
 
 /** Fixed row height, in px. */
 export const LIST_SCREEN_ITEM_HEIGHT = 40;
-
-function isImageIcon(icon: string): boolean {
-  return /^(https?:|data:|file:)/.test(icon);
-}
 
 /** Back-navigation chevron for the header's back button. */
 function BackIcon() {
@@ -111,11 +109,12 @@ function MagicIcon() {
 }
 
 function ItemIcon({ icon }: { icon?: ReactNode }) {
+  const src = typeof icon === "string" ? iconSrc(icon) : undefined;
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg">
-      {typeof icon === "string" && isImageIcon(icon) ? (
+      {src ? (
         <img
-          src={icon}
+          src={src}
           alt=""
           loading="lazy"
           className="h-5 w-5 object-contain"
@@ -203,8 +202,8 @@ interface ListScreenBaseProps<T> {
    *  sections, icons, danger + confirm rows, but no nesting) in
    *  `Footer.Right`. */
   menu?: (highlighted: T | null) => FooterMenuItem[];
-  /** Click / Enter on a row. */
-  onActivate?: (item: T) => void;
+  /** Click / Enter on a row; `e.detail === 0` means Enter, not the mouse. */
+  onActivate?: (item: T, e: MouseEvent<HTMLElement>) => void;
   /**
    * Opt into a master/detail layout: the list narrows to a column on the left
    * and this renders a scrolling pane beside it for the highlighted row (the
@@ -222,9 +221,10 @@ interface ListScreenBaseProps<T> {
   inputValue?: string;
   onInputChange?: (value: string) => void;
   placeholder?: string;
-  /** Refocus + select-all in the search input whenever the window regains
-   *  focus (e.g. the launcher reappearing with its last query still in the
-   *  box). Default false — the input is still focused once, on mount. */
+  /** Select-all in the search input whenever the window regains focus (e.g.
+   *  the launcher reappearing with its last query still in the box). The
+   *  input is refocused on every window focus regardless; default false
+   *  only skips the select-all. */
   autoRefocus?: boolean;
   /** Text automatic filtering matches against. Default: `getId(item)`. */
   getSearchText?: (item: T) => string;
@@ -362,7 +362,9 @@ function ListScreenRoot<T>({
       if (autoRefocus) inputRef.current?.select();
     }
     focusAndSelect();
-    if (!autoRefocus) return;
+    // Always refocus the input when the window is reshown — the screen stays
+    // mounted across hide/show, so `autoFocus` alone would leave focus on
+    // the first tabbable element (the back button).
     window.addEventListener("focus", focusAndSelect);
     return () => window.removeEventListener("focus", focusAndSelect);
   }, [autoRefocus]);
@@ -535,7 +537,7 @@ function ListScreenRoot<T>({
                       value={item}
                       index={virtualRow.index}
                       disabled={disabled}
-                      onClick={() => !disabled && onActivate?.(item)}
+                      onClick={(e) => !disabled && onActivate?.(item, e)}
                       onContextMenu={(e) => {
                         if (disabled) return;
                         e.preventDefault();
@@ -580,7 +582,7 @@ function ListScreenRoot<T>({
                       key={getId(item)}
                       value={item}
                       disabled={disabled}
-                      onClick={() => !disabled && onActivate?.(item)}
+                      onClick={(e) => !disabled && onActivate?.(item, e)}
                       onContextMenu={(e) => {
                         if (disabled) return;
                         e.preventDefault();

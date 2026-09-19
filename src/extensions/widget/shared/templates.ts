@@ -4,6 +4,9 @@ export interface WidgetTemplate {
   id: string;
   name: string;
   description: string;
+  /** Icon the Widget starts with — an emoji or a `brand:<id>` reference (see
+   *  `public/brand-icons/`). Absent means the default glyph. */
+  icon?: string;
   code: string;
 }
 
@@ -38,12 +41,19 @@ const CLOUDFLARE_API_TOKEN = "YOUR_CLOUDFLARE_API_TOKEN"
 const CLOUDFLARE_ACCOUNT_ID = "YOUR_CLOUDFLARE_ACCOUNT_ID"
 
 module.exports = async function (): Promise<Result> {
+  // No from/to: Cloudflare returns the current billing period, which follows your
+  // subscription's billing-cycle anchor day (not necessarily the 1st of the month).
   const res = await fetch(
     \`https://api.cloudflare.com/client/v4/accounts/\${CLOUDFLARE_ACCOUNT_ID}/billable-usage\`,
     { headers: { Authorization: \`Bearer \${CLOUDFLARE_API_TOKEN}\` } }
   )
-  const data = (await res.json()) as { result: { CumulatedContractedCost: number }[] }
-  const total = data.result.reduce((sum, item) => sum + item.CumulatedContractedCost, 0)
+  const text = await res.text()
+  if (!res.ok) throw new Error(\`Cloudflare \${res.status}: \${text.slice(0, 200)}\`)
+
+  // Each row is one product for one charge period; ContractedCost is that row's own cost.
+  const data = JSON.parse(text) as { result: { ContractedCost: number }[] }
+  const total = data.result.reduce((sum, item) => sum + item.ContractedCost, 0)
+  console.log(\`\${data.result.length} rows\`)
   return { value: \`$\${total.toFixed(2)}\` }
 }
 `;
@@ -64,18 +74,21 @@ export const WIDGET_TEMPLATES: WidgetTemplate[] = [
     id: "github-stars",
     name: "GitHub Stars",
     description: "Star count for a GitHub repository.",
+    icon: "brand:github-icon",
     code: GITHUB_STARS_CODE,
   },
   {
     id: "digitalocean-billing",
     name: "DigitalOcean Billing",
     description: "Current account balance from DigitalOcean.",
+    icon: "brand:digital-ocean-icon",
     code: DIGITALOCEAN_BILLING_CODE,
   },
   {
     id: "cloudflare-billing",
     name: "Cloudflare Billing",
     description: "Month-to-date billable usage cost for a Cloudflare account.",
+    icon: "brand:cloudflare-icon",
     code: CLOUDFLARE_BILLING_CODE,
   },
 ];

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Footer } from "@renderer/shared/ui";
 import { eventToAccelerator, formatShortcut } from "@renderer/lib/shortcut";
+import { iconSrc } from "@renderer/lib/icon";
 import type { LauncherActionType } from "@shared/types";
 
 interface HotkeyPanelProps {
@@ -97,15 +98,15 @@ function HotkeyPanel({
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [actionId, actionType]);
 
-  const isImageIcon = icon && /^(https?:|data:|file:)/.test(icon);
+  const imageSrc = iconSrc(icon);
 
   return (
     <div className="flex flex-col gap-3 p-3 [-webkit-app-region:no-drag]">
       <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground-subtle">
         {icon &&
-          (isImageIcon ? (
+          (imageSrc ? (
             <img
-              src={icon}
+              src={imageSrc}
               alt=""
               className="h-3.5 w-3.5 shrink-0 object-contain"
             />

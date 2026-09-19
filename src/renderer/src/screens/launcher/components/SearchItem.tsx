@@ -2,6 +2,7 @@ import { cn } from "cnfast";
 import { useEffect, useState, type ComponentPropsWithRef } from "react";
 import type { LauncherAction } from "../../../../../shared/types";
 import { formatShortcut } from "@renderer/lib/shortcut";
+import { iconSrc } from "@renderer/lib/icon";
 
 const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   application: "Application",
@@ -11,25 +12,22 @@ const TYPE_LABEL: Record<LauncherAction["type"], string> = {
   calculation: "Calculation",
 };
 
-function isImageIcon(icon: string): boolean {
-  return /^(https?:|data:|file:)/.test(icon);
-}
-
 function ItemIcon({ icon, fallback }: { icon?: string; fallback: string }) {
   const [broken, setBroken] = useState(false);
 
   const glyph = <span className="text-foreground-subtle">{fallback}</span>;
+  const src = iconSrc(icon);
 
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg">
       {!icon ? (
         glyph
-      ) : isImageIcon(icon) ? (
+      ) : src ? (
         broken ? (
           glyph
         ) : (
           <img
-            src={icon}
+            src={src}
             alt=""
             loading="lazy"
             className="h-5 w-5 object-contain"
