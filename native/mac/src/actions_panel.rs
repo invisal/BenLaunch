@@ -19,18 +19,22 @@ use objc2::{
   define_class, msg_send, sel, DefinedClass, MainThreadMarker, MainThreadOnly, Message,
 };
 use objc2_app_kit::{
-  NSBackingStoreType, NSColor, NSControlTextEditingDelegate, NSFont, NSImage,
-  NSImageView, NSLayoutAttribute, NSLayoutConstraintOrientation, NSPanel, NSSearchField, NSStackView, NSStackViewDistribution,
-  NSSearchFieldDelegate, NSTextAlignment, NSTextField, NSTextFieldDelegate, NSTextView, NSUserInterfaceLayoutOrientation, NSView, NSVisualEffectBlendingMode,
-  NSVisualEffectMaterial, NSVisualEffectState, NSVisualEffectView, NSWindow,
-  NSWindowCollectionBehavior, NSWindowDelegate, NSWindowOrderingMode, NSWindowStyleMask,
-  NSControl, NSEvent, NSBorderType, NSFocusRingType, NSScrollView, NSTrackingArea, NSTrackingAreaOptions,
+  NSApplication, NSBackingStoreType, NSBorderType, NSColor, NSControl,
+  NSControlTextEditingDelegate, NSEvent, NSFocusRingType, NSFont, NSImage, NSImageView,
+  NSLayoutConstraintOrientation, NSPanel, NSScrollView, NSSearchField, NSSearchFieldDelegate,
+  NSStackView, NSStackViewDistribution, NSTableColumn, NSTableColumnResizingOptions, NSTableView,
+  NSTableViewColumnAutoresizingStyle, NSTableViewDataSource, NSTableViewDelegate,
+  NSTableViewSelectionHighlightStyle, NSTableViewStyle, NSTextAlignment, NSTextField,
+  NSTextFieldDelegate, NSTextView, NSTrackingArea, NSTrackingAreaOptions,
+  NSUserInterfaceLayoutOrientation, NSView, NSVisualEffectBlendingMode, NSVisualEffectMaterial,
+  NSVisualEffectState, NSVisualEffectView, NSWindow, NSWindowCollectionBehavior,
+  NSWindowDelegate, NSWindowOrderingMode, NSWindowStyleMask,
 };
 use objc2_foundation::{
-  NSEdgeInsets, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+  NSEdgeInsets, NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
 };
 
-const PANEL_WIDTH: f64 = 340.0;
+pub(crate) const PANEL_WIDTH: f64 = 340.0;
 const PANEL_HEIGHT: f64 = 400.0;
 const ROW_HEIGHT: f64 = 34.0;
 // Vertical metrics used to size the panel to its content (see `render`).
@@ -68,6 +72,9 @@ pub struct ActionsPanelItem {
   /// SF Symbol shown at the trailing edge, after any keycaps — e.g.
   /// `"chevron.right"` on a row that opens a submenu.
   pub accessory_sf_symbol: Option<String>,
+  /// Plain text at the trailing edge where the keycaps would sit, for a value
+  /// that isn't a shortcut (e.g. the current alias). Ignored if `shortcut` is set.
+  pub hint: Option<String>,
   pub danger: Option<bool>,
 }
 
@@ -84,18 +91,90 @@ struct State {
   panel: Retained<ActionsPanel>,
   parent: Retained<NSWindow>,
   search: Retained<NSSearchField>,
-  /// Scrolls `list` once the rows outgrow `MAX_PANEL_HEIGHT`.
-  scroll: Retained<NSScrollView>,
-  list: Retained<NSStackView>,
-  /// The row views, in `filtered` order, for in-place re-highlighting that
-  /// doesn't rebuild the list.
-  rows: Vec<Retained<RowBox>>,
+  /// Virtualized: only the rows in view exist as views (see the data-source
+  /// methods on `PanelDelegate`), so a list of hundreds of apps opens instantly.
+  table: Retained<NSTableView>,
+  on_event: EventFn,
+}
+
+/// One line of the table: a section heading, or a row (by position in `filtered`).
+enum DisplayRow {
+  Header(String),
+  Item(usize),
+}
+
+/// What the table shows. Kept apart from `State` because the table asks for it
+/// (`numberOfRows`, `viewForRow`, ...) while `State` may be borrowed, e.g. in the
+/// middle of `reloadData`.
+struct Model {
   items: Vec<ActionsPanelItem>,
   /// Indices into `items` that match the search text.
   filtered: Vec<usize>,
+  display: Vec<DisplayRow>,
+  /// Display index of each `filtered` position.
+  item_rows: Vec<usize>,
   /// Position within `filtered`.
   selected: usize,
-  on_event: EventFn,
+}
+
+impl Model {
+  fn new(items: Vec<ActionsPanelItem>) -> Self {
+    let mut model = Model {
+      filtered: (0..items.len()).collect(),
+      items,
+      display: Vec::new(),
+      item_rows: Vec::new(),
+      selected: 0,
+    };
+    model.rebuild_display();
+    model
+  }
+
+  /// Keeps the items whose title contains `query`, and resets the selection.
+  fn filter(&mut self, query: &str) {
+    let query = query.to_lowercase();
+    self.filtered = self
+      .items
+      .iter()
+      .enumerate()
+      .filter(|(_, item)| query.is_empty() || item.title.to_lowercase().contains(&query))
+      .map(|(i, _)| i)
+      .collect();
+    self.selected = 0;
+    self.rebuild_display();
+  }
+
+  /// Lays `filtered` out as table lines: a heading before each new section.
+  fn rebuild_display(&mut self) {
+    self.display.clear();
+    self.item_rows.clear();
+    let mut last_section: Option<&str> = None;
+    for (pos, &index) in self.filtered.iter().enumerate() {
+      let section = self.items[index].section.as_deref();
+      if let Some(name) = section.filter(|name| Some(*name) != last_section) {
+        self.display.push(DisplayRow::Header(name.to_string()));
+      }
+      last_section = section;
+      self.item_rows.push(self.display.len());
+      self.display.push(DisplayRow::Item(pos));
+    }
+  }
+
+  fn row_height(row: &DisplayRow) -> f64 {
+    match row {
+      DisplayRow::Header(_) => HEADER_HEIGHT,
+      DisplayRow::Item(_) => ROW_HEIGHT,
+    }
+  }
+
+  /// The panel height that fits the current lines, up to `MAX_PANEL_HEIGHT` —
+  /// past that the scroll view takes over.
+  fn panel_height(&self) -> f64 {
+    let rows: f64 = self.display.iter().map(Self::row_height).sum();
+    let gaps = LIST_SPACING * self.display.len().saturating_sub(1) as f64;
+    (TITLE_AREA_HEIGHT + 2.0 * LIST_VERTICAL_INSET + rows + gaps + SEARCH_AREA_HEIGHT)
+      .clamp(MIN_PANEL_HEIGHT, MAX_PANEL_HEIGHT)
+  }
 }
 
 define_class!(
@@ -103,7 +182,7 @@ define_class!(
   #[unsafe(super(NSPanel))]
   #[thread_kind = MainThreadOnly]
   #[name = "BenLaunchActionsPanel"]
-  struct ActionsPanel;
+  pub(crate) struct ActionsPanel;
 
   impl ActionsPanel {
     #[unsafe(method(canBecomeKeyWindow))]
@@ -112,29 +191,6 @@ define_class!(
     }
   }
 );
-
-define_class!(
-  /// The scroll view's document view. Flipped so short content sits at the top
-  /// of the visible area instead of the bottom.
-  #[unsafe(super(NSView))]
-  #[thread_kind = MainThreadOnly]
-  #[name = "BenLaunchFlippedView"]
-  struct FlippedView;
-
-  impl FlippedView {
-    #[unsafe(method(isFlipped))]
-    fn is_flipped(&self) -> bool {
-      true
-    }
-  }
-);
-
-impl FlippedView {
-  fn new(mtm: MainThreadMarker) -> Retained<Self> {
-    let this = mtm.alloc::<Self>().set_ivars(());
-    unsafe { msg_send![super(this), init] }
-  }
-}
 
 struct RowIvars {
   /// Position within the filtered list.
@@ -197,6 +253,7 @@ impl RowBox {
 
 struct DelegateIvars {
   state: RefCell<Option<State>>,
+  model: RefCell<Model>,
 }
 
 define_class!(
@@ -240,56 +297,143 @@ define_class!(
       self.finish(None);
     }
   }
+
+  unsafe impl NSTableViewDataSource for PanelDelegate {
+    #[unsafe(method(numberOfRowsInTableView:))]
+    fn number_of_rows(&self, _table: &NSTableView) -> NSInteger {
+      self.ivars().model.borrow().display.len() as NSInteger
+    }
+  }
+
+  unsafe impl NSTableViewDelegate for PanelDelegate {
+    /// Called only for the lines in (or just outside) view.
+    #[unsafe(method_id(tableView:viewForTableColumn:row:))]
+    fn view_for_row(
+      &self,
+      _table: &NSTableView,
+      _column: Option<&NSTableColumn>,
+      row: NSInteger,
+    ) -> Option<Retained<NSView>> {
+      self.view_at(row)
+    }
+
+    #[unsafe(method(tableView:heightOfRow:))]
+    fn height_of_row(&self, _table: &NSTableView, row: NSInteger) -> f64 {
+      let model = self.ivars().model.borrow();
+      usize::try_from(row)
+        .ok()
+        .and_then(|row| model.display.get(row))
+        .map_or(ROW_HEIGHT, Model::row_height)
+    }
+
+    /// Rows draw their own highlight; the table's selection is never used.
+    #[unsafe(method(tableView:shouldSelectRow:))]
+    fn should_select_row(&self, _table: &NSTableView, _row: NSInteger) -> Bool {
+      Bool::NO
+    }
+  }
 );
 
 impl PanelDelegate {
-  fn new(mtm: MainThreadMarker) -> Retained<Self> {
+  /// The view for table line `row`: a heading, or a row built from its item.
+  fn view_at(&self, row: NSInteger) -> Option<Retained<NSView>> {
+    let mtm = self.mtm();
+    let model = self.ivars().model.borrow();
+    match model.display.get(usize::try_from(row).ok()?)? {
+      DisplayRow::Header(name) => Some(header_view(mtm, name)),
+      DisplayRow::Item(pos) => {
+        let item = &model.items[*model.filtered.get(*pos)?];
+        let row = make_row(mtm, item, *pos == model.selected, *pos, self);
+        Some(Retained::into_super(row))
+      }
+    }
+  }
+
+  fn new(mtm: MainThreadMarker, model: Model) -> Retained<Self> {
     let this = mtm.alloc::<Self>().set_ivars(DelegateIvars {
       state: RefCell::new(None),
+      model: RefCell::new(model),
     });
     unsafe { msg_send![super(this), init] }
   }
 
+  /// Sizes the panel to the current lines. The bottom edge (and the search
+  /// field) stays put, so the panel extends upward as more rows match.
+  fn fit_panel(&self) {
+    let height = self.ivars().model.borrow().panel_height();
+    let guard = self.ivars().state.borrow();
+    let Some(state) = guard.as_ref() else { return };
+    let mut frame = state.panel.frame();
+    if (frame.size.height - height).abs() > 0.5 {
+      frame.size.height = height;
+      state.panel.setFrame_display(frame, true);
+      // The shadow follows the content's alpha; recompute it for the new size.
+      state.panel.invalidateShadow();
+    }
+  }
+
   fn refilter(&self) {
-    let mut guard = self.ivars().state.borrow_mut();
-    let Some(state) = guard.as_mut() else { return };
-    let query = state.search.stringValue().to_string().to_lowercase();
-    state.filtered = state
-      .items
-      .iter()
-      .enumerate()
-      .filter(|(_, item)| query.is_empty() || item.title.to_lowercase().contains(&query))
-      .map(|(i, _)| i)
-      .collect();
-    state.selected = 0;
-    render(self, state);
+    let query = {
+      let guard = self.ivars().state.borrow();
+      let Some(state) = guard.as_ref() else { return };
+      state.search.stringValue().to_string()
+    };
+    self.ivars().model.borrow_mut().filter(&query);
+    self.fit_panel();
+
+    let guard = self.ivars().state.borrow();
+    let Some(state) = guard.as_ref() else { return };
+    // Reloads only the lines in view. A new set of rows starts at the top.
+    state.table.reloadData();
+    state.table.scrollRowToVisible(0);
   }
 
   fn move_selection(&self, delta: isize) {
-    let mut guard = self.ivars().state.borrow_mut();
-    let Some(state) = guard.as_mut() else { return };
-    let count = state.filtered.len();
-    if count == 0 {
-      return;
+    let (next, row) = {
+      let model = self.ivars().model.borrow();
+      let count = model.filtered.len();
+      if count == 0 {
+        return;
+      }
+      let next = (model.selected as isize + delta).rem_euclid(count as isize) as usize;
+      (next, model.item_rows[next])
+    };
+    self.highlight(next);
+    // Bring the row into view if it's scrolled out.
+    if let Some(state) = self.ivars().state.borrow().as_ref() {
+      state.table.scrollRowToVisible(row as NSInteger);
     }
-    let next = (state.selected as isize + delta).rem_euclid(count as isize) as usize;
-    highlight(state, next);
-    // Bring the row into view if it's scrolled out. The stack may not have
-    // laid out its rows yet (this can follow a filter), so do that first.
-    state.list.layoutSubtreeIfNeeded();
-    if let Some(row) = state.rows.get(next) {
-      row.scrollRectToVisible(row.bounds());
+  }
+
+  /// Moves the highlight to `pos`, fading between the two rows. Rows out of
+  /// view have no view to update; they pick up the state when they're built.
+  fn highlight(&self, pos: usize) {
+    let changes = {
+      let mut model = self.ivars().model.borrow_mut();
+      let previous = model.selected;
+      if previous == pos || pos >= model.filtered.len() {
+        return;
+      }
+      model.selected = pos;
+      [
+        (model.item_rows.get(previous).copied(), false),
+        (model.item_rows.get(pos).copied(), true),
+      ]
+    };
+    let guard = self.ivars().state.borrow();
+    let Some(state) = guard.as_ref() else { return };
+    for (row, selected) in changes {
+      let Some(row) = row else { continue };
+      if let Some(view) = state.table.viewAtColumn_row_makeIfNecessary(0, row as NSInteger, false) {
+        set_row_highlight(&view, selected, true);
+      }
     }
   }
 
   /// Highlights `pos` in place (no rebuild — this runs inside the clicked
   /// row's own `mouseDown:`).
   fn select_visible(&self, pos: usize) {
-    let mut guard = self.ivars().state.borrow_mut();
-    let Some(state) = guard.as_mut() else { return };
-    if pos < state.filtered.len() {
-      highlight(state, pos);
-    }
+    self.highlight(pos);
   }
 
   /// One click highlights, a double click runs the row.
@@ -302,12 +446,11 @@ impl PanelDelegate {
 
   fn choose(&self) {
     let id = {
-      let guard = self.ivars().state.borrow();
-      let Some(state) = guard.as_ref() else { return };
-      state
+      let model = self.ivars().model.borrow();
+      model
         .filtered
-        .get(state.selected)
-        .map(|&i| state.items[i].id.clone())
+        .get(model.selected)
+        .map(|&i| model.items[i].id.clone())
     };
     if id.is_some() {
       self.finish(id);
@@ -323,7 +466,7 @@ impl PanelDelegate {
     state.panel.setDelegate(None);
     state.parent.removeChildWindow(&state.panel);
     state.panel.orderOut(None);
-    state.parent.makeKeyAndOrderFront(None);
+    restore_parent_focus(&state.parent);
     let event = match id {
       Some(id) => PanelEvent {
         kind: "select".into(),
@@ -347,7 +490,7 @@ thread_local! {
   static CURRENT: RefCell<Option<Retained<PanelDelegate>>> = const { RefCell::new(None) };
 }
 
-fn label(mtm: MainThreadMarker, text: &str, size: f64, color: &NSColor) -> Retained<NSTextField> {
+pub(crate) fn label(mtm: MainThreadMarker, text: &str, size: f64, color: &NSColor) -> Retained<NSTextField> {
   let field = NSTextField::labelWithString(&NSString::from_str(text), mtm);
   field.setFont(Some(&NSFont::systemFontOfSize(size)));
   field.setTextColor(Some(color));
@@ -406,7 +549,7 @@ fn symbol_view(
 
 /// A whole shortcut (`⇧ ⌘ F`) in one small rounded box with a thin border,
 /// sized to its label.
-fn keycaps(mtm: MainThreadMarker, keys: &str) -> Retained<NSView> {
+pub(crate) fn keycaps(mtm: MainThreadMarker, keys: &str) -> Retained<NSView> {
   let cap = NSView::new(mtm);
   cap.setWantsLayer(true);
   let text = label(mtm, keys, 11.0, &NSColor::secondaryLabelColor());
@@ -434,6 +577,23 @@ fn keycaps(mtm: MainThreadMarker, keys: &str) -> Retained<NSView> {
     let _: () = msg_send![layer, setValue: border_cg, forKey: &*NSString::from_str("borderColor")];
   }
   cap
+}
+
+/// A section heading line.
+fn header_view(mtm: MainThreadMarker, text: &str) -> Retained<NSView> {
+  let view = NSView::new(mtm);
+  let heading = label(mtm, text, 11.0, &NSColor::tertiaryLabelColor());
+  heading.setTranslatesAutoresizingMaskIntoConstraints(false);
+  view.addSubview(&heading);
+  heading
+    .leadingAnchor()
+    .constraintEqualToAnchor_constant(&view.leadingAnchor(), 10.0)
+    .setActive(true);
+  heading
+    .centerYAnchor()
+    .constraintEqualToAnchor(&view.centerYAnchor())
+    .setActive(true);
+  view
 }
 
 fn make_row(
@@ -482,6 +642,13 @@ fn make_row(
     caps.setContentHuggingPriority_forOrientation(999.0, NSLayoutConstraintOrientation::Horizontal);
     row.addArrangedSubview(&caps);
   }
+  if let Some(hint) = item
+    .hint
+    .as_deref()
+    .filter(|hint| !hint.is_empty() && item.shortcut.as_ref().is_none_or(|keys| keys.is_empty()))
+  {
+    row.addArrangedSubview(&label(mtm, hint, 12.0, &NSColor::secondaryLabelColor()));
+  }
   if let Some(icon) = item
     .accessory_sf_symbol
     .as_deref()
@@ -506,9 +673,6 @@ fn make_row(
     row.trailingAnchor().constraintEqualToAnchor(&bg.trailingAnchor()),
     row.topAnchor().constraintEqualToAnchor(&bg.topAnchor()),
     row.bottomAnchor().constraintEqualToAnchor(&bg.bottomAnchor()),
-    // A bare view has no intrinsic height; without this the stack stretches
-    // rows that lack an icon or keycaps.
-    bg.heightAnchor().constraintEqualToConstant(ROW_HEIGHT),
   ] {
     constraint.setActive(true);
   }
@@ -530,83 +694,6 @@ fn make_row(
   bg
 }
 
-/// Pins `view` to the list's width (minus its side insets) so rows fill the
-/// panel and headers start at the leading edge.
-fn fill_width(list: &NSStackView, view: &NSView) {
-  let constraint = view
-    .widthAnchor()
-    .constraintEqualToAnchor_constant(&list.widthAnchor(), -16.0);
-  constraint.setActive(true);
-}
-
-/// Moves the highlight from the current row to `pos`, fading between them.
-fn highlight(state: &mut State, pos: usize) {
-  let previous = state.selected;
-  if previous == pos {
-    return;
-  }
-  state.selected = pos;
-  for (row_pos, selected) in [(previous, false), (pos, true)] {
-    if let Some(row) = state.rows.get(row_pos) {
-      set_row_highlight(row, selected, true);
-    }
-  }
-}
-
-/// Rebuilds the rows from `state`.
-fn render(delegate: &PanelDelegate, state: &mut State) {
-  let mtm = delegate.mtm();
-  state.rows.clear();
-  for view in state.list.arrangedSubviews().iter() {
-    state.list.removeArrangedSubview(&view);
-    view.removeFromSuperview();
-  }
-  let list = state.list.clone();
-  let add = |view: &NSView| {
-    list.addArrangedSubview(view);
-    fill_width(&list, view);
-  };
-
-  let mut views = 0;
-  let mut list_height = 2.0 * LIST_VERTICAL_INSET;
-  let mut last_section: Option<&str> = None;
-  for (pos, &index) in state.filtered.iter().enumerate() {
-    let item = &state.items[index];
-    let section = item.section.as_deref();
-    if let Some(name) = section.filter(|name| Some(*name) != last_section) {
-      add(&label(mtm, name, 11.0, &NSColor::tertiaryLabelColor()));
-      list_height += HEADER_HEIGHT;
-      views += 1;
-    }
-    last_section = section;
-    let row = make_row(mtm, item, pos == state.selected, pos, delegate);
-    add(&row);
-    state.rows.push(row);
-    list_height += ROW_HEIGHT;
-    views += 1;
-  }
-  if views > 1 {
-    list_height += LIST_SPACING * f64::from(views - 1);
-  }
-
-  // Grow/shrink to fit, up to `MAX_PANEL_HEIGHT` — past that the scroll view
-  // takes over. The bottom edge (and the search field) stays put, so the panel
-  // extends upward as more rows match.
-  let height =
-    (TITLE_AREA_HEIGHT + list_height + SEARCH_AREA_HEIGHT).clamp(MIN_PANEL_HEIGHT, MAX_PANEL_HEIGHT);
-  let mut frame = state.panel.frame();
-  if (frame.size.height - height).abs() > 0.5 {
-    frame.size.height = height;
-    state.panel.setFrame_display(frame, true);
-    // The shadow follows the content's alpha; recompute it for the new size.
-    state.panel.invalidateShadow();
-  }
-
-  // A new set of rows starts at the top.
-  let clip = state.scroll.contentView();
-  clip.scrollToPoint(NSPoint::new(0.0, 0.0));
-  state.scroll.reflectScrolledClipView(&clip);
-}
 
 /// The panel's translucent background, and the view the panel's own content
 /// goes in. On macOS 26+ this is Liquid Glass (`NSGlassEffectView`, matching the
@@ -643,6 +730,96 @@ fn make_backdrop(mtm: MainThreadMarker, bounds: NSRect) -> (Retained<NSView>, Re
   (effect.clone(), effect)
 }
 
+/// Hands keyboard focus back to the launcher once the panel closes — but only
+/// while the launcher is still on screen and our app is still the active one.
+/// A panel also closes because the user clicked into another app, or because the
+/// launcher itself is being hidden; fronting the launcher then would steal focus
+/// back from that app, or un-hide the launcher.
+pub(crate) fn restore_parent_focus(parent: &NSWindow) {
+  let Some(mtm) = MainThreadMarker::new() else {
+    return;
+  };
+  if parent.isVisible() && NSApplication::sharedApplication(mtm).isActive() {
+    parent.makeKeyAndOrderFront(None);
+  }
+}
+
+/// The window behind Electron's `BrowserWindow.getNativeWindowHandle()` (an
+/// `NSView*`).
+pub(crate) fn parent_window(parent_view: &Buffer) -> Result<Retained<NSWindow>> {
+  if parent_view.len() < std::mem::size_of::<usize>() {
+    return Err(Error::new(Status::InvalidArg, "parentView is not an NSView pointer"));
+  }
+  let mut raw = [0u8; std::mem::size_of::<usize>()];
+  raw.copy_from_slice(&parent_view[..std::mem::size_of::<usize>()]);
+  let view_ptr = usize::from_ne_bytes(raw) as *mut NSView;
+  // SAFETY: Electron hands out a live NSView*; we retain it for the duration.
+  unsafe { Retained::retain(view_ptr) }
+    .and_then(|view| view.window())
+    .ok_or_else(|| Error::new(Status::InvalidArg, "parentView has no window"))
+}
+
+/// A glass panel `height` tall, anchored to the bottom-right of `parent`, and
+/// the view its content goes in. Not shown yet: the caller fills it in, then
+/// attaches it with `attach_panel`.
+pub(crate) fn make_panel(
+  mtm: MainThreadMarker,
+  parent: &NSWindow,
+  height: f64,
+) -> (Retained<ActionsPanel>, Retained<NSView>) {
+  let parent_frame = parent.frame();
+  let frame = NSRect::new(
+    NSPoint::new(
+      parent_frame.origin.x + parent_frame.size.width - PANEL_WIDTH - 8.0,
+      parent_frame.origin.y + 8.0,
+    ),
+    NSSize::new(PANEL_WIDTH, height),
+  );
+
+  let panel: Retained<ActionsPanel> = {
+    let this = mtm.alloc::<ActionsPanel>().set_ivars(());
+    unsafe {
+      msg_send![
+        super(this),
+        initWithContentRect: frame,
+        styleMask: NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel,
+        backing: NSBackingStoreType::Buffered,
+        defer: false
+      ]
+    }
+  };
+  panel.setOpaque(false);
+  panel.setBackgroundColor(Some(&NSColor::clearColor()));
+  panel.setAcceptsMouseMovedEvents(true);
+  // The launcher is always-on-top; a child at a lower window level would be
+  // ordered behind it, so sit just above whatever level the parent is at.
+  panel.setLevel(parent.level() + 1);
+  // SAFETY: we own the panel through `Retained`; AppKit must not also free it.
+  unsafe { panel.setReleasedWhenClosed(false) };
+  panel.setCollectionBehavior(
+    NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::FullScreenAuxiliary,
+  );
+
+  let bounds = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(PANEL_WIDTH, height));
+  let (backdrop, content) = make_backdrop(mtm, bounds);
+  panel.setContentView(Some(&backdrop));
+  // Liquid Glass draws its own edge and depth; the window shadow would trace
+  // the square window frame instead and show as a dark line at the corners.
+  panel.setHasShadow(AnyClass::get(c"NSGlassEffectView").is_none());
+  (panel, content)
+}
+
+/// Shows `panel` as a child of `parent` with keyboard focus on `focus`.
+pub(crate) fn attach_panel(parent: &NSWindow, panel: &ActionsPanel, focus: &NSView) {
+  // SAFETY: both windows are live; the child is detached again on dismissal.
+  unsafe { parent.addChildWindow_ordered(panel, NSWindowOrderingMode::Above) };
+  panel.makeKeyAndOrderFront(None);
+  panel.makeFirstResponder(Some(focus));
+  // The glass/blur backdrop has rounded corners; without this the window keeps
+  // a square shadow computed before it drew.
+  panel.invalidateShadow();
+}
+
 /// Shows the panel anchored to the bottom-right of `parent_view`'s window.
 ///
 /// `parent_view` is Electron's `BrowserWindow.getNativeWindowHandle()` (an
@@ -663,59 +840,11 @@ pub fn show_actions_panel(
     .callee_handled::<false>()
     .build()?;
 
-  if parent_view.len() < std::mem::size_of::<usize>() {
-    return Err(Error::new(Status::InvalidArg, "parentView is not an NSView pointer"));
-  }
-  let mut raw = [0u8; std::mem::size_of::<usize>()];
-  raw.copy_from_slice(&parent_view[..std::mem::size_of::<usize>()]);
-  let view_ptr = usize::from_ne_bytes(raw) as *mut NSView;
-  // SAFETY: Electron hands out a live NSView*; we retain it for the duration.
-  let parent = unsafe { Retained::retain(view_ptr) }
-    .and_then(|view| view.window())
-    .ok_or_else(|| Error::new(Status::InvalidArg, "parentView has no window"))?;
+  let parent = parent_window(&parent_view)?;
 
   dismiss_current();
 
-  let parent_frame = parent.frame();
-  let frame = NSRect::new(
-    NSPoint::new(
-      parent_frame.origin.x + parent_frame.size.width - PANEL_WIDTH - 8.0,
-      parent_frame.origin.y + 8.0,
-    ),
-    NSSize::new(PANEL_WIDTH, PANEL_HEIGHT),
-  );
-
-  let panel: Retained<ActionsPanel> = {
-    let this = mtm.alloc::<ActionsPanel>().set_ivars(());
-    unsafe {
-      msg_send![
-        super(this),
-        initWithContentRect: frame,
-        styleMask: NSWindowStyleMask::Borderless | NSWindowStyleMask::NonactivatingPanel,
-        backing: NSBackingStoreType::Buffered,
-        defer: false
-      ]
-    }
-  };
-  panel.setOpaque(false);
-  panel.setBackgroundColor(Some(&NSColor::clearColor()));
-  panel.setHasShadow(true);
-  panel.setAcceptsMouseMovedEvents(true);
-  // The launcher is always-on-top; a child at a lower window level would be
-  // ordered behind it, so sit just above whatever level the parent is at.
-  panel.setLevel(parent.level() + 1);
-  // SAFETY: we own the panel through `Retained`; AppKit must not also free it.
-  unsafe { panel.setReleasedWhenClosed(false) };
-  panel.setCollectionBehavior(
-    NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::FullScreenAuxiliary,
-  );
-
-  let bounds = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(PANEL_WIDTH, PANEL_HEIGHT));
-  let (backdrop, content) = make_backdrop(mtm, bounds);
-  panel.setContentView(Some(&backdrop));
-  // Liquid Glass draws its own edge and depth; the window shadow would trace
-  // the square window frame instead and show as a dark line at the corners.
-  panel.setHasShadow(AnyClass::get(c"NSGlassEffectView").is_none());
+  let (panel, content) = make_panel(mtm, &parent, PANEL_HEIGHT);
 
   // Fixed title on top, scrolling rows below it, search field at the bottom.
   let search_height = 36.0;
@@ -731,11 +860,15 @@ pub fn show_actions_panel(
   );
   content.addSubview(&title_label);
 
+  // The rows sit 8pt in from each side, and `LIST_VERTICAL_INSET` above and below.
   let scroll = NSScrollView::initWithFrame(
     mtm.alloc(),
     NSRect::new(
-      NSPoint::new(0.0, SEARCH_AREA_HEIGHT),
-      NSSize::new(PANEL_WIDTH, PANEL_HEIGHT - SEARCH_AREA_HEIGHT - TITLE_AREA_HEIGHT),
+      NSPoint::new(8.0, SEARCH_AREA_HEIGHT + LIST_VERTICAL_INSET),
+      NSSize::new(
+        PANEL_WIDTH - 16.0,
+        PANEL_HEIGHT - SEARCH_AREA_HEIGHT - TITLE_AREA_HEIGHT - 2.0 * LIST_VERTICAL_INSET,
+      ),
     ),
   );
   scroll.setDrawsBackground(false);
@@ -749,33 +882,21 @@ pub fn show_actions_panel(
   );
   scroll.contentView().setDrawsBackground(false);
 
-  let document = FlippedView::new(mtm);
-  document.setTranslatesAutoresizingMaskIntoConstraints(false);
-  scroll.setDocumentView(Some(&document));
-
-  let list = NSStackView::new(mtm);
-  list.setTranslatesAutoresizingMaskIntoConstraints(false);
-  list.setOrientation(NSUserInterfaceLayoutOrientation::Vertical);
-  list.setAlignment(NSLayoutAttribute::Leading);
-  list.setDistribution(NSStackViewDistribution::GravityAreas);
-  list.setSpacing(LIST_SPACING);
-  list.setEdgeInsets(NSEdgeInsets {
-    top: LIST_VERTICAL_INSET,
-    left: 8.0,
-    bottom: LIST_VERTICAL_INSET,
-    right: 8.0,
-  });
-  document.addSubview(&list);
-  // The document is as wide as the visible area and as tall as its rows.
-  for constraint in [
-    list.leadingAnchor().constraintEqualToAnchor(&document.leadingAnchor()),
-    list.trailingAnchor().constraintEqualToAnchor(&document.trailingAnchor()),
-    list.topAnchor().constraintEqualToAnchor(&document.topAnchor()),
-    list.bottomAnchor().constraintEqualToAnchor(&document.bottomAnchor()),
-    document.widthAnchor().constraintEqualToAnchor(&scroll.contentView().widthAnchor()),
-  ] {
-    constraint.setActive(true);
-  }
+  let table = NSTableView::initWithFrame(mtm.alloc(), NSRect::ZERO);
+  let column = NSTableColumn::initWithIdentifier(mtm.alloc(), &NSString::from_str("row"));
+  column.setWidth(PANEL_WIDTH - 16.0);
+  column.setResizingMask(NSTableColumnResizingOptions::AutoresizingMask);
+  table.addTableColumn(&column);
+  table.setColumnAutoresizingStyle(NSTableViewColumnAutoresizingStyle::UniformColumnAutoresizingStyle);
+  table.setHeaderView(None);
+  table.setBackgroundColor(&NSColor::clearColor());
+  table.setStyle(NSTableViewStyle::Plain);
+  table.setIntercellSpacing(NSSize::new(0.0, LIST_SPACING));
+  table.setSelectionHighlightStyle(NSTableViewSelectionHighlightStyle::None);
+  table.setFocusRingType(NSFocusRingType::None);
+  // The search field keeps keyboard focus; the table never takes it.
+  table.setRefusesFirstResponder(true);
+  scroll.setDocumentView(Some(&table));
   content.addSubview(&scroll);
 
   let search = NSSearchField::initWithFrame(
@@ -790,34 +911,26 @@ pub fn show_actions_panel(
   search.setAutoresizingMask(objc2_app_kit::NSAutoresizingMaskOptions::ViewWidthSizable);
   content.addSubview(&search);
 
-  let delegate = PanelDelegate::new(mtm);
+  let delegate = PanelDelegate::new(mtm, Model::new(items));
   // SAFETY: the delegate is kept alive by `CURRENT` until `finish`.
-  unsafe { search.setDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
+  unsafe {
+    search.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
+    table.setDataSource(Some(ProtocolObject::from_ref(&*delegate)));
+    table.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
+  }
   panel.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
 
-  let mut state = State {
-    filtered: (0..items.len()).collect(),
+  *delegate.ivars().state.borrow_mut() = Some(State {
     panel: panel.clone(),
     parent: parent.clone(),
     search: search.clone(),
-    scroll,
-    list,
-    rows: Vec::new(),
-    items,
-    selected: 0,
+    table,
     on_event,
-  };
-  render(&delegate, &mut state);
-  *delegate.ivars().state.borrow_mut() = Some(state);
+  });
+  delegate.fit_panel();
   CURRENT.with(|c| *c.borrow_mut() = Some(delegate));
 
-  // SAFETY: both windows are live; the child is detached again in `finish`.
-  unsafe { parent.addChildWindow_ordered(&panel, NSWindowOrderingMode::Above) };
-  panel.makeKeyAndOrderFront(None);
-  panel.makeFirstResponder(Some(&search));
-  // The glass/blur backdrop has rounded corners; without this the window keeps
-  // a square shadow computed before it drew.
-  panel.invalidateShadow();
+  attach_panel(&parent, &panel, &search);
   Ok(())
 }
 
@@ -827,9 +940,11 @@ pub fn close_actions_panel() {
   dismiss_current();
 }
 
-fn dismiss_current() {
+/// Dismisses whichever panel (list or form) is open.
+pub(crate) fn dismiss_current() {
   let current = CURRENT.with(|c| c.borrow().clone());
   if let Some(delegate) = current {
     delegate.finish(None);
   }
+  crate::actions_form::dismiss_form();
 }

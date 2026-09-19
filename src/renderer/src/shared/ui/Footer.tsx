@@ -303,6 +303,32 @@ interface FooterMenuSubmenu extends FooterMenuItemBase {
 }
 
 /**
+ * A form the native Actions menu can show in place of a `panel` — see
+ * `FooterMenuPanel.native`. Mirrors the native `ActionsFormSpec`, plus the save
+ * handler, which stays here in the renderer.
+ */
+export interface NativeMenuForm {
+  /** `text`: a text field. `keys`: records the next key combo (an accelerator). */
+  kind: "text" | "keys";
+  title: string;
+  /** An action icon (emoji, or a `data:` image URL); other kinds are left out. */
+  icon?: string;
+  initialValue?: string;
+  placeholder?: string;
+  /** `text`: drop whitespace as it's typed. */
+  stripWhitespace?: boolean;
+  /** Default "Cancel". */
+  cancelLabel?: string;
+  /** Default "Save". */
+  submitLabel?: string;
+  /**
+   * Runs on save with the text or accelerator. Resolve `null` when it worked
+   * (the form closes), or a message to show while keeping the form open.
+   */
+  onSubmit: (value: string) => Promise<string | null>;
+}
+
+/**
  * A row that opens arbitrary content of its own instead of a list: picking it
  * replaces the popup's search box and list with whatever `panel` renders —
  * for a group that isn't a set of choices, like an alias to type rather than
@@ -313,6 +339,12 @@ interface FooterMenuSubmenu extends FooterMenuItemBase {
  */
 interface FooterMenuPanel extends FooterMenuItemBase {
   panel: (ctx: { onClose: () => void }) => ReactNode;
+  /**
+   * What to show instead of `panel` in the native (macOS) menu, which can't
+   * host React: a small form with a text field or a key-combo recorder. A
+   * `panel` row without one keeps the DOM popup even there.
+   */
+  native?: NativeMenuForm;
   items?: never;
   confirmLabel?: never;
   onSelect?: never;
@@ -435,11 +467,59 @@ function Menu({
     onOpenChange?.(true);
   };
 
+  // The latest `items`, for re-showing the list after a form (the closure that
+  // opened the form is from before whatever the form changed).
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
+  // Shows `form` and serves its saves until it closes: each `submit` runs
+  // `onSubmit`, which either finishes it or hands back a message to show.
+  //
+  // Resolves how it ended: `saved`, `back` (the user chose to leave), or
+  // `dismissed` (focus moved away — the caller must not put anything back up).
+  const runNativeForm = async (
+    form: NativeMenuForm,
+  ): Promise<"saved" | "back" | "dismissed"> => {
+    const api = window.api.actionsPanel;
+    const src = iconSrc(form.icon);
+    const opened = await api.formOpen({
+      kind: form.kind,
+      title: form.title,
+      iconText: form.icon && !src ? form.icon : undefined,
+      iconDataUrl: src?.startsWith("data:") ? src : undefined,
+      initialValue: form.initialValue,
+      placeholder: form.placeholder,
+      stripWhitespace: form.stripWhitespace,
+      cancelLabel: form.cancelLabel,
+      submitLabel: form.submitLabel,
+    });
+    if (!opened) return "dismissed";
+
+    for (;;) {
+      const event = await api.formNext();
+      if (event.kind !== "submit") {
+        return event.value === "dismissed" ? "dismissed" : "back";
+      }
+      let error: string | null;
+      try {
+        error = await form.onSubmit(event.value ?? "");
+      } catch {
+        error = "Couldn't save. Try again.";
+      }
+      if (error === null) {
+        await api.formClose();
+        return "saved";
+      }
+      await api.formFail(error);
+    }
+  };
+
   // Experimental: on macOS with the flag on, the menu opens as a native
   // NSPanel instead of the DOM popup. A row with `items` re-shows the panel
   // with that list, and a `confirmLabel` row asks again in a small panel. Rows
-  // that need the popup to stay open showing live state (`keepOpen`, e.g.
-  // hotkey recording) keep the DOM popup — at the submenu that holds them.
+  // with a `native` form show it natively; those that need React or a popup
+  // that stays open showing live state (`panel` without one, `keepOpen`) keep
+  // the DOM popup — at the step that holds them.
   const showNativePanel = async (
     list: FooterMenuItem[],
     title: string,
@@ -456,12 +536,34 @@ function Menu({
           ? item.shortcut.split("+").map((key) => formatShortcut(key))
           : undefined,
         danger: item.danger,
-        accessorySfSymbol: item.items ? "chevron.right" : undefined,
+        hint: item.hint,
+        accessorySfSymbol:
+          item.items || item.panel ? "chevron.right" : undefined,
       })),
     );
     const item = picked === null ? undefined : rows[Number(picked)];
     if (!item) return;
 
+    if (item.panel) {
+      if (item.native) {
+        const outcome = await runNativeForm(item.native);
+        // Clicking away isn't "back": leave the launcher alone, or the list
+        // would reappear over whatever the user moved on to.
+        if (outcome === "dismissed") return;
+        // Back to the list, as the DOM panel's `onClose` does. Give the save's
+        // state updates a moment so the rebuilt rows (e.g. "Change Alias") show.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return showNativePanel(
+          path.length ? list : itemsRef.current,
+          title,
+          path,
+        );
+      }
+      // React content with no native form: the DOM popup, at that step.
+      setTrail([...path, item.id ?? item.label]);
+      openDom();
+      return;
+    }
     if (item.items) {
       const next = [...path, item.id ?? item.label];
       if (item.items.some((child) => child.keepOpen)) {
