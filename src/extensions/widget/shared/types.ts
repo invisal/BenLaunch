@@ -11,15 +11,25 @@ export interface WidgetDef {
   name: string;
   /** Optional free-text note shown in the manager. Empty is stored as absent. */
   description?: string;
+  /** Emoji or an inlined `data:` image URI (uploaded icons are resized to
+   *  ICON_SIZE px first). Absent means the default glyph. */
+  icon?: string;
   code: string;
   exposed: boolean;
 }
+
+/** Edge length, in px, uploaded icons are resized to before being stored. */
+export const ICON_SIZE = 64;
+
+/** The glyph a Widget shows when it has no icon of its own. */
+export const DEFAULT_WIDGET_ICON = "⚡";
 
 /** A Widget draft on its way in from the editor (no id yet when creating). */
 export interface WidgetDraft {
   id?: string;
   name: string;
   description?: string;
+  icon?: string;
   /**
    * Omit on an update to keep the stored code untouched — the metadata screen
    * (name / description / exposed) and the code window save independently, so
@@ -31,8 +41,7 @@ export interface WidgetDraft {
 
 /** One-shot run result, for the editor's "Test" button. */
 export type WidgetTestResult = (
-  | { ok: true; value: string | number | null }
-  | { ok: false; error: string }
+  { ok: true; value: string | number | null } | { ok: false; error: string }
 ) & {
   /** `console.*` output from the run, in order. Absent when nothing was logged. */
   logs?: string[];

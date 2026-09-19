@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ListScreen as ListScreenBase } from "@renderer/shared/ui";
 import type { FooterMenuItem } from "@renderer/shared/ui";
-import type { WidgetDef } from "../shared/types";
+import { DEFAULT_WIDGET_ICON, type WidgetDef } from "../shared/types";
 
 /**
  * The Widget manager list, as a screen pushed onto the launcher's navigation
@@ -77,7 +77,7 @@ function ListScreen({
       renderItem={(widget, { highlighted }) => (
         <ListScreenBase.Item
           highlighted={highlighted}
-          icon="⚡"
+          icon={widget.icon || DEFAULT_WIDGET_ICON}
           title={widget.name}
           subtitle={widget.description || widget.id}
           badge={widget.exposed ? "Exposed" : undefined}

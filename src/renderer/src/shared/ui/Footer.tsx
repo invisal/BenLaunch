@@ -12,9 +12,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
 import { useShortcut } from "@renderer/lib/use-shortcut";
-
-const isImageIcon = (icon: string): boolean =>
-  /^(https?:|data:|file:)/.test(icon);
+import { iconSrc } from "@renderer/lib/icon";
 
 /** A key-combo pill (e.g. ⌘⏎ / Ctrl+Enter). Decorative — hidden from a11y. */
 function Kbd({
@@ -720,9 +718,9 @@ function Menu({
                         >
                           <span className="flex min-w-0 items-center gap-2">
                             {item.icon &&
-                              (isImageIcon(item.icon) ? (
+                              (iconSrc(item.icon) ? (
                                 <img
-                                  src={item.icon}
+                                  src={iconSrc(item.icon)}
                                   alt=""
                                   className="h-4 w-4 shrink-0 object-contain"
                                 />

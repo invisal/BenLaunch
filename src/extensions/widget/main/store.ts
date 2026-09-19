@@ -22,6 +22,7 @@ function isWidgetDef(value: unknown): value is WidgetDef {
     typeof candidate.name === "string" &&
     (candidate.description === undefined ||
       typeof candidate.description === "string") &&
+    (candidate.icon === undefined || typeof candidate.icon === "string") &&
     typeof candidate.code === "string" &&
     typeof candidate.exposed === "boolean"
   );
@@ -76,12 +77,14 @@ export class WidgetStore {
     this.init();
 
     const description = draft.description?.trim() || undefined;
+    const icon = draft.icon?.trim() || undefined;
 
     if (draft.id) {
       const existing = this.items.find((item) => item.id === draft.id);
       if (existing) {
         existing.name = draft.name;
         existing.description = description;
+        existing.icon = icon;
         // An update that omits `code` leaves the stored code alone (the metadata
         // screen and the code window save independently — see WidgetDraft).
         if (draft.code !== undefined) existing.code = draft.code;
@@ -95,6 +98,7 @@ export class WidgetStore {
       id: this.uniqueId(slugify(draft.name)),
       name: draft.name,
       description,
+      icon,
       code: draft.code ?? "",
       exposed: draft.exposed,
     };

@@ -15,6 +15,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cnfast";
 import { formatShortcut } from "@renderer/lib/shortcut";
+import { iconSrc } from "@renderer/lib/icon";
 import { useRouteStack } from "@renderer/screens/launcher/router/context";
 import { Footer, type FooterMenuItem } from "./Footer";
 
@@ -54,10 +55,6 @@ import { Footer, type FooterMenuItem } from "./Footer";
 
 /** Fixed row height, in px. */
 export const LIST_SCREEN_ITEM_HEIGHT = 40;
-
-function isImageIcon(icon: string): boolean {
-  return /^(https?:|data:|file:)/.test(icon);
-}
 
 /** Back-navigation chevron for the header's back button. */
 function BackIcon() {
@@ -111,11 +108,12 @@ function MagicIcon() {
 }
 
 function ItemIcon({ icon }: { icon?: ReactNode }) {
+  const src = typeof icon === "string" ? iconSrc(icon) : undefined;
   return (
     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-lg">
-      {typeof icon === "string" && isImageIcon(icon) ? (
+      {src ? (
         <img
-          src={icon}
+          src={src}
           alt=""
           loading="lazy"
           className="h-5 w-5 object-contain"

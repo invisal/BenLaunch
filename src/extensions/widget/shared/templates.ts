@@ -4,6 +4,9 @@ export interface WidgetTemplate {
   id: string;
   name: string;
   description: string;
+  /** Icon the Widget starts with — an emoji or a `brand:<id>` reference (see
+   *  `public/brand-icons/`). Absent means the default glyph. */
+  icon?: string;
   code: string;
 }
 
@@ -71,18 +74,21 @@ export const WIDGET_TEMPLATES: WidgetTemplate[] = [
     id: "github-stars",
     name: "GitHub Stars",
     description: "Star count for a GitHub repository.",
+    icon: "brand:github-icon",
     code: GITHUB_STARS_CODE,
   },
   {
     id: "digitalocean-billing",
     name: "DigitalOcean Billing",
     description: "Current account balance from DigitalOcean.",
+    icon: "brand:digital-ocean-icon",
     code: DIGITALOCEAN_BILLING_CODE,
   },
   {
     id: "cloudflare-billing",
     name: "Cloudflare Billing",
     description: "Month-to-date billable usage cost for a Cloudflare account.",
+    icon: "brand:cloudflare-icon",
     code: CLOUDFLARE_BILLING_CODE,
   },
 ];
