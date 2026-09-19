@@ -38,8 +38,7 @@ const contributors: ContextMenuContributor[] = [
   // Last: appends "Set Hotkey…" / "Remove Hotkey" to whatever primary block
   // and augments above already assembled, for every action type.
   hotkeyContextMenu,
-  // Same treatment for "Alias" — every action type except quicklinks, which
-  // already manage their own via the Create/Edit form.
+  // Same treatment for "Alias" — every action type, quicklinks included.
   aliasContextMenu,
 ];
 

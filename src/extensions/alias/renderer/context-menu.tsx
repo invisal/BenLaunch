@@ -6,9 +6,8 @@ import AliasPanel from "./AliasPanel";
 export const ALIAS_MENU_ITEM_ID = "alias";
 
 /**
- * Augments every action EXCEPT quicklinks — they already have their own
- * dedicated "Alias" field on the Create/Edit form, backed by their own
- * stored `keyword`.
+ * Adds a "Set/Change Alias" row to every action, including quicklinks — the
+ * one place any action's alias is set (see `@extensions/alias/main/store`).
  *
  * A `panel` row, not an `items` submenu the way "Hotkey" is: an alias is
  * free text, not a combo or a choice from a list — see `AliasPanel`.
@@ -16,8 +15,6 @@ export const ALIAS_MENU_ITEM_ID = "alias";
 export const aliasContextMenu: ContextMenuContributor = {
   id: "alias",
   contribute(action, ctx) {
-    if (action.type === "quicklink") return null;
-
     const current = ctx.actionAliases[action.id];
 
     return [

@@ -17,8 +17,6 @@ export interface Quicklink {
   /** Target URL or path. May contain `{query}` / `{}` or several named
    *  `{argument name="…"}` placeholders — see `../shared/arguments.ts`. */
   link: string;
-  /** Optional short alias: typing it as the query's first word invokes this link. */
-  keyword?: string;
   /** Emoji or image URL; defaults to a generated monogram. */
   icon?: string;
   /** Executable to open the link with (a specific browser/app); default handler otherwise. */
@@ -52,8 +50,6 @@ export interface QuicklinkEntry extends Quicklink {
 export interface QuicklinkDraft {
   name: string;
   link: string;
-  /** Short alias typed as the query's first word. Optional. */
-  keyword?: string;
   /** Emoji or image URL. Blank → a generated monogram is used. */
   icon?: string;
   /** Executable path to open the link with (a specific browser/app). Blank → system default. */
@@ -135,8 +131,6 @@ export function slugify(name: string): string {
 export function validateDraft(draft: QuicklinkDraft): string | null {
   if (!draft.link.trim()) return "Enter a link.";
   if (!draft.name.trim()) return "Give the quicklink a name.";
-  if (draft.keyword && /\s/.test(draft.keyword.trim()))
-    return "The alias can't contain spaces.";
   return null;
 }
 

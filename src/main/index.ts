@@ -248,6 +248,7 @@ app.whenReady().then(() => {
       if (!pinned) hideLauncher();
     },
     usageOf: actionUsage,
+    aliasOf: (actionId) => actionAliases.get(actionId),
   });
 
   ipcMain.handle(IPC_CHANNELS.query, (_event, text: string) => {

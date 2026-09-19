@@ -41,7 +41,7 @@ export interface ContextMenuContext {
   startRecordingHotkey(actionId: string, type: LauncherActionType): void;
   /** The last failed bind attempt, if its submenu is still open. */
   hotkeyBindError: { actionId: string; message: string } | null;
-  /** actionId -> alias, for every action with one right now (quicklinks manage their own separately — not included here). */
+  /** actionId -> alias, for every action with one right now, quicklinks included. */
   actionAliases: Record<string, string>;
   /** Re-fetch `actionAliases` after the Alias panel closes. */
   refreshActionAliases(): void;

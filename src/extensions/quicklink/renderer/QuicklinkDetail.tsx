@@ -283,9 +283,13 @@ function opened(entry: QuicklinkEntry, now: number): string {
 
 function QuicklinkDetail({
   entry,
+  alias,
   now,
 }: {
   entry: QuicklinkEntry | null;
+  /** The generic per-action alias for this quicklink, if any — set via the
+   *  launcher's own Ctrl+K menu, not a field of `entry` itself. */
+  alias?: string;
   /** Clock the relative timestamps are measured against, from the screen. */
   now: number;
 }) {
@@ -352,7 +356,7 @@ function QuicklinkDetail({
           />
         )}
         <Detail.Row label="Arguments" value={argumentSummary(entry.link)} />
-        <Detail.Row label="Alias" value={entry.keyword} />
+        <Detail.Row label="Alias" value={alias} />
         <Detail.Row label="Tags" value={entry.tags?.join(", ")} />
         <Detail.Row label="Open With" value={entry.openWith} />
         <Detail.Row
