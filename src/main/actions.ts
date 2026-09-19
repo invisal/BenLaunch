@@ -264,7 +264,12 @@ export async function query(text: string): Promise<QueryResult> {
   const result = definitions
     .map((definition) => {
       const { action } = definition;
-      const match = matchAction(trimmed, action);
+      // Only a static subtitle is searchable; a deferred one (a widget's live
+      // value) isn't resolved yet at query time.
+      const match = matchAction(trimmed, {
+        ...action,
+        subtitle: action.isDeferredSubtitle ? undefined : action.subtitle,
+      });
       const score = match.score + usage.boost(action.id, trimmed);
       return { action, matched: match.match, score };
     })

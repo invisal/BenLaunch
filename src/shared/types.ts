@@ -25,6 +25,13 @@ export interface LauncherAction {
    * placeholder). The launcher offers Tab to capture one into a chip.
    */
   takesArgument?: boolean;
+  /**
+   * Other names this action goes by ("Kill Process" for "Quit Processes"),
+   * searched like a second title but ranked just below the real one. Unlike
+   * `tags` (exact words) these are fuzzy-matched, and unlike `keyword` they
+   * don't take an argument.
+   */
+  altNames?: string[];
   /** Extra terms this action should also match on (e.g. a quicklink's tags). */
   tags?: string[];
   /** Quicklink is pinned — sorts above unpinned actions in the root list. */
